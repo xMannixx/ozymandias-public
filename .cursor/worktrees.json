@@ -1,0 +1,7 @@
+{
+  "setup-worktree-unix": [
+    "cp $ROOT_WORKTREE_PATH/.env .env",
+    "docker-compose build",
+    "pip install -r requirements.txt --break-system-packages"
+  ]
+}

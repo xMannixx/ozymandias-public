@@ -1,0 +1,148 @@
+name: Nightly Deep Gate
+
+on:
+  schedule:
+    - cron: "30 2 * * *"
+  workflow_dispatch:
+
+jobs:
+  rust-nightly-depth:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: rust
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust -> target
+
+      - name: Workspace tests
+        run: cargo test --workspace
+
+      - name: Clippy strict
+        run: cargo clippy --all-targets -- -D warnings
+
+      - name: Build bindings artifact
+        run: cargo build -p ozy-bindings
+
+  python-nightly-depth:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+          cache: "pip"
+          cache-dependency-path: |
+            backend/requirements.txt
+            backend/requirements-dev.txt
+            backend/pyproject.toml
+
+      - name: Install dependencies and tools
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f backend/requirements-dev.txt ]; then pip install -r backend/requirements-dev.txt; fi
+
+      - name: Ruff check
+        run: python -m ruff check backend/app backend/tests
+
+      - name: Ruff format check
+        run: python -m ruff format --check backend/app backend/tests
+
+      - name: MyPy
+        run: python -m mypy --config-file backend/pyproject.toml backend/app backend/tests
+
+      - name: Pytest with coverage
+        if: ${{ hashFiles('backend/tests/**/*.py', 'backend/test_*.py', 'backend/**/*test*.py') != '' }}
+        run: python -m pytest -q -n auto --cov=backend/app/api --cov=backend/app/services --cov=backend/app/schemas --cov-report=term-missing --cov-fail-under=90 backend/tests
+
+  python-nightly-db-integration:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: ozy_ci
+          POSTGRES_PASSWORD: ci_postgres_password
+          POSTGRES_DB: ozymandias
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ozy_ci -d ozymandias"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+          cache: "pip"
+          cache-dependency-path: |
+            backend/requirements.txt
+            backend/requirements-dev.txt
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f backend/requirements-dev.txt ]; then pip install -r backend/requirements-dev.txt; fi
+
+      - name: Run Alembic upgrade head
+        working-directory: backend
+        env:
+          DATABASE_URL: postgresql+asyncpg://ozy_ci:ci_postgres_password@localhost:5432/ozymandias
+        run: alembic upgrade head
+
+  security-nightly:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+          cache: "pip"
+          cache-dependency-path: |
+            backend/requirements.txt
+            backend/requirements-dev.txt
+
+      - name: Install security/dependency tools
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f backend/requirements-dev.txt ]; then pip install -r backend/requirements-dev.txt; fi
+          pip install deptry semgrep
+
+      - name: pip-audit
+        if: ${{ hashFiles('backend/requirements.txt') != '' }}
+        run: python -m pip_audit -r backend/requirements.txt
+
+      - name: Bandit
+        if: ${{ hashFiles('backend/**/*.py') != '' }}
+        run: python -m bandit -r backend/app
+
+      - name: Deptry
+        if: ${{ hashFiles('backend/**/*.py') != '' }}
+        working-directory: backend
+        run: deptry .
+
+      - name: Semgrep
+        if: ${{ hashFiles('backend/**/*.py') != '' }}
+        run: semgrep scan --config auto backend
+
+      - name: Gitleaks
+        uses: gitleaks/gitleaks-action@v2

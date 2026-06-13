@@ -1,0 +1,138 @@
+name: Release Gate
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+jobs:
+  release-rust-gate:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: rust
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust -> target
+
+      - name: Cargo fmt check
+        run: cargo fmt -- --check
+
+      - name: Cargo test workspace
+        run: cargo test --workspace
+
+      - name: Cargo clippy strict
+        run: cargo clippy --all-targets -- -D warnings
+
+      - name: Cargo build release
+        run: cargo build --workspace --release
+
+  release-python-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+          cache: "pip"
+          cache-dependency-path: |
+            backend/requirements.txt
+            backend/requirements-dev.txt
+            backend/pyproject.toml
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f backend/requirements-dev.txt ]; then pip install -r backend/requirements-dev.txt; fi
+
+      - name: Ruff check
+        run: python -m ruff check backend/app backend/tests
+
+      - name: Ruff format check
+        run: python -m ruff format --check backend/app backend/tests
+
+      - name: MyPy strict
+        run: python -m mypy --config-file backend/pyproject.toml backend/app backend/tests
+
+      - name: Pytest coverage gate
+        run: python -m pytest -q --cov=backend/app/api --cov=backend/app/services --cov=backend/app/schemas --cov-report=term-missing --cov-fail-under=80 backend/tests
+
+  build-bindings-wheel:
+    needs: [release-rust-gate, release-python-gate]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+          cache: "pip"
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust -> target
+
+      - name: Install maturin
+        run: python -m pip install --upgrade pip maturin
+
+      - name: Build wheel artifacts
+        run: maturin build -m rust/ozy-bindings/Cargo.toml --release --out dist
+
+      - name: Upload wheel artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ozy-bindings-dist
+          path: dist/*
+
+  wheel-smoke-install:
+    needs: build-bindings-wheel
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      - name: Download wheel artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: ozy-bindings-dist
+          path: dist
+
+      - name: Install built wheel
+        run: python -m pip install --upgrade pip dist/*.whl
+
+      - name: Smoke import and call
+        run: |
+          python - <<'PY'
+          import json
+          import ozy_bindings
+
+          payload = {
+              "intent_type": "analyze",
+              "available_tokens": 1000,
+              "claims_count": 10,
+          }
+          out = ozy_bindings.allocate_token_budget(json.dumps(payload))
+          parsed = json.loads(out)
+          assert parsed["max_claims"] == 10
+          assert parsed["max_tokens_per_claim"] == 100
+          PY

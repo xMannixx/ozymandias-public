@@ -1,0 +1,11 @@
+[package]
+name = "ozy-core"
+version = "0.1.0"
+edition = "2024"
+description = "Ozymandias core pure validation logic"
+
+[dependencies]
+ozy-contracts = { path = "../ozy-contracts" }
+
+[dev-dependencies]
+serde_json = "1"

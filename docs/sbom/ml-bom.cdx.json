@@ -1,0 +1,758 @@
+{
+  "bomFormat": "CycloneDX",
+  "specVersion": "1.6",
+  "serialNumber": "urn:uuid:3d7c1a9f-2b5e-4f8a-c6d0-1e4b7a2c9f5d",
+  "version": 1,
+  "metadata": {
+    "timestamp": "2026-04-15T12:03:22Z",
+    "tools": {
+      "components": [
+        {
+          "type": "application",
+          "name": "GitHub Copilot Agent",
+          "version": "1.0.0",
+          "description": "Automatisch generiert von GitHub Copilot Agent"
+        }
+      ]
+    },
+    "component": {
+      "type": "application",
+      "bom-ref": "ozymandias@0.1.0",
+      "name": "Ozymandias",
+      "version": "0.1.0",
+      "description": "Persönlicher KI-Assistent – ML Bill of Materials (Modelle, Provider, KI-Infrastruktur)",
+      "licenses": [
+        { "license": { "id": "Apache-2.0" } }
+      ],
+      "purl": "pkg:github/xMannixx/ozymandias-public@0.1.0",
+      "externalReferences": [
+        {
+          "type": "vcs",
+          "url": "https://github.com/xMannixx/ozymandias-public"
+        }
+      ]
+    }
+  },
+  "components": [
+    {
+      "type": "machine-learning-model",
+      "bom-ref": "ml:deepseek-chat",
+      "group": "llm-models",
+      "name": "deepseek-chat",
+      "description": "DeepSeek Chat – Cloud-LLM. Wird als Default-Provider für Work-Intents und Claim-Extraktion eingesetzt.",
+      "scope": "required",
+      "externalReferences": [
+        {
+          "type": "website",
+          "url": "https://api.deepseek.com"
+        },
+        {
+          "type": "documentation",
+          "url": "https://platform.deepseek.com/docs"
+        }
+      ],
+      "modelCard": {
+        "modelParameters": {
+          "task": {
+            "type": "natural-language-generation"
+          },
+          "architectureFamily": "transformer",
+          "contextSize": 131072
+        },
+        "considerations": {
+          "environmentalConsiderations": {
+            "properties": [
+              {
+                "name": "deployment",
+                "value": "cloud-api"
+              },
+              {
+                "name": "privacy",
+                "value": "S0–S2 only; S3/S4 data MUST NOT be sent to this provider"
+              }
+            ]
+          }
+        },
+        "properties": [
+          {
+            "name": "routing:intent",
+            "value": "work, claim_extraction, default"
+          },
+          {
+            "name": "routing:sensitivity",
+            "value": "S0, S1, S2"
+          },
+          {
+            "name": "pricing:input_per_1m",
+            "value": "USD 0.28"
+          },
+          {
+            "name": "pricing:output_per_1m",
+            "value": "USD 1.10"
+          },
+          {
+            "name": "pricing:cache_hit_per_1m",
+            "value": "USD 0.07"
+          },
+          {
+            "name": "config:env_key",
+            "value": "DEEPSEEK_API_KEY"
+          },
+          {
+            "name": "config:model_key",
+            "value": "DEEPSEEK_MODEL"
+          }
+        ]
+      }
+    },
+    {
+      "type": "machine-learning-model",
+      "bom-ref": "ml:deepseek-reasoner",
+      "group": "llm-models",
+      "name": "deepseek-reasoner",
+      "description": "DeepSeek Reasoner – Chain-of-Thought Variante von DeepSeek. Liefert reasoning_content (CoT). Optional konfigurierbar.",
+      "scope": "optional",
+      "externalReferences": [
+        {
+          "type": "website",
+          "url": "https://api.deepseek.com"
+        }
+      ],
+      "modelCard": {
+        "modelParameters": {
+          "task": {
+            "type": "natural-language-generation"
+          },
+          "architectureFamily": "transformer"
+        },
+        "properties": [
+          {
+            "name": "feature:chain-of-thought",
+            "value": "true – exposes reasoning_content field"
+          },
+          {
+            "name": "routing:sensitivity",
+            "value": "S0, S1, S2"
+          },
+          {
+            "name": "pricing:input_per_1m",
+            "value": "USD 0.55"
+          },
+          {
+            "name": "pricing:output_per_1m",
+            "value": "USD 2.19"
+          },
+          {
+            "name": "config:env_key",
+            "value": "DEEPSEEK_API_KEY"
+          }
+        ]
+      }
+    },
+    {
+      "type": "machine-learning-model",
+      "bom-ref": "ml:gemini-2.0-flash",
+      "group": "llm-models",
+      "name": "gemini-2.0-flash",
+      "description": "Google Gemini 2.0 Flash – Default-Modell des Gemini-Providers. Wird für kreative und Gesprächs-Intents eingesetzt.",
+      "scope": "required",
+      "externalReferences": [
+        {
+          "type": "website",
+          "url": "https://generativelanguage.googleapis.com"
+        },
+        {
+          "type": "documentation",
+          "url": "https://ai.google.dev/gemini-api/docs"
+        }
+      ],
+      "modelCard": {
+        "modelParameters": {
+          "task": {
+            "type": "natural-language-generation"
+          },
+          "architectureFamily": "transformer"
+        },
+        "considerations": {
+          "environmentalConsiderations": {
+            "properties": [
+              {
+                "name": "deployment",
+                "value": "cloud-api"
+              },
+              {
+                "name": "privacy",
+                "value": "S0–S2 only; S3/S4 data MUST NOT be sent to this provider"
+              }
+            ]
+          }
+        },
+        "properties": [
+          {
+            "name": "routing:intent",
+            "value": "creative, talk"
+          },
+          {
+            "name": "routing:sensitivity",
+            "value": "S0, S1, S2"
+          },
+          {
+            "name": "config:env_key",
+            "value": "GEMINI_API_KEY"
+          },
+          {
+            "name": "config:model_key",
+            "value": "GEMINI_MODEL"
+          }
+        ]
+      }
+    },
+    {
+      "type": "machine-learning-model",
+      "bom-ref": "ml:gpt-4o",
+      "group": "llm-models",
+      "name": "gpt-4o",
+      "description": "OpenAI GPT-4o – Default-Chat-Modell des OpenAI-Providers. Eingesetzt für Tool-Calls und kritische Aktionen.",
+      "scope": "required",
+      "externalReferences": [
+        {
+          "type": "website",
+          "url": "https://api.openai.com"
+        },
+        {
+          "type": "documentation",
+          "url": "https://platform.openai.com/docs"
+        }
+      ],
+      "modelCard": {
+        "modelParameters": {
+          "task": {
+            "type": "natural-language-generation"
+          },
+          "architectureFamily": "transformer"
+        },
+        "considerations": {
+          "environmentalConsiderations": {
+            "properties": [
+              {
+                "name": "deployment",
+                "value": "cloud-api"
+              },
+              {
+                "name": "privacy",
+                "value": "S0–S2 only; S3/S4 data MUST NOT be sent to this provider"
+              }
+            ]
+          }
+        },
+        "properties": [
+          {
+            "name": "routing:intent",
+            "value": "tool_call, critical_action"
+          },
+          {
+            "name": "routing:sensitivity",
+            "value": "S0, S1, S2"
+          },
+          {
+            "name": "config:env_key",
+            "value": "OPENAI_API_KEY"
+          },
+          {
+            "name": "config:model_key",
+            "value": "OPENAI_MODEL"
+          }
+        ]
+      }
+    },
+    {
+      "type": "machine-learning-model",
+      "bom-ref": "ml:openai-tts-1",
+      "group": "llm-models",
+      "name": "tts-1",
+      "description": "OpenAI Text-to-Speech Modell (tts-1 / tts-1-hd). Erzeugt audio/mpeg für den Voice-Endpunkt.",
+      "scope": "optional",
+      "externalReferences": [
+        {
+          "type": "website",
+          "url": "https://platform.openai.com/docs/guides/text-to-speech"
+        }
+      ],
+      "modelCard": {
+        "modelParameters": {
+          "task": {
+            "type": "text-to-speech"
+          }
+        },
+        "properties": [
+          {
+            "name": "voices",
+            "value": "ash, alloy, echo, fable, onyx, nova, shimmer"
+          },
+          {
+            "name": "config:env_key",
+            "value": "OPENAI_API_KEY"
+          },
+          {
+            "name": "config:tts_model",
+            "value": "TTS_MODEL (tts-1 | tts-1-hd)"
+          },
+          {
+            "name": "config:tts_voice",
+            "value": "TTS_VOICE"
+          }
+        ]
+      }
+    },
+    {
+      "type": "machine-learning-model",
+      "bom-ref": "ml:whisper-1",
+      "group": "llm-models",
+      "name": "whisper-1",
+      "description": "OpenAI Whisper Speech-to-Text. Transkribiert Audio-Dateien (WAV, MP3, WebM, MP4, M4A, OGG; max 25 MB).",
+      "scope": "optional",
+      "externalReferences": [
+        {
+          "type": "website",
+          "url": "https://platform.openai.com/docs/guides/speech-to-text"
+        }
+      ],
+      "modelCard": {
+        "modelParameters": {
+          "task": {
+            "type": "speech-recognition"
+          }
+        },
+        "properties": [
+          {
+            "name": "supported-formats",
+            "value": "WAV, MP3, WebM, MP4, M4A, OGG"
+          },
+          {
+            "name": "max-file-size-mb",
+            "value": "25"
+          },
+          {
+            "name": "config:env_key",
+            "value": "OPENAI_API_KEY"
+          },
+          {
+            "name": "config:model_key",
+            "value": "WHISPER_MODEL"
+          }
+        ]
+      }
+    },
+    {
+      "type": "machine-learning-model",
+      "bom-ref": "ml:ollama-llama3.1-8b",
+      "group": "llm-models",
+      "name": "llama3.1:8b",
+      "description": "Meta Llama 3.1 8B (via Ollama). Lokales Modell – Default für S3/S4-Daten und den intimate_reflection-Intent. Kein Cloud-Aufruf.",
+      "scope": "required",
+      "externalReferences": [
+        {
+          "type": "website",
+          "url": "https://ollama.com"
+        },
+        {
+          "type": "documentation",
+          "url": "https://ollama.com/library/llama3.1"
+        }
+      ],
+      "modelCard": {
+        "modelParameters": {
+          "task": {
+            "type": "natural-language-generation"
+          },
+          "architectureFamily": "llama",
+          "contextSize": 131072
+        },
+        "considerations": {
+          "environmentalConsiderations": {
+            "properties": [
+              {
+                "name": "deployment",
+                "value": "local – runs on VPS, no external API call"
+              },
+              {
+                "name": "privacy",
+                "value": "S0–S4: Daten verlassen niemals das lokale System"
+              }
+            ]
+          }
+        },
+        "properties": [
+          {
+            "name": "routing:intent",
+            "value": "intimate_reflection, offline, fallback"
+          },
+          {
+            "name": "routing:sensitivity",
+            "value": "S0, S1, S2, S3, S4"
+          },
+          {
+            "name": "privacy:guarantee",
+            "value": "100% lokal – keine Datenweitergabe an Dritte"
+          },
+          {
+            "name": "config:base_url",
+            "value": "OLLAMA_BASE_URL (default: http://localhost:11434)"
+          },
+          {
+            "name": "config:model_key",
+            "value": "OLLAMA_MODEL"
+          }
+        ]
+      }
+    },
+    {
+      "type": "machine-learning-model",
+      "bom-ref": "ml:lmstudio-mistral-7b-instruct",
+      "group": "llm-models",
+      "name": "mistral-7b-instruct",
+      "description": "Mistral 7B Instruct (via LM Studio). Lokale Alternative zu Ollama. Modell ist frei konfigurierbar über LMSTUDIO_MODEL.",
+      "scope": "optional",
+      "externalReferences": [
+        {
+          "type": "website",
+          "url": "https://lmstudio.ai"
+        }
+      ],
+      "modelCard": {
+        "modelParameters": {
+          "task": {
+            "type": "natural-language-generation"
+          },
+          "architectureFamily": "mistral"
+        },
+        "considerations": {
+          "environmentalConsiderations": {
+            "properties": [
+              {
+                "name": "deployment",
+                "value": "local – OpenAI-compatible API (LM Studio)"
+              },
+              {
+                "name": "privacy",
+                "value": "S0–S4: Daten verlassen niemals das lokale System"
+              }
+            ]
+          }
+        },
+        "properties": [
+          {
+            "name": "routing:sensitivity",
+            "value": "S0, S1, S2, S3, S4"
+          },
+          {
+            "name": "config:env_key",
+            "value": "LMSTUDIO_MODEL (aktiviert LM Studio)"
+          },
+          {
+            "name": "config:base_url",
+            "value": "LMSTUDIO_BASE_URL (default: http://localhost:1234/v1)"
+          }
+        ]
+      }
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/openai",
+      "group": "ml-libraries",
+      "name": "openai",
+      "description": "Offizielles OpenAI Python SDK – wird für GPT-4o, TTS und Whisper verwendet",
+      "scope": "required",
+      "licenses": [
+        { "license": { "id": "Apache-2.0" } }
+      ],
+      "purl": "pkg:pypi/openai"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/google-generativeai",
+      "group": "ml-libraries",
+      "name": "google-generativeai",
+      "description": "Google Generative AI Python SDK – wird für Gemini-Provider verwendet",
+      "scope": "required",
+      "licenses": [
+        { "license": { "id": "Apache-2.0" } }
+      ],
+      "purl": "pkg:pypi/google-generativeai"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/google-genai",
+      "group": "ml-libraries",
+      "name": "google-genai",
+      "description": "Google GenAI Python SDK",
+      "scope": "required",
+      "licenses": [
+        { "license": { "id": "Apache-2.0" } }
+      ],
+      "purl": "pkg:pypi/google-genai"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/ollama",
+      "group": "ml-libraries",
+      "name": "ollama",
+      "description": "Python-Client für die Ollama REST-API (lokales LLM-Serving)",
+      "scope": "required",
+      "licenses": [
+        { "license": { "id": "MIT" } }
+      ],
+      "purl": "pkg:pypi/ollama"
+    },
+    {
+      "type": "container",
+      "bom-ref": "ml:pgvector-pg17",
+      "group": "ml-infrastructure",
+      "name": "pgvector/pgvector:pg17",
+      "description": "PostgreSQL 17 mit pgvector-Extension. Speichert Vektor-Embeddings für semantische Suche im Memory-System.",
+      "scope": "required",
+      "licenses": [
+        { "license": { "id": "PostgreSQL" } }
+      ],
+      "purl": "pkg:docker/pgvector%2Fpgvector@pg17",
+      "externalReferences": [
+        {
+          "type": "website",
+          "url": "https://github.com/pgvector/pgvector"
+        }
+      ],
+      "properties": [
+        {
+          "name": "ml:use-case",
+          "value": "Vektor-Ähnlichkeitssuche für semantisches Memory-Retrieval"
+        },
+        {
+          "name": "ml:extensions",
+          "value": "vector, pgcrypto"
+        },
+        {
+          "name": "ml:embedding-storage",
+          "value": "claims.embedding (VECTOR), episodes.embedding (VECTOR)"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "ml:ozy-sensitivity-classifier",
+      "group": "ml-internal",
+      "name": "SensitivityClassifier",
+      "version": "0.1.0",
+      "description": "Interner ML-Baustein: Klassifiziert eingehende Texte in Sensitivity-Stufen S0–S4 via LLM-Aufruf. Bei Fehler konservativer Fallback auf S1.",
+      "scope": "required",
+      "properties": [
+        {
+          "name": "implementation",
+          "value": "backend/app/services/llm/sensitivity_classifier.py"
+        },
+        {
+          "name": "ml:task",
+          "value": "text-classification (sensitivity levels S0–S4)"
+        },
+        {
+          "name": "ml:fallback",
+          "value": "S1 (on error)"
+        },
+        {
+          "name": "ml:channel-override",
+          "value": "channel=system|celery → S0"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "ml:ozy-claim-extractor",
+      "group": "ml-internal",
+      "name": "ClaimExtractor",
+      "version": "0.1.0",
+      "description": "Interner ML-Baustein: Extrahiert strukturierte Fakten (Claims) aus LLM-Antworten mittels eines strukturierten Prompts. Gibt ClaimData-Objekte mit tentative-Status zurück.",
+      "scope": "required",
+      "properties": [
+        {
+          "name": "implementation",
+          "value": "backend/app/services/llm/claim_extractor.py"
+        },
+        {
+          "name": "ml:task",
+          "value": "structured information extraction (claim mining)"
+        },
+        {
+          "name": "ml:output-schema",
+          "value": "ClaimData: verification_state=tentative, source_type=model_inferred, confidence≤0.9"
+        },
+        {
+          "name": "ml:provider-routing",
+          "value": "intent=claim_extraction → deepseek"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "ml:ozy-context-assembler",
+      "group": "ml-internal",
+      "name": "ContextAssembler",
+      "version": "0.1.0",
+      "description": "Interner ML-Baustein: Baut den Memory-Block (System-Prompt-Kontext) aus Claims, Episoden und prozeduralen Regeln. Token-Budget wird durch Rust-Kern (allocate_token_budget) berechnet.",
+      "scope": "required",
+      "properties": [
+        {
+          "name": "implementation",
+          "value": "backend/app/services/llm/context_assembler.py"
+        },
+        {
+          "name": "ml:task",
+          "value": "context window management / RAG-style prompt assembly"
+        },
+        {
+          "name": "ml:token-budget",
+          "value": "Rust: allocate_token_budget() → max_claims, max_tokens_per_claim"
+        },
+        {
+          "name": "ml:retrieval-strategy",
+          "value": "Priority by last_accessed + project affiliation; Sensitivity filter (S4 only for intimate_reflection + local)"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "ml:ozy-llm-router",
+      "group": "ml-internal",
+      "name": "LLMRouter",
+      "version": "0.1.0",
+      "description": "Interner ML-Baustein: Wählt den LLM-Provider anhand von Sensitivity und Intent. S3/S4 werden immer lokal geroutet (Ollama/LM Studio). Kein Override möglich.",
+      "scope": "required",
+      "properties": [
+        {
+          "name": "implementation",
+          "value": "backend/app/services/llm/router.py"
+        },
+        {
+          "name": "ml:routing-rules",
+          "value": "S3/S4 → local; tool_call/critical_action → openai; creative/talk → gemini; claim_extraction/default → deepseek"
+        },
+        {
+          "name": "ml:security-invariant",
+          "value": "S3/S4 Cloud-Override ist hardcoded blockiert"
+        }
+      ]
+    }
+  ],
+  "services": [
+    {
+      "bom-ref": "service:deepseek-api",
+      "name": "DeepSeek API",
+      "description": "Cloud-LLM-Dienst von DeepSeek AI. Verarbeitet S0–S2-Anfragen. Endpoint: https://api.deepseek.com/v1",
+      "authenticated": true,
+      "endpoints": [
+        "https://api.deepseek.com/v1/chat/completions"
+      ],
+      "data": [
+        {
+          "classification": "Sensitivity S0–S2",
+          "flow": "outbound",
+          "name": "LLM-Prompts (System-Prompt + User-Nachrichten)"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "website",
+          "url": "https://platform.deepseek.com"
+        }
+      ]
+    },
+    {
+      "bom-ref": "service:google-gemini-api",
+      "name": "Google Gemini API",
+      "description": "Cloud-LLM-Dienst von Google. Verarbeitet S0–S2-Anfragen. Endpoint: https://generativelanguage.googleapis.com/v1beta",
+      "authenticated": true,
+      "endpoints": [
+        "https://generativelanguage.googleapis.com/v1beta"
+      ],
+      "data": [
+        {
+          "classification": "Sensitivity S0–S2",
+          "flow": "outbound",
+          "name": "LLM-Prompts (System-Prompt + User-Nachrichten)"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "website",
+          "url": "https://ai.google.dev"
+        }
+      ]
+    },
+    {
+      "bom-ref": "service:openai-api",
+      "name": "OpenAI API",
+      "description": "Cloud-LLM-Dienst von OpenAI. Chat (gpt-4o), TTS (tts-1/tts-1-hd), STT (whisper-1). Verarbeitet S0–S2-Anfragen.",
+      "authenticated": true,
+      "endpoints": [
+        "https://api.openai.com/v1/chat/completions",
+        "https://api.openai.com/v1/audio/speech",
+        "https://api.openai.com/v1/audio/transcriptions"
+      ],
+      "data": [
+        {
+          "classification": "Sensitivity S0–S2",
+          "flow": "outbound",
+          "name": "LLM-Prompts, Audio-Daten (max 25 MB)"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "website",
+          "url": "https://platform.openai.com"
+        }
+      ]
+    },
+    {
+      "bom-ref": "service:ollama-local",
+      "name": "Ollama (lokal)",
+      "description": "Lokaler LLM-Runtime. Verarbeitet alle Sensitivity-Stufen (S0–S4). Kein Datenabfluss. Endpoint: http://localhost:11434 (konfigurierbar via OLLAMA_BASE_URL).",
+      "authenticated": false,
+      "endpoints": [
+        "http://localhost:11434"
+      ],
+      "data": [
+        {
+          "classification": "Sensitivity S0–S4",
+          "flow": "internal",
+          "name": "LLM-Prompts (alle Sensitivity-Stufen, inkl. S3/S4)"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "website",
+          "url": "https://ollama.com"
+        }
+      ]
+    },
+    {
+      "bom-ref": "service:lmstudio-local",
+      "name": "LM Studio (lokal)",
+      "description": "Lokaler LLM-Runtime mit OpenAI-kompatibler API. Optionale Alternative zu Ollama. Endpoint: http://localhost:1234/v1",
+      "authenticated": false,
+      "endpoints": [
+        "http://localhost:1234/v1"
+      ],
+      "data": [
+        {
+          "classification": "Sensitivity S0–S4",
+          "flow": "internal",
+          "name": "LLM-Prompts (alle Sensitivity-Stufen, inkl. S3/S4)"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "website",
+          "url": "https://lmstudio.ai"
+        }
+      ]
+    }
+  ]
+}

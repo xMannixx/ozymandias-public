@@ -1,0 +1,76 @@
+import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import MemoryBrowser from "@/components/memory/MemoryBrowser";
+import { mockClaimTentative, mockClaimVersions } from "@/test/fixtures";
+
+const hookState = {
+  filteredClaims: [mockClaimTentative],
+  loading: false,
+  error: null as string | null,
+  filters: {
+    sensitivities: [],
+    memoryType: "",
+    lifecycle: "",
+    verificationState: "",
+    trustLevel: "",
+  },
+  searchQuery: "",
+  selectedClaim: mockClaimTentative,
+  versions: mockClaimVersions,
+  toast: null as { message: string; type: "success" | "error" | "info" } | null,
+  setFilters: vi.fn(),
+  resetFilters: vi.fn(),
+  setSearchQuery: vi.fn(),
+  selectClaim: vi.fn(async () => undefined),
+  confirmClaim: vi.fn(async () => undefined),
+  retractClaim: vi.fn(async () => undefined),
+  archiveClaim: vi.fn(async () => undefined),
+  lockClaim: vi.fn(async () => undefined),
+  unlockClaim: vi.fn(async () => undefined),
+  updateSensitivity: vi.fn(async () => undefined),
+  clearToast: vi.fn(),
+  refetch: vi.fn(async () => undefined),
+};
+
+vi.mock("@/hooks/useClaims", () => ({
+  useClaims: () => hookState,
+}));
+
+describe("MemoryBrowser", () => {
+  it("renders search input", () => {
+    render(<MemoryBrowser />);
+    expect(screen.getByLabelText("memory-search")).toBeInTheDocument();
+  });
+
+  it("renders loading state with spinner", () => {
+    hookState.loading = true;
+    render(<MemoryBrowser />);
+    expect(screen.getByLabelText("loading")).toBeInTheDocument();
+    hookState.loading = false;
+  });
+
+  it("renders empty state when no claims", () => {
+    hookState.filteredClaims = [];
+    render(<MemoryBrowser />);
+    expect(screen.getByText("Keine Claims gefunden.")).toBeInTheDocument();
+    hookState.filteredClaims = [mockClaimTentative];
+  });
+
+  it("calls selectClaim when card is clicked", async () => {
+    hookState.selectClaim.mockClear();
+    render(<MemoryBrowser />);
+    const claimButton = screen.getAllByRole("button").find((button) =>
+      button.textContent?.includes(mockClaimTentative.value),
+    );
+    expect(claimButton).toBeDefined();
+    await userEvent.click(claimButton as HTMLButtonElement);
+    expect(hookState.selectClaim).toHaveBeenCalledWith(mockClaimTentative);
+  });
+
+  it("renders toast message when present", () => {
+    hookState.toast = { message: "Konflikt", type: "error" };
+    render(<MemoryBrowser />);
+    expect(screen.getByText("Konflikt")).toBeInTheDocument();
+    hookState.toast = null;
+  });
+});

@@ -1,0 +1,62 @@
+{
+  "name": "Ozymandias Dev",
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu-24.04",
+  "features": {
+    "ghcr.io/devcontainers/features/rust:1": {
+      "version": "latest",
+      "profile": "default"
+    },
+    "ghcr.io/devcontainers/features/python:1": {
+      "version": "3.14"
+    },
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "22"
+    },
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {
+      "version": "latest",
+      "dockerDashComposeVersion": "v2"
+    }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "rust-lang.rust-analyzer",
+        "ms-python.python",
+        "ms-python.mypy-type-checker",
+        "charliermarsh.ruff",
+        "bradlc.vscode-tailwindcss",
+        "dbaeumer.vscode-eslint",
+        "ms-azuretools.vscode-docker",
+        "tamasfe.even-better-toml"
+      ],
+      "settings": {
+        "python.defaultInterpreterPath": "/usr/local/bin/python",
+        "python.analysis.typeCheckingMode": "basic",
+        "[python]": {
+          "editor.defaultFormatter": "charliermarsh.ruff",
+          "editor.formatOnSave": true
+        },
+        "[rust]": {
+          "editor.formatOnSave": true
+        },
+        "rust-analyzer.check.command": "clippy"
+      }
+    }
+  },
+  "postCreateCommand": "make py-install && make fe-install && cd rust && cargo build --workspace",
+  "forwardPorts": [8000, 8080, 5173, 5432, 6379, 9000, 9001],
+  "portsAttributes": {
+    "8000": { "label": "Backend API" },
+    "8080": { "label": "Nginx (Prod)" },
+    "5173": { "label": "Frontend Dev" },
+    "5432": { "label": "Postgres" },
+    "6379": { "label": "Redis" },
+    "9000": { "label": "MinIO API" },
+    "9001": { "label": "MinIO Console" }
+  },
+  "remoteEnv": {
+    "DATABASE_URL": "postgresql+asyncpg://ozy:ozy@localhost:5432/ozymandias",
+    "REDIS_URL": "redis://localhost:6379/0",
+    "AUTH_DEV_BYPASS": "false"
+  }
+}

@@ -1,0 +1,15 @@
+---
+alwaysApply: false
+globs: "**/*.py"
+description: "Python/FastAPI-Patterns für Ozy"
+---
+
+# Python-Patterns
+
+- FastAPI mit async/await
+- Pydantic v2 für alle Schemas (model_validator, field_validator)
+- SQLAlchemy 2.0 async für DB
+- Rust-Bindings importieren aus ozy_bindings
+- Fehler als HTTPException mit klaren Codes
+- Kein direkter DB-Zugriff in Routes — immer über Service-Layer
+- Type Hints auf allem, mypy strict

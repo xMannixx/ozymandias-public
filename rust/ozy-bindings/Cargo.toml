@@ -1,0 +1,15 @@
+[package]
+name = "ozy-bindings"
+version = "0.1.0"
+edition = "2024"
+description = "PyO3 bindings for Ozymandias Rust core"
+
+[lib]
+name = "ozy_bindings"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+pyo3 = { version = "0.28.2", features = ["extension-module"] }
+ozy-contracts = { path = "../ozy-contracts" }
+ozy-core = { path = "../ozy-core" }
+serde_json = "1"

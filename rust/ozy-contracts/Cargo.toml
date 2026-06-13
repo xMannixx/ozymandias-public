@@ -1,0 +1,12 @@
+[package]
+name = "ozy-contracts"
+version = "0.1.0"
+edition = "2024"
+description = "Ozymandias shared types (no behavior, serde-only)"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+
+[dev-dependencies]
+serde_json = "1"
+proptest = "1"

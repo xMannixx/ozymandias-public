@@ -1,0 +1,931 @@
+"""Unit tests for turn pipeline service."""
+
+from __future__ import annotations
+
+import uuid
+from types import SimpleNamespace
+from typing import cast
+from unittest.mock import AsyncMock
+
+import pytest
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.schemas import (
+    ClaimData,
+    G2Result,
+    G3Result,
+    HandlingPolicy,
+    Lifecycle,
+    Sensitivity,
+    SensitivityFilterInput,
+    SensitivityFilterOutput,
+    SourceType,
+    TaintSummary,
+    TrustLevel,
+    VerificationState,
+)
+from app.schemas.api_models import TurnRequest
+from app.schemas.contracts import (
+    ConflictResultConflictGroupPayload,
+    ConflictResultConflictGroupVariant,
+)
+from app.services.errors import (
+    CircuitBreakerTrippedError,
+    LiveWebPermissionRequiredError,
+    LocalProviderUnavailableError,
+)
+from app.services.live_web_service import LiveWebContext
+from app.services.llm.base import LLMResponse
+from app.services.llm.sensitivity_classifier import SensitivityClassification
+from app.services.llm.system_prompt import OZY_SYSTEM_PROMPT, build_system_prompt
+from app.services.turn_service import TurnService
+from tests.conftest import FakeAsyncSession
+
+
+def _claim() -> ClaimData:
+    return ClaimData(
+        subject="user:42",
+        attribute="city",
+        value="Berlin",
+        content="User lives in Berlin",
+        memory_type="profile",
+        sensitivity=Sensitivity.S1,
+        trust_level=TrustLevel.T3,
+        handling_policy=HandlingPolicy.local_preferred,
+        verification_state=VerificationState.tentative,
+        confidence=0.9,
+        source_type=SourceType.user_explicit,
+        source_ref="turn-1",
+        user_locked=False,
+        decay_eligible=True,
+        lifecycle=Lifecycle.temporary,
+        valid_from=None,
+        valid_to=None,
+    )
+
+
+def _patch_default_rust(monkeypatch: pytest.MonkeyPatch, *, claims: list[ClaimData]) -> None:
+    monkeypatch.setattr(
+        "app.services.turn_service.rust_bridge.filter_claims",
+        lambda _payload: SensitivityFilterOutput(
+            allowed=claims, filtered_count=0, filter_reasons=[]
+        ),
+    )
+    monkeypatch.setattr(
+        "app.services.turn_service.rust_bridge.compute_taint",
+        lambda _payload: TaintSummary(
+            effective_trust=TrustLevel.T3,
+            effective_sensitivity=Sensitivity.S1,
+            is_tainted=False,
+            taint_sources=[],
+        ),
+    )
+    monkeypatch.setattr(
+        "app.services.turn_service.rust_bridge.validate_schema", lambda _payload: "SchemaValid"
+    )
+    monkeypatch.setattr(
+        "app.services.turn_service.rust_bridge.check_provenance",
+        lambda _payload: G2Result(auto_confirm_eligible=True, locked_to_tentative=False),
+    )
+    monkeypatch.setattr(
+        "app.services.turn_service.rust_bridge.detect_conflicts",
+        lambda _proposal, _existing: G3Result(result="NoConflict", matched_claim_id=None),
+    )
+    monkeypatch.setattr(
+        "app.services.turn_service.rust_bridge.resolve_approval", lambda _payload: "Approved"
+    )
+    monkeypatch.setattr(
+        "app.services.turn_service.rust_bridge.check_tainted_action", lambda _payload: "Proceed"
+    )
+
+
+def _prepare_service(service: TurnService) -> None:
+    service.audit.log = AsyncMock()  # type: ignore[method-assign]
+    service.claim_service.list_claims = AsyncMock(return_value=[])  # type: ignore[method-assign]
+    service.claim_service.create_claim_from_proposal = AsyncMock(  # type: ignore[method-assign]
+        return_value=SimpleNamespace(claim_id=uuid.uuid4())
+    )
+    service.proposal_service.create_proposal = AsyncMock(  # type: ignore[method-assign]
+        return_value=SimpleNamespace(proposal_id=uuid.uuid4())
+    )
+    service.circuit_breaker.check = AsyncMock()  # type: ignore[method-assign]
+    service.circuit_breaker.increment = AsyncMock(return_value=1)  # type: ignore[method-assign]
+
+
+def _patch_context_assembler(
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    context_block: str = (
+        "<user_context>\n"
+        "Keine Claims, Projekte oder Kontakte gespeichert. Memory ist leer.\n"
+        "</user_context>"
+    ),
+) -> AsyncMock:
+    assemble_mock = AsyncMock(return_value=context_block)
+    monkeypatch.setattr("app.services.turn_service.ContextAssembler.assemble", assemble_mock)
+    return assemble_mock
+
+
+@pytest.mark.asyncio
+async def test_process_turn_with_no_claims(monkeypatch: pytest.MonkeyPatch) -> None:
+    service = TurnService(cast(AsyncSession, FakeAsyncSession()))
+    _prepare_service(service)
+    _patch_default_rust(monkeypatch, claims=[])
+
+    result = await service.process_turn(
+        user_id="user-1",
+        payload=TurnRequest(text="hello", claims=[]),
+    )
+    assert result.claims_processed == 0
+    assert result.results == []
+    assert result.response_text is None
+
+
+@pytest.mark.asyncio
+async def test_process_turn_creates_claim_when_auto_approved(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = TurnService(cast(AsyncSession, FakeAsyncSession()))
+    _prepare_service(service)
+    _patch_default_rust(monkeypatch, claims=[_claim()])
+
+    result = await service.process_turn(
+        user_id="user-1", payload=TurnRequest(text="hello", claims=[_claim()])
+    )
+    assert result.claims_processed == 1
+    assert result.results[0].status == "created"
+
+
+@pytest.mark.asyncio
+async def test_process_turn_rejects_on_schema_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    service = TurnService(cast(AsyncSession, FakeAsyncSession()))
+    _prepare_service(service)
+    _patch_default_rust(monkeypatch, claims=[_claim()])
+    monkeypatch.setattr(
+        "app.services.turn_service.rust_bridge.validate_schema",
+        lambda _payload: {"SchemaError": {"errors": ["missing field"]}},
+    )
+
+    result = await service.process_turn(
+        user_id="user-1", payload=TurnRequest(text="hello", claims=[_claim()])
+    )
+    assert result.results[0].status == "rejected"
+
+
+@pytest.mark.asyncio
+async def test_process_turn_rejects_when_taint_blocks(monkeypatch: pytest.MonkeyPatch) -> None:
+    service = TurnService(cast(AsyncSession, FakeAsyncSession()))
+    _prepare_service(service)
+    _patch_default_rust(monkeypatch, claims=[_claim()])
+    monkeypatch.setattr(
+        "app.services.turn_service.rust_bridge.check_tainted_action",
+        lambda _payload: {"Block": {"reason": "tainted"}},
+    )
+
+    result = await service.process_turn(
+        user_id="user-1", payload=TurnRequest(text="hello", claims=[_claim()])
+    )
+    assert result.results[0].status == "rejected"
+    assert "tainted" in (result.results[0].reason or "")
+
+
+@pytest.mark.asyncio
+async def test_process_turn_rejects_when_approval_denied(monkeypatch: pytest.MonkeyPatch) -> None:
+    service = TurnService(cast(AsyncSession, FakeAsyncSession()))
+    _prepare_service(service)
+    _patch_default_rust(monkeypatch, claims=[_claim()])
+    monkeypatch.setattr(
+        "app.services.turn_service.rust_bridge.resolve_approval",
+        lambda _payload: {"Denied": {"reason": "manual deny"}},
+    )
+
+    result = await service.process_turn(
+        user_id="user-1", payload=TurnRequest(text="hello", claims=[_claim()])
+    )
+    assert result.results[0].status == "rejected"
+
+
+@pytest.mark.asyncio
+async def test_process_turn_creates_proposal_when_hitl_required(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = TurnService(cast(AsyncSession, FakeAsyncSession()))
+    _prepare_service(service)
+    _patch_default_rust(monkeypatch, claims=[_claim()])
+    monkeypatch.setattr(
+        "app.services.turn_service.rust_bridge.check_provenance",
+        lambda _payload: G2Result(auto_confirm_eligible=False, locked_to_tentative=True),
+    )
+
+    result = await service.process_turn(
+        user_id="user-1", payload=TurnRequest(text="hello", claims=[_claim()])
+    )
+    assert result.results[0].status == "proposal_created"
+
+
+@pytest.mark.asyncio
+async def test_process_turn_creates_proposal_on_conflict_group(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = TurnService(cast(AsyncSession, FakeAsyncSession()))
+    _prepare_service(service)
+    _patch_default_rust(monkeypatch, claims=[_claim()])
+    monkeypatch.setattr(
+        "app.services.turn_service.rust_bridge.detect_conflicts",
+        lambda _proposal, _existing: G3Result(
+            result=ConflictResultConflictGroupVariant(
+                ConflictGroup=ConflictResultConflictGroupPayload(
+                    claim_ids=["00000000-0000-0000-0000-000000000001"]
+                )
+            ),
+            matched_claim_id=None,
+        ),
+    )
+    service.db.refresh = AsyncMock(  # type: ignore[method-assign]
+        side_effect=lambda obj: setattr(obj, "group_id", uuid.uuid4())
+    )
+
+    result = await service.process_turn(
+        user_id="user-1", payload=TurnRequest(text="hello", claims=[_claim()])
+    )
+    assert result.results[0].status == "proposal_created"
+
+
+@pytest.mark.asyncio
+async def test_process_turn_adds_filtered_out_results(monkeypatch: pytest.MonkeyPatch) -> None:
+    service = TurnService(cast(AsyncSession, FakeAsyncSession()))
+    _prepare_service(service)
+    monkeypatch.setattr(
+        "app.services.turn_service.rust_bridge.filter_claims",
+        lambda _payload: SensitivityFilterOutput(
+            allowed=[],
+            filtered_count=2,
+            filter_reasons=["ProviderNotLocal", "ProviderNotEncrypted"],
+        ),
+    )
+    monkeypatch.setattr(
+        "app.services.turn_service.rust_bridge.compute_taint",
+        lambda _payload: TaintSummary(
+            effective_trust=TrustLevel.T3,
+            effective_sensitivity=Sensitivity.S1,
+            is_tainted=False,
+            taint_sources=[],
+        ),
+    )
+
+    result = await service.process_turn(
+        user_id="user-1", payload=TurnRequest(text="hello", claims=[_claim()])
+    )
+    statuses = [item.status for item in result.results]
+    assert statuses == ["filtered_out", "filtered_out"]
+
+
+@pytest.mark.asyncio
+async def test_process_turn_calls_circuit_breaker_increment(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = TurnService(cast(AsyncSession, FakeAsyncSession()))
+    _prepare_service(service)
+    _patch_default_rust(monkeypatch, claims=[])
+
+    await service.process_turn(user_id="user-1", payload=TurnRequest(text="hello", claims=[]))
+    assert service.circuit_breaker.increment.await_count == 1  # type: ignore[attr-defined]
+
+
+@pytest.mark.asyncio
+async def test_process_turn_logs_failure_and_reraises(monkeypatch: pytest.MonkeyPatch) -> None:
+    service = TurnService(cast(AsyncSession, FakeAsyncSession()))
+    _prepare_service(service)
+    service.circuit_breaker.check = (  # type: ignore[method-assign]
+        AsyncMock(side_effect=CircuitBreakerTrippedError("blocked"))
+    )
+
+    with pytest.raises(CircuitBreakerTrippedError):
+        await service.process_turn(user_id="user-1", payload=TurnRequest(text="hello", claims=[]))
+    assert service.audit.log.await_count >= 1  # type: ignore[attr-defined]
+
+
+@pytest.mark.asyncio
+async def test_process_turn_uses_llm_and_claim_extractor_when_no_override(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = TurnService(cast(AsyncSession, FakeAsyncSession()))
+    _prepare_service(service)
+    _patch_context_assembler(monkeypatch)
+    monkeypatch.setattr(
+        "app.services.turn_service.rust_bridge.filter_claims",
+        lambda payload: SensitivityFilterOutput(
+            allowed=payload.claims,
+            filtered_count=0,
+            filter_reasons=[],
+        ),
+    )
+    monkeypatch.setattr(
+        "app.services.turn_service.rust_bridge.compute_taint",
+        lambda _payload: TaintSummary(
+            effective_trust=TrustLevel.T3,
+            effective_sensitivity=Sensitivity.S1,
+            is_tainted=False,
+            taint_sources=[],
+        ),
+    )
+    monkeypatch.setattr(
+        "app.services.turn_service.rust_bridge.validate_schema",
+        lambda _payload: "SchemaValid",
+    )
+    monkeypatch.setattr(
+        "app.services.turn_service.rust_bridge.check_provenance",
+        lambda _payload: G2Result(auto_confirm_eligible=True, locked_to_tentative=False),
+    )
+    monkeypatch.setattr(
+        "app.services.turn_service.rust_bridge.detect_conflicts",
+        lambda _proposal, _existing: G3Result(result="NoConflict", matched_claim_id=None),
+    )
+    monkeypatch.setattr(
+        "app.services.turn_service.rust_bridge.resolve_approval", lambda _payload: "Approved"
+    )
+    monkeypatch.setattr(
+        "app.services.turn_service.rust_bridge.check_tainted_action", lambda _payload: "Proceed"
+    )
+
+    service.llm_router.route = AsyncMock(  # type: ignore[method-assign]
+        return_value=LLMResponse(
+            content="response",
+            model="deepseek-chat",
+            provider="deepseek",
+            tokens_used=10,
+        )
+    )
+    service.claim_extractor.extract = (  # type: ignore[method-assign]
+        AsyncMock(return_value=[_claim()])
+    )
+
+    result = await service.process_turn(user_id="user-1", payload=TurnRequest(text="hello"))
+    assert result.claims_processed == 1
+    assert result.response_text == "response"
+    assert result.results[0].status == "created"
+    assert service.llm_router.route.await_count == 1
+    assert service.claim_extractor.extract.await_count == 1
+
+
+@pytest.mark.asyncio
+async def test_process_turn_passes_reasoning_content_from_llm(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = TurnService(cast(AsyncSession, FakeAsyncSession()))
+    _prepare_service(service)
+    _patch_context_assembler(monkeypatch)
+    _patch_default_rust(monkeypatch, claims=[])
+    service.llm_router.route = AsyncMock(  # type: ignore[method-assign]
+        return_value=LLMResponse(
+            content="final answer",
+            model="deepseek-reasoner",
+            provider="deepseek",
+            tokens_used=42,
+            reasoning_content="step one; step two",
+        )
+    )
+    service.claim_extractor.extract = AsyncMock(return_value=[])  # type: ignore[method-assign]
+
+    result = await service.process_turn(user_id="user-1", payload=TurnRequest(text="hello"))
+    assert result.response_text == "final answer"
+    assert result.reasoning_content == "step one; step two"
+
+
+@pytest.mark.asyncio
+async def test_process_turn_routes_high_sensitivity_locally(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = TurnService(cast(AsyncSession, FakeAsyncSession()))
+    _prepare_service(service)
+    _patch_context_assembler(monkeypatch)
+
+    def _filter(payload: object) -> SensitivityFilterOutput:
+        input_payload = cast(SensitivityFilterInput, payload)
+        assert input_payload.provider_is_local is True
+        return SensitivityFilterOutput(allowed=[], filtered_count=0, filter_reasons=[])
+
+    monkeypatch.setattr("app.services.turn_service.rust_bridge.filter_claims", _filter)
+    monkeypatch.setattr(
+        "app.services.turn_service.rust_bridge.compute_taint",
+        lambda _payload: TaintSummary(
+            effective_trust=TrustLevel.T3,
+            effective_sensitivity=Sensitivity.S4,
+            is_tainted=False,
+            taint_sources=[],
+        ),
+    )
+
+    async def _route(**kwargs: object) -> LLMResponse:
+        assert kwargs["sensitivity"] is Sensitivity.S4
+        return LLMResponse(
+            content="response",
+            model="llama3",
+            provider="ollama",
+            tokens_used=5,
+        )
+
+    service.llm_router.route = AsyncMock(side_effect=_route)  # type: ignore[method-assign]
+    service.claim_extractor.extract = AsyncMock(return_value=[])  # type: ignore[method-assign]
+
+    result = await service.process_turn(
+        user_id="user-1",
+        payload=TurnRequest(text="Ich habe trauma erlebt"),
+    )
+    assert result.claims_processed == 0
+
+
+@pytest.mark.asyncio
+async def test_process_turn_uses_settings_provider_preferences(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = TurnService(cast(AsyncSession, FakeAsyncSession()))
+    _prepare_service(service)
+    _patch_context_assembler(monkeypatch)
+    _patch_default_rust(monkeypatch, claims=[])
+    monkeypatch.setattr(
+        "app.services.turn_service.classify_sensitivity",
+        AsyncMock(return_value=Sensitivity.S1),
+    )
+    monkeypatch.setattr(
+        "app.services.turn_service.SettingsService.get_or_create",
+        AsyncMock(
+            return_value=SimpleNamespace(
+                kill_switch=False,
+                preferred_provider="openai",
+                preferred_model="gpt-4o",
+            )
+        ),
+    )
+    service.llm_router.route = AsyncMock(  # type: ignore[method-assign]
+        return_value=LLMResponse(
+            content="ok",
+            model="gpt-4o",
+            provider="openai",
+            tokens_used=12,
+        )
+    )
+    service.claim_extractor.extract = AsyncMock(return_value=[])  # type: ignore[method-assign]
+
+    result = await service.process_turn(user_id="user-1", payload=TurnRequest(text="hello"))
+    assert result.provider == "openai"
+    assert result.model == "gpt-4o"
+    route_call = service.llm_router.route.await_args
+    assert route_call is not None
+    assert route_call.kwargs["preferred_provider"] == "openai"
+    assert route_call.kwargs["preferred_model"] == "gpt-4o"
+
+
+@pytest.mark.asyncio
+async def test_process_turn_payload_override_has_priority_over_settings(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = TurnService(cast(AsyncSession, FakeAsyncSession()))
+    _prepare_service(service)
+    _patch_context_assembler(monkeypatch)
+    _patch_default_rust(monkeypatch, claims=[])
+    monkeypatch.setattr(
+        "app.services.turn_service.classify_sensitivity",
+        AsyncMock(return_value=Sensitivity.S1),
+    )
+    monkeypatch.setattr(
+        "app.services.turn_service.SettingsService.get_or_create",
+        AsyncMock(
+            return_value=SimpleNamespace(
+                kill_switch=False,
+                preferred_provider="openai",
+                preferred_model="gpt-4o",
+            )
+        ),
+    )
+    service.llm_router.route = AsyncMock(  # type: ignore[method-assign]
+        return_value=LLMResponse(
+            content="ok",
+            model="deepseek-chat",
+            provider="deepseek",
+            tokens_used=10,
+        )
+    )
+    service.claim_extractor.extract = AsyncMock(return_value=[])  # type: ignore[method-assign]
+
+    await service.process_turn(
+        user_id="user-1",
+        payload=TurnRequest(text="hello", provider="deepseek", model="deepseek-chat"),
+    )
+    route_call = service.llm_router.route.await_args
+    assert route_call is not None
+    assert route_call.kwargs["preferred_provider"] == "deepseek"
+    assert route_call.kwargs["preferred_model"] == "deepseek-chat"
+
+
+@pytest.mark.asyncio
+async def test_process_turn_ignores_non_local_override_for_s4(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = TurnService(cast(AsyncSession, FakeAsyncSession()))
+    _prepare_service(service)
+    _patch_context_assembler(monkeypatch)
+    _patch_default_rust(monkeypatch, claims=[])
+    monkeypatch.setattr(
+        "app.services.turn_service.SettingsService.get_or_create",
+        AsyncMock(
+            return_value=SimpleNamespace(
+                kill_switch=False,
+                preferred_provider="openai",
+                preferred_model="gpt-4o",
+            )
+        ),
+    )
+    monkeypatch.setattr(
+        "app.services.turn_service.classify_sensitivity",
+        AsyncMock(return_value=Sensitivity.S4),
+    )
+    service.llm_router.route = AsyncMock(  # type: ignore[method-assign]
+        return_value=LLMResponse(
+            content="ok",
+            model="llama3.1:8b",
+            provider="ollama",
+            tokens_used=9,
+        )
+    )
+    service.claim_extractor.extract = AsyncMock(return_value=[])  # type: ignore[method-assign]
+
+    await service.process_turn(
+        user_id="user-1",
+        payload=TurnRequest(text="sensitive text", provider="openai", model="gpt-4o"),
+    )
+    route_call = service.llm_router.route.await_args
+    assert route_call is not None
+    assert route_call.kwargs["preferred_provider"] is None
+    assert route_call.kwargs["preferred_model"] is None
+
+
+@pytest.mark.asyncio
+async def test_process_turn_raises_s3_local_unavailable_without_fallback_flag(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = TurnService(cast(AsyncSession, FakeAsyncSession()))
+    _prepare_service(service)
+    _patch_context_assembler(monkeypatch)
+    _patch_default_rust(monkeypatch, claims=[])
+    monkeypatch.setattr(
+        "app.services.turn_service.classify_sensitivity",
+        AsyncMock(
+            return_value=SensitivityClassification(
+                sensitivity=Sensitivity.S3,
+                source="keyword",
+                local_classifier_available=True,
+            )
+        ),
+    )
+    service.llm_router.route = AsyncMock(  # type: ignore[method-assign]
+        side_effect=LocalProviderUnavailableError(
+            provider="ollama",
+            sensitivity="S3",
+            fallback_allowed=True,
+            detail="connection refused",
+        )
+    )
+
+    with pytest.raises(LocalProviderUnavailableError):
+        await service.process_turn(
+            user_id="user-1",
+            payload=TurnRequest(text="mein gehalt ist privat"),
+        )
+
+    route_call = service.llm_router.route.await_args
+    assert route_call is not None
+    assert route_call.kwargs["enforce_local"] is True
+
+
+@pytest.mark.asyncio
+async def test_process_turn_allows_cloud_when_s3_fallback_flag_is_set(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = TurnService(cast(AsyncSession, FakeAsyncSession()))
+    _prepare_service(service)
+    _patch_context_assembler(monkeypatch)
+    _patch_default_rust(monkeypatch, claims=[])
+    monkeypatch.setattr(
+        "app.services.turn_service.classify_sensitivity",
+        AsyncMock(
+            return_value=SensitivityClassification(
+                sensitivity=Sensitivity.S3,
+                source="keyword",
+                local_classifier_available=True,
+            )
+        ),
+    )
+    service.llm_router.route = AsyncMock(  # type: ignore[method-assign]
+        return_value=LLMResponse(
+            content="ok",
+            model="deepseek-chat",
+            provider="deepseek",
+            tokens_used=10,
+        )
+    )
+    service.claim_extractor.extract = AsyncMock(return_value=[])  # type: ignore[method-assign]
+
+    result = await service.process_turn(
+        user_id="user-1",
+        payload=TurnRequest(
+            text="mein gehalt ist privat",
+            allow_s3_cloud_fallback=True,
+            provider="deepseek",
+            model="deepseek-chat",
+        ),
+    )
+
+    assert result.provider == "deepseek"
+    route_call = service.llm_router.route.await_args
+    assert route_call is not None
+    assert route_call.kwargs["enforce_local"] is False
+
+
+@pytest.mark.asyncio
+async def test_process_turn_keeps_s4_local_even_with_fallback_flag(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = TurnService(cast(AsyncSession, FakeAsyncSession()))
+    _prepare_service(service)
+    _patch_context_assembler(monkeypatch)
+    _patch_default_rust(monkeypatch, claims=[])
+    monkeypatch.setattr(
+        "app.services.turn_service.classify_sensitivity",
+        AsyncMock(
+            return_value=SensitivityClassification(
+                sensitivity=Sensitivity.S4,
+                source="keyword",
+                local_classifier_available=True,
+            )
+        ),
+    )
+    service.llm_router.route = AsyncMock(  # type: ignore[method-assign]
+        side_effect=LocalProviderUnavailableError(
+            provider="ollama",
+            sensitivity="S4",
+            fallback_allowed=False,
+            detail="connection refused",
+        )
+    )
+
+    with pytest.raises(LocalProviderUnavailableError):
+        await service.process_turn(
+            user_id="user-1",
+            payload=TurnRequest(
+                text="intim",
+                allow_s3_cloud_fallback=True,
+                provider="deepseek",
+                model="deepseek-chat",
+            ),
+        )
+
+    route_call = service.llm_router.route.await_args
+    assert route_call is not None
+    assert route_call.kwargs["enforce_local"] is True
+
+
+@pytest.mark.asyncio
+async def test_process_turn_requires_confirmation_for_s3_live_web(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = TurnService(cast(AsyncSession, FakeAsyncSession()))
+    _prepare_service(service)
+    _patch_default_rust(monkeypatch, claims=[])
+    monkeypatch.setattr(
+        "app.services.turn_service.classify_sensitivity",
+        AsyncMock(
+            return_value=SensitivityClassification(
+                sensitivity=Sensitivity.S3,
+                source="keyword",
+                local_classifier_available=True,
+            )
+        ),
+    )
+    monkeypatch.setattr(
+        "app.services.turn_service.SettingsService.get_or_create",
+        AsyncMock(
+            return_value=SimpleNamespace(
+                kill_switch=False,
+                preferred_provider=None,
+                preferred_model=None,
+                preferred_local_provider=None,
+                preferred_local_model=None,
+                live_web_enabled=True,
+                live_web_mode="provider_native_first",
+                live_web_s3_confirmed_default=False,
+            )
+        ),
+    )
+
+    with pytest.raises(LiveWebPermissionRequiredError):
+        await service.process_turn(
+            user_id="user-1",
+            payload=TurnRequest(text="neueste marktpreise", claims=[]),
+        )
+
+
+@pytest.mark.asyncio
+async def test_process_turn_runs_live_web_for_confirmed_s3(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = TurnService(cast(AsyncSession, FakeAsyncSession()))
+    _prepare_service(service)
+    _patch_default_rust(monkeypatch, claims=[])
+    monkeypatch.setattr(
+        "app.services.turn_service.classify_sensitivity",
+        AsyncMock(
+            return_value=SensitivityClassification(
+                sensitivity=Sensitivity.S3,
+                source="keyword",
+                local_classifier_available=True,
+            )
+        ),
+    )
+    monkeypatch.setattr(
+        "app.services.turn_service.SettingsService.get_or_create",
+        AsyncMock(
+            return_value=SimpleNamespace(
+                kill_switch=False,
+                preferred_provider=None,
+                preferred_model=None,
+                preferred_local_provider=None,
+                preferred_local_model=None,
+                live_web_enabled=True,
+                live_web_mode="provider_native_first",
+                live_web_s3_confirmed_default=False,
+            )
+        ),
+    )
+    service.live_web_service.search = AsyncMock(  # type: ignore[method-assign]
+        return_value=LiveWebContext(strategy="connector", sources=[])
+    )
+
+    await service.process_turn(
+        user_id="user-1",
+        payload=TurnRequest(text="neueste marktpreise", claims=[], allow_s3_live_web=True),
+    )
+
+    assert service.live_web_service.search.await_count == 1
+
+
+@pytest.mark.asyncio
+async def test_process_turn_sends_ozy_system_message_first(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = TurnService(cast(AsyncSession, FakeAsyncSession()))
+    _prepare_service(service)
+    _patch_context_assembler(monkeypatch)
+    _patch_default_rust(monkeypatch, claims=[])
+    service.llm_router.route = AsyncMock(  # type: ignore[method-assign]
+        return_value=LLMResponse(
+            content="ok",
+            model="deepseek-chat",
+            provider="deepseek",
+            tokens_used=5,
+        )
+    )
+    service.claim_extractor.extract = AsyncMock(return_value=[])  # type: ignore[method-assign]
+
+    await service.process_turn(user_id="user-1", payload=TurnRequest(text="hello"))
+    route_call = service.llm_router.route.await_args
+    assert route_call is not None
+    messages = route_call.kwargs["messages"]
+    assert messages[0]["role"] == "system"
+
+
+@pytest.mark.asyncio
+async def test_process_turn_system_message_contains_ozymandias(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = TurnService(cast(AsyncSession, FakeAsyncSession()))
+    _prepare_service(service)
+    _patch_context_assembler(monkeypatch)
+    _patch_default_rust(monkeypatch, claims=[])
+    service.llm_router.route = AsyncMock(  # type: ignore[method-assign]
+        return_value=LLMResponse(
+            content="ok",
+            model="deepseek-chat",
+            provider="deepseek",
+            tokens_used=5,
+        )
+    )
+    service.claim_extractor.extract = AsyncMock(return_value=[])  # type: ignore[method-assign]
+
+    await service.process_turn(user_id="user-1", payload=TurnRequest(text="hello"))
+    route_call = service.llm_router.route.await_args
+    assert route_call is not None
+    messages = route_call.kwargs["messages"]
+    assert "Ozymandias" in messages[0]["content"]
+    assert "Ozymandias" in OZY_SYSTEM_PROMPT
+
+
+@pytest.mark.asyncio
+async def test_process_turn_system_message_uses_neutral_owner_label(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = TurnService(cast(AsyncSession, FakeAsyncSession()))
+    _prepare_service(service)
+    _patch_context_assembler(monkeypatch)
+    _patch_default_rust(monkeypatch, claims=[])
+    service.llm_router.route = AsyncMock(  # type: ignore[method-assign]
+        return_value=LLMResponse(
+            content="ok",
+            model="deepseek-chat",
+            provider="deepseek",
+            tokens_used=5,
+        )
+    )
+    service.claim_extractor.extract = AsyncMock(return_value=[])  # type: ignore[method-assign]
+
+    await service.process_turn(user_id="user-1", payload=TurnRequest(text="hello"))
+    route_call = service.llm_router.route.await_args
+    assert route_call is not None
+    messages = route_call.kwargs["messages"]
+    former_owner_name = "Ma" + "nni"
+    assert "dein Owner" in messages[0]["content"]
+    assert former_owner_name not in messages[0]["content"]
+    assert "dein Owner" in OZY_SYSTEM_PROMPT
+    assert former_owner_name not in OZY_SYSTEM_PROMPT
+
+
+def test_build_system_prompt_can_render_configured_owner() -> None:
+    prompt = build_system_prompt(
+        {
+            "name": "Alex",
+            "profile": "Softwareentwicklung",
+            "language": "Deutsch",
+        }
+    )
+
+    assert "Alex" in prompt
+    assert "Softwareentwicklung" in prompt
+    assert ("Ma" + "nni") not in prompt
+
+
+@pytest.mark.asyncio
+async def test_process_turn_injects_context_block_as_second_system_message(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = TurnService(cast(AsyncSession, FakeAsyncSession()))
+    _prepare_service(service)
+    _patch_default_rust(monkeypatch, claims=[])
+    custom_context = (
+        '<user_context>\n<projects count="1">Projekt: Ozymandias</projects>\n</user_context>'
+    )
+    assemble_mock = _patch_context_assembler(monkeypatch, context_block=custom_context)
+    service.llm_router.route = AsyncMock(  # type: ignore[method-assign]
+        return_value=LLMResponse(
+            content="ok",
+            model="deepseek-chat",
+            provider="deepseek",
+            tokens_used=5,
+        )
+    )
+    service.claim_extractor.extract = AsyncMock(return_value=[])  # type: ignore[method-assign]
+
+    await service.process_turn(
+        user_id="user-1", payload=TurnRequest(text="Welche Projekte habe ich?")
+    )
+    route_call = service.llm_router.route.await_args
+    assert route_call is not None
+    messages = route_call.kwargs["messages"]
+    assert messages[1]["role"] == "system"
+    assert messages[1]["content"] == custom_context
+    assemble_args = assemble_mock.await_args
+    assert assemble_args is not None
+    assert assemble_args.kwargs["user_id"] == "user-1"
+
+
+@pytest.mark.asyncio
+async def test_process_turn_injects_empty_context_when_memory_is_empty(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = TurnService(cast(AsyncSession, FakeAsyncSession()))
+    _prepare_service(service)
+    _patch_default_rust(monkeypatch, claims=[])
+    _patch_context_assembler(
+        monkeypatch,
+        context_block=(
+            "<user_context>\n"
+            "Keine Claims, Projekte oder Kontakte gespeichert. Memory ist leer.\n"
+            "</user_context>"
+        ),
+    )
+    service.llm_router.route = AsyncMock(  # type: ignore[method-assign]
+        return_value=LLMResponse(
+            content="ok",
+            model="deepseek-chat",
+            provider="deepseek",
+            tokens_used=5,
+        )
+    )
+    service.claim_extractor.extract = AsyncMock(return_value=[])  # type: ignore[method-assign]
+
+    await service.process_turn(
+        user_id="user-1", payload=TurnRequest(text="Was weisst du ueber mich?")
+    )
+    route_call = service.llm_router.route.await_args
+    assert route_call is not None
+    messages = route_call.kwargs["messages"]
+    assert "Memory ist leer" in messages[1]["content"]

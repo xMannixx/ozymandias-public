@@ -1,0 +1,635 @@
+{
+  "bomFormat": "CycloneDX",
+  "specVersion": "1.6",
+  "serialNumber": "urn:uuid:8f4a2b6e-9c3d-4e7f-b1a5-2d8c0f9e3b47",
+  "version": 1,
+  "metadata": {
+    "timestamp": "2026-04-15T12:03:22Z",
+    "tools": {
+      "components": [
+        {
+          "type": "application",
+          "name": "GitHub Copilot Agent",
+          "version": "1.0.0",
+          "description": "Automatisch generiert von GitHub Copilot Agent"
+        }
+      ]
+    },
+    "component": {
+      "type": "application",
+      "bom-ref": "ozymandias@0.1.0",
+      "name": "Ozymandias",
+      "version": "0.1.0",
+      "description": "Persönlicher KI-Assistent mit Rust-Kern (Validierung, Governance) und Python-Orchestrierung (FastAPI, LLM, DB)",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0"
+          }
+        }
+      ],
+      "purl": "pkg:github/xMannixx/ozymandias-public@0.1.0",
+      "externalReferences": [
+        {
+          "type": "vcs",
+          "url": "https://github.com/xMannixx/ozymandias-public"
+        }
+      ]
+    }
+  },
+  "components": [
+    {
+      "type": "library",
+      "bom-ref": "pkg:cargo/ozy-contracts@0.1.0",
+      "group": "rust",
+      "name": "ozy-contracts",
+      "version": "0.1.0",
+      "description": "Ozymandias shared types (no behavior, serde-only)",
+      "scope": "required",
+      "purl": "pkg:cargo/ozy-contracts@0.1.0"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:cargo/ozy-core@0.1.0",
+      "group": "rust",
+      "name": "ozy-core",
+      "version": "0.1.0",
+      "description": "Ozymandias core pure validation logic",
+      "scope": "required",
+      "purl": "pkg:cargo/ozy-core@0.1.0"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:cargo/ozy-bindings@0.1.0",
+      "group": "rust",
+      "name": "ozy-bindings",
+      "version": "0.1.0",
+      "description": "PyO3 bindings for Ozymandias Rust core",
+      "scope": "required",
+      "purl": "pkg:cargo/ozy-bindings@0.1.0"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:cargo/serde@1.0.228",
+      "group": "rust",
+      "name": "serde",
+      "version": "1.0.228",
+      "description": "A generic serialization/deserialization framework",
+      "scope": "required",
+      "licenses": [
+        { "license": { "id": "MIT" } },
+        { "license": { "id": "Apache-2.0" } }
+      ],
+      "purl": "pkg:cargo/serde@1.0.228"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:cargo/serde_json@1.0.149",
+      "group": "rust",
+      "name": "serde_json",
+      "version": "1.0.149",
+      "description": "A JSON serialization file format",
+      "scope": "required",
+      "licenses": [
+        { "license": { "id": "MIT" } },
+        { "license": { "id": "Apache-2.0" } }
+      ],
+      "purl": "pkg:cargo/serde_json@1.0.149"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:cargo/pyo3@0.28.3",
+      "group": "rust",
+      "name": "pyo3",
+      "version": "0.28.3",
+      "description": "Rust bindings for the Python interpreter",
+      "scope": "required",
+      "licenses": [
+        { "license": { "id": "MIT" } },
+        { "license": { "id": "Apache-2.0" } }
+      ],
+      "purl": "pkg:cargo/pyo3@0.28.3"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:cargo/proptest@1.11.0",
+      "group": "rust",
+      "name": "proptest",
+      "version": "1.11.0",
+      "description": "Hypothesis-like property-based testing and shrinking",
+      "scope": "optional",
+      "licenses": [
+        { "license": { "id": "MIT" } },
+        { "license": { "id": "Apache-2.0" } }
+      ],
+      "purl": "pkg:cargo/proptest@1.11.0"
+    },
+    {
+      "type": "framework",
+      "bom-ref": "pkg:pypi/fastapi@0.135.3",
+      "group": "backend",
+      "name": "fastapi",
+      "version": "0.135.3",
+      "description": "FastAPI framework, high performance, easy to learn, fast to code, ready for production",
+      "scope": "required",
+      "licenses": [
+        { "license": { "id": "MIT" } }
+      ],
+      "purl": "pkg:pypi/fastapi@0.135.3"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/pydantic@2.12.5",
+      "group": "backend",
+      "name": "pydantic",
+      "version": "2.12.5",
+      "description": "Data validation using Python type hints",
+      "scope": "required",
+      "licenses": [
+        { "license": { "id": "MIT" } }
+      ],
+      "purl": "pkg:pypi/pydantic@2.12.5"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/pydantic-settings@2.13.1",
+      "group": "backend",
+      "name": "pydantic-settings",
+      "version": "2.13.1",
+      "description": "Settings management using pydantic",
+      "scope": "required",
+      "licenses": [
+        { "license": { "id": "MIT" } }
+      ],
+      "purl": "pkg:pypi/pydantic-settings@2.13.1"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/sqlalchemy@2.0.48",
+      "group": "backend",
+      "name": "sqlalchemy",
+      "version": "2.0.48",
+      "description": "Database Abstraction Library",
+      "scope": "required",
+      "licenses": [
+        { "license": { "id": "MIT" } }
+      ],
+      "purl": "pkg:pypi/sqlalchemy@2.0.48"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/celery@5.6.3",
+      "group": "backend",
+      "name": "celery",
+      "version": "5.6.3",
+      "description": "Distributed Task Queue",
+      "scope": "required",
+      "licenses": [
+        { "license": { "id": "BSD-3-Clause" } }
+      ],
+      "purl": "pkg:pypi/celery@5.6.3"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/alembic@1.18.4",
+      "group": "backend",
+      "name": "alembic",
+      "version": "1.18.4",
+      "description": "A database migration tool for SQLAlchemy",
+      "scope": "required",
+      "licenses": [
+        { "license": { "id": "MIT" } }
+      ],
+      "purl": "pkg:pypi/alembic@1.18.4"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/uvicorn@0.43.0",
+      "group": "backend",
+      "name": "uvicorn",
+      "version": "0.43.0",
+      "description": "The lightning-fast ASGI server",
+      "scope": "required",
+      "licenses": [
+        { "license": { "id": "BSD-3-Clause" } }
+      ],
+      "purl": "pkg:pypi/uvicorn@0.43.0"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/asyncpg@0.31.0",
+      "group": "backend",
+      "name": "asyncpg",
+      "version": "0.31.0",
+      "description": "An asyncio PosgreSQL driver",
+      "scope": "required",
+      "licenses": [
+        { "license": { "id": "Apache-2.0" } }
+      ],
+      "purl": "pkg:pypi/asyncpg@0.31.0"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/pyjwt@2.12.1",
+      "group": "backend",
+      "name": "pyjwt",
+      "version": "2.12.1",
+      "description": "JSON Web Token implementation in Python",
+      "scope": "required",
+      "licenses": [
+        { "license": { "id": "MIT" } }
+      ],
+      "purl": "pkg:pypi/pyjwt@2.12.1"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/python-multipart@0.0.22",
+      "group": "backend",
+      "name": "python-multipart",
+      "version": "0.0.22",
+      "description": "A streaming multipart parser for Python",
+      "scope": "required",
+      "licenses": [
+        { "license": { "id": "Apache-2.0" } }
+      ],
+      "purl": "pkg:pypi/python-multipart@0.0.22"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/redis@6.4.0",
+      "group": "backend",
+      "name": "redis",
+      "version": "6.4.0",
+      "description": "Python client for Redis database and key-value store",
+      "scope": "required",
+      "licenses": [
+        { "license": { "id": "MIT" } }
+      ],
+      "purl": "pkg:pypi/redis@6.4.0"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/openai",
+      "group": "backend",
+      "name": "openai",
+      "description": "The official Python library for the openai API",
+      "scope": "required",
+      "licenses": [
+        { "license": { "id": "Apache-2.0" } }
+      ],
+      "purl": "pkg:pypi/openai"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/google-generativeai",
+      "group": "backend",
+      "name": "google-generativeai",
+      "description": "Google Generative AI Python SDK (Gemini)",
+      "scope": "required",
+      "licenses": [
+        { "license": { "id": "Apache-2.0" } }
+      ],
+      "purl": "pkg:pypi/google-generativeai"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/google-genai",
+      "group": "backend",
+      "name": "google-genai",
+      "description": "Google GenAI Python SDK",
+      "scope": "required",
+      "licenses": [
+        { "license": { "id": "Apache-2.0" } }
+      ],
+      "purl": "pkg:pypi/google-genai"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/google-auth",
+      "group": "backend",
+      "name": "google-auth",
+      "description": "Google Authentication Library",
+      "scope": "required",
+      "licenses": [
+        { "license": { "id": "Apache-2.0" } }
+      ],
+      "purl": "pkg:pypi/google-auth"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/google-auth-oauthlib",
+      "group": "backend",
+      "name": "google-auth-oauthlib",
+      "description": "Google Authentication Library – OAuthlib integration",
+      "scope": "required",
+      "licenses": [
+        { "license": { "id": "Apache-2.0" } }
+      ],
+      "purl": "pkg:pypi/google-auth-oauthlib"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/google-api-python-client",
+      "group": "backend",
+      "name": "google-api-python-client",
+      "description": "Google API Client Library for Python",
+      "scope": "required",
+      "licenses": [
+        { "license": { "id": "Apache-2.0" } }
+      ],
+      "purl": "pkg:pypi/google-api-python-client"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/minio",
+      "group": "backend",
+      "name": "minio",
+      "description": "MinIO Python SDK for object storage",
+      "scope": "required",
+      "licenses": [
+        { "license": { "id": "Apache-2.0" } }
+      ],
+      "purl": "pkg:pypi/minio"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/ollama",
+      "group": "backend",
+      "name": "ollama",
+      "description": "Python client for the Ollama local LLM runtime",
+      "scope": "required",
+      "licenses": [
+        { "license": { "id": "MIT" } }
+      ],
+      "purl": "pkg:pypi/ollama"
+    },
+    {
+      "type": "framework",
+      "bom-ref": "pkg:npm/react@19.2.4",
+      "group": "frontend",
+      "name": "react",
+      "version": "19.2.4",
+      "description": "React is a JavaScript library for building user interfaces",
+      "scope": "required",
+      "licenses": [
+        { "license": { "id": "MIT" } }
+      ],
+      "purl": "pkg:npm/react@19.2.4"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/react-dom@19.2.4",
+      "group": "frontend",
+      "name": "react-dom",
+      "version": "19.2.4",
+      "description": "React package for working with the DOM",
+      "scope": "required",
+      "licenses": [
+        { "license": { "id": "MIT" } }
+      ],
+      "purl": "pkg:npm/react-dom@19.2.4"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/react-router-dom@7.0.0",
+      "group": "frontend",
+      "name": "react-router-dom",
+      "version": "7.0.0",
+      "description": "Declarative routing for React web applications",
+      "scope": "required",
+      "licenses": [
+        { "license": { "id": "MIT" } }
+      ],
+      "purl": "pkg:npm/react-router-dom@7.0.0"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/recharts@3.8.1",
+      "group": "frontend",
+      "name": "recharts",
+      "version": "3.8.1",
+      "description": "A composable charting library built on React components",
+      "scope": "required",
+      "licenses": [
+        { "license": { "id": "MIT" } }
+      ],
+      "purl": "pkg:npm/recharts@3.8.1"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/react-rnd@10.5.3",
+      "group": "frontend",
+      "name": "react-rnd",
+      "version": "10.5.3",
+      "description": "A resizable and draggable component for React",
+      "scope": "required",
+      "licenses": [
+        { "license": { "id": "MIT" } }
+      ],
+      "purl": "pkg:npm/react-rnd@10.5.3"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/dompurify@3.3.3",
+      "group": "frontend",
+      "name": "dompurify",
+      "version": "3.3.3",
+      "description": "DOMPurify is a DOM-only, super-fast, uber-tolerant XSS sanitizer for HTML",
+      "scope": "required",
+      "licenses": [
+        { "license": { "id": "MPL-2.0" } },
+        { "license": { "id": "Apache-2.0" } }
+      ],
+      "purl": "pkg:npm/dompurify@3.3.3"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/react-is@19.2.4",
+      "group": "frontend",
+      "name": "react-is",
+      "version": "19.2.4",
+      "description": "Brand checking of React Elements",
+      "scope": "required",
+      "licenses": [
+        { "license": { "id": "MIT" } }
+      ],
+      "purl": "pkg:npm/react-is@19.2.4"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/vite@8.0.3",
+      "group": "frontend",
+      "name": "vite",
+      "version": "8.0.3",
+      "description": "Next generation frontend tooling",
+      "scope": "optional",
+      "licenses": [
+        { "license": { "id": "MIT" } }
+      ],
+      "purl": "pkg:npm/vite@8.0.3"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/typescript@6.0.2",
+      "group": "frontend",
+      "name": "typescript",
+      "version": "6.0.2",
+      "description": "TypeScript is a language for application scale JavaScript development",
+      "scope": "optional",
+      "licenses": [
+        { "license": { "id": "Apache-2.0" } }
+      ],
+      "purl": "pkg:npm/typescript@6.0.2"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/tailwindcss@4.2.2",
+      "group": "frontend",
+      "name": "tailwindcss",
+      "version": "4.2.2",
+      "description": "A utility-first CSS framework",
+      "scope": "optional",
+      "licenses": [
+        { "license": { "id": "MIT" } }
+      ],
+      "purl": "pkg:npm/tailwindcss@4.2.2"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/vitest@3.2.4",
+      "group": "frontend",
+      "name": "vitest",
+      "version": "3.2.4",
+      "description": "A Vite-native test framework",
+      "scope": "optional",
+      "licenses": [
+        { "license": { "id": "MIT" } }
+      ],
+      "purl": "pkg:npm/vitest@3.2.4"
+    },
+    {
+      "type": "container",
+      "bom-ref": "pkg:docker/pgvector%2Fpgvector@pg17",
+      "group": "infrastructure",
+      "name": "pgvector/pgvector",
+      "version": "pg17",
+      "description": "PostgreSQL 17 with pgvector extension for vector similarity search",
+      "scope": "required",
+      "licenses": [
+        { "license": { "id": "PostgreSQL" } }
+      ],
+      "purl": "pkg:docker/pgvector%2Fpgvector@pg17",
+      "externalReferences": [
+        {
+          "type": "website",
+          "url": "https://github.com/pgvector/pgvector"
+        }
+      ]
+    },
+    {
+      "type": "container",
+      "bom-ref": "pkg:docker/redis@7-alpine",
+      "group": "infrastructure",
+      "name": "redis",
+      "version": "7-alpine",
+      "description": "Redis in-memory data store (message broker for Celery)",
+      "scope": "required",
+      "licenses": [
+        { "license": { "id": "BSD-3-Clause" } }
+      ],
+      "purl": "pkg:docker/redis@7-alpine",
+      "externalReferences": [
+        {
+          "type": "website",
+          "url": "https://redis.io"
+        }
+      ]
+    },
+    {
+      "type": "container",
+      "bom-ref": "pkg:docker/minio%2Fminio@latest",
+      "group": "infrastructure",
+      "name": "minio/minio",
+      "version": "latest",
+      "description": "MinIO object storage (S3-compatible, for file attachments)",
+      "scope": "required",
+      "licenses": [
+        { "license": { "id": "AGPL-3.0-or-later" } }
+      ],
+      "purl": "pkg:docker/minio%2Fminio@latest",
+      "externalReferences": [
+        {
+          "type": "website",
+          "url": "https://min.io"
+        }
+      ]
+    },
+    {
+      "type": "container",
+      "bom-ref": "pkg:docker/nginx@1.28-alpine",
+      "group": "infrastructure",
+      "name": "nginx",
+      "version": "1.28-alpine",
+      "description": "Nginx reverse proxy and static file server",
+      "scope": "required",
+      "licenses": [
+        { "license": { "id": "BSD-2-Clause" } }
+      ],
+      "purl": "pkg:docker/nginx@1.28-alpine",
+      "externalReferences": [
+        {
+          "type": "website",
+          "url": "https://nginx.org"
+        }
+      ]
+    },
+    {
+      "type": "container",
+      "bom-ref": "pkg:docker/postgres@17-alpine",
+      "group": "infrastructure",
+      "name": "postgres",
+      "version": "17-alpine",
+      "description": "PostgreSQL 17 Alpine (used for db-init and pg-backup jobs)",
+      "scope": "required",
+      "licenses": [
+        { "license": { "id": "PostgreSQL" } }
+      ],
+      "purl": "pkg:docker/postgres@17-alpine"
+    }
+  ],
+  "dependencies": [
+    {
+      "ref": "ozymandias@0.1.0",
+      "dependsOn": [
+        "pkg:cargo/ozy-bindings@0.1.0",
+        "pkg:pypi/fastapi@0.135.3",
+        "pkg:npm/react@19.2.4",
+        "pkg:docker/pgvector%2Fpgvector@pg17",
+        "pkg:docker/redis@7-alpine",
+        "pkg:docker/minio%2Fminio@latest",
+        "pkg:docker/nginx@1.28-alpine"
+      ]
+    },
+    {
+      "ref": "pkg:cargo/ozy-bindings@0.1.0",
+      "dependsOn": [
+        "pkg:cargo/ozy-contracts@0.1.0",
+        "pkg:cargo/ozy-core@0.1.0",
+        "pkg:cargo/pyo3@0.28.3",
+        "pkg:cargo/serde_json@1.0.149"
+      ]
+    },
+    {
+      "ref": "pkg:cargo/ozy-core@0.1.0",
+      "dependsOn": [
+        "pkg:cargo/ozy-contracts@0.1.0"
+      ]
+    },
+    {
+      "ref": "pkg:cargo/ozy-contracts@0.1.0",
+      "dependsOn": [
+        "pkg:cargo/serde@1.0.228"
+      ]
+    }
+  ]
+}

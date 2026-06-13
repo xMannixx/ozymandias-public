@@ -1,0 +1,102 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ozymandias-backend"
+version = "0.1.0"
+description = "Ozymandias FastAPI backend scaffold"
+requires-python = ">=3.14"
+dependencies = [
+    "fastapi==0.135.3",
+    "pydantic==2.12.5",
+    "pydantic-settings==2.13.1",
+    "sqlalchemy==2.0.48",
+    "celery==5.6.3",
+    "alembic==1.18.4",
+    "uvicorn==0.43.0",
+    "asyncpg==0.31.0",
+    "pyjwt==2.12.1",
+    "python-multipart==0.0.22",
+    "redis[hiredis]==6.4.0",
+    "openai",
+    "google-generativeai",
+    "google-genai",
+    "google-auth",
+    "google-auth-oauthlib",
+    "google-api-python-client",
+    "minio",
+    "ollama",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3.0",
+    "pytest-asyncio>=0.24.0",
+    "pytest-cov>=6.0.0",
+    "pytest-xdist>=3.6.0",
+    "hypothesis>=6.120.0",
+    "httpx>=0.28.0",
+    "ruff>=0.8.0",
+    "mypy>=1.14.0",
+    "bandit>=1.8.0",
+    "pip-audit>=2.7.0",
+    "fakeredis>=2.31.0",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py314"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.ruff.lint.flake8-bugbear]
+extend-immutable-calls = ["fastapi.Depends", "fastapi.params.Depends"]
+
+[tool.mypy]
+python_version = "3.14"
+strict = true
+warn_unused_configs = true
+
+[[tool.mypy.overrides]]
+module = ["jwt", "jwt.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["celery", "celery.*", "fakeredis", "fakeredis.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["google", "google.*", "ollama", "ollama.*", "openai", "openai.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["googleapiclient", "googleapiclient.*", "google_auth_oauthlib", "google_auth_oauthlib.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["minio", "minio.*"]
+ignore_missing_imports = true
+
+[tool.deptry.per_rule_ignores]
+DEP001 = ["ozy_bindings"]
+DEP002 = [
+    "uvicorn",
+    "asyncpg",
+    "python-multipart",
+    "pytest",
+    "pytest-asyncio",
+    "pytest-cov",
+    "pytest-xdist",
+    "hypothesis",
+    "ruff",
+    "mypy",
+    "bandit",
+    "pip-audit",
+    "fakeredis",
+]

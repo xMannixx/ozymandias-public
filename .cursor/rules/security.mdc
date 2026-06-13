@@ -1,0 +1,13 @@
+---
+alwaysApply: true
+description: "Security-Vorgaben für Ozymandias"
+---
+
+# Security
+
+- .env ist heilig. Nicht lesen, nicht editieren, nicht in Code kopieren.
+- Keine Secrets in Code, Logs oder Fehlermeldungen.
+- Sensitivity-Routing: S3 nur lokal, S4 nur lokal+isoliert.
+- Claims nur über Proposals, nie direkt in DB schreiben.
+- Alle Aktionen ins Audit-Log.
+- JWT+HS256, CORS nur explizite Origins, Size-Limits auf alles.

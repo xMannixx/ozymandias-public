@@ -1,0 +1,67 @@
+import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import AuditFeed from "@/components/audit/AuditFeed";
+import { mockAuditList } from "@/test/fixtures";
+
+const defaultAuditFilters = {
+  event_type: "",
+  sensitivity: "",
+  result: "",
+  after: "",
+  before: "",
+} as const;
+
+const hookState = {
+  entries: mockAuditList,
+  total: 120,
+  loading: false,
+  error: null as string | null,
+  filters: defaultAuditFilters,
+  page: 1,
+  limit: 50,
+  showS4: false,
+  setFilters: vi.fn(),
+  resetFilters: vi.fn(),
+  setPage: vi.fn(),
+  setLimit: vi.fn(),
+  setShowS4: vi.fn(),
+  refetch: vi.fn(async () => undefined),
+};
+
+vi.mock("@/hooks/useAudit", () => ({
+  useAudit: () => hookState,
+}));
+
+describe("AuditFeed", () => {
+  it("renders list entries", () => {
+    render(<AuditFeed />);
+    expect(screen.getAllByText(/Turn Processed|Memory Confirmed|Sensitivity Violation/).length).toBeGreaterThan(0);
+  });
+
+  it("shows empty state when list is empty", () => {
+    hookState.entries = [];
+    render(<AuditFeed />);
+    expect(screen.getByText("Keine Audit-Eintraege")).toBeInTheDocument();
+    hookState.entries = mockAuditList;
+  });
+
+  it("shows loading spinner", () => {
+    hookState.loading = true;
+    render(<AuditFeed />);
+    expect(screen.getByLabelText("loading")).toBeInTheDocument();
+    hookState.loading = false;
+  });
+
+  it("pagination previous and next call setPage", async () => {
+    hookState.setPage.mockClear();
+    render(<AuditFeed />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Vor" }));
+    expect(hookState.setPage).toHaveBeenCalledWith(2);
+  });
+
+  it("S4 toggle is disabled by default", () => {
+    render(<AuditFeed />);
+    expect(screen.getByLabelText("s4-toggle")).not.toBeChecked();
+  });
+});
