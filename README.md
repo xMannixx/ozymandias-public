@@ -7,15 +7,15 @@
 
 Persönliche KI-Schaltzentrale. Autonomer Assistent mit langfristigem Memory, Sensitivity-basiertem Privacy-Routing, gehärteter Governance und vollständigem Audit-Trail.
 
-## Was ist Ozymandias?
+![Ozymandias NOC-Dashboard](docs/assets/ozymandias_dashboard_mockup.png)
 
-Ozymandias (Ozy) ist ein persönlicher KI-Assistent, der das Leben seines Nutzers aufzeichnen, beraten, proaktiv handeln und über Jahre hinweg kohärent funktionieren soll. Kein Chatbot — eine Schaltzentrale.
-
-Weniger Hersteller-Abhängigkeit, weniger Tool-Chaos, weniger Kontextwechsel, bessere Kostenkontrolle. API-first, Privacy-first, lokal-first.
+> [!TIP]
+> **Neu bei Ozymandias?** Lies das leicht verständliche [Benutzerhandbuch & Administrator-Leitfaden (USER_GUIDE.md)](docs/USER_GUIDE.md) für eine Schritt-für-Schritt-Anleitung zur Nutzung und Verwaltung von Gedächtnis, Vorschlägen (Proposals) und Datenschutzstufen.
 
 ## Inhaltsverzeichnis
 
 - [Schnellstart](#schnellstart)
+- [Benutzerhandbuch & Anleitungen](#benutzerhandbuch--anleitungen)
 - [Architektur](#architektur)
 - [Kernkonzepte](#kernkonzepte)
 - [Tech Stack](#tech-stack)
@@ -26,10 +26,29 @@ Weniger Hersteller-Abhängigkeit, weniger Tool-Chaos, weniger Kontextwechsel, be
 
 ## Schnellstart
 
-Vollständige Anforderungen und Versionsmatrix: [`REQUIREMENTS.md`](REQUIREMENTS.md) · [`docs/OZY_SOFTWARE_VERSIONEN.md`](docs/OZY_SOFTWARE_VERSIONEN.md)
+Für den Einstieg unter Windows steht ein interaktiver Launcher zur Verfügung:
+```cmd
+.\bootstrap.cmd
+```
+Dieses Skript führt dich durch den Setup-Prozess und bietet dir zwei Pfade zur Installation an:
 
-**Voraussetzungen:** Docker, Rust-Toolchain (`rustc` ≥ 1.94), Python ≥ 3.14, Node.js LTS
+### Pfad A: Schnelle Evaluierung (Empfohlen zum Ausprobieren)
+Dieser Modus umgeht die Rust-Kompilierung auf dem Host und nutzt das integrierte Python-Fallback-Modul. Außerdem wird die Authentifizierungsseite deaktiviert, damit du direkt starten kannst.
+1. Kopiere `.env.example` nach `.env`.
+2. Setze in deiner `.env`:
+   ```env
+   AUTH_DEV_BYPASS=true
+   VITE_AUTH_BYPASS=true
+   ```
+3. Starte das System mit Docker:
+   ```bash
+   docker compose up -d
+   ```
+4. Öffne `http://localhost:8080` in deinem Browser.
 
+### Pfad B: Vollständiger Entwickler-Build (Voller Stack)
+Nutzt den vollständigen, in Rust geschriebenen Governance- und Validierungs-Kern.
+*Voraussetzungen:* Docker, Rust-Toolchain (`rustc` ≥ 1.94), Python ≥ 3.14, Node.js LTS
 ```bash
 # 1. Rust-Workspace bauen und testen
 cd rust && cargo build --workspace && cargo test --workspace
@@ -37,12 +56,19 @@ cd rust && cargo build --workspace && cargo test --workspace
 # 2. Python-Backend-Abhängigkeiten installieren
 cd backend && pip install -r requirements.txt -r requirements-dev.txt
 
-# 3. .env vorbereiten, dann gesamtes System per Docker starten
+# 3. .env vorbereiten und stack starten
 cp .env.example .env
 docker compose up --build
 ```
+Das Backend ist danach unter `http://localhost:8000` erreichbar, das Frontend über Nginx auf `http://localhost:8080`.
 
-Das Backend ist danach unter `http://localhost:8000` erreichbar, das Frontend unter `http://localhost:5173` (Dev) bzw. über Nginx im Prod-Build. `AUTH_DEV_BYPASS` ist standardmäßig `false` und sollte nur lokal bewusst aktiviert werden.
+## Benutzerhandbuch & Anleitungen
+
+Im [Benutzerhandbuch (docs/USER_GUIDE.md)](docs/USER_GUIDE.md) findest du detaillierte Schritt-für-Schritt-Anleitungen für typische Anwendungsfälle, darunter:
+* **Fakten hinzufügen:** Wie Ozy sich implizit oder explizit Dinge im Chat merkt.
+- **Proposals validieren:** Wie du Vorschläge freigibst oder editierst.
+* **Konflikte auflösen:** Was passiert, wenn sich Aussagen widersprechen.
+* **Datenschutz konfigurieren:** Steuerung der Sensitivity-Klassen (S0 bis S4).
 
 ## Architektur
 

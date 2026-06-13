@@ -9,6 +9,7 @@
 ```
 docs/
 ├── INDEX.md                  ← Du bist hier
+├── USER_GUIDE.md             ← Benutzerhandbuch & Administrator-Leitfaden
 ├── ARCHITECTURE.md           ← Systemarchitektur, Schichtenmodell
 ├── sbom/                     ← Software & ML Bill of Materials
 │   ├── sbom.cdx.json         ← SBOM (CycloneDX 1.6): alle Abhängigkeiten
@@ -48,6 +49,7 @@ docs/
 
 | Dokument | Inhalt |
 |---|---|
+| [`USER_GUIDE.md`](USER_GUIDE.md) | **Benutzerhandbuch & Administrator-Leitfaden (Start hier!)** |
 | [`../README.md`](../README.md) | Projektübersicht, Schnellstart, Tech-Stack |
 | [`ARCHITECTURE.md`](ARCHITECTURE.md) | Systemarchitektur, Schichtenmodell, Datenfluss |
 | [`../REQUIREMENTS.md`](../REQUIREMENTS.md) | Abhängigkeiten, Versionsmatrix |
