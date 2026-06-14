@@ -99,6 +99,12 @@ async def toggle_kill_switch(
     return _to_settings_response(updated)
 
 
+def _mask_key(key: str | None) -> str | None:
+    if not key or not key.strip():
+        return None
+    return "••••••••"
+
+
 def _to_settings_response(settings: UserSettings) -> UserSettingsResponse:
     preferred_provider = settings.preferred_provider
     if preferred_provider not in _PROVIDER_VALUES:
@@ -146,5 +152,10 @@ def _to_settings_response(settings: UserSettings) -> UserSettingsResponse:
         tts_voice=settings.tts_voice,
         tts_model=cast(Literal["tts-1", "tts-1-hd"], tts_model),
         tts_autoplay=settings.tts_autoplay,
+        openai_api_key=_mask_key(settings.openai_api_key),
+        deepseek_api_key=_mask_key(settings.deepseek_api_key),
+        gemini_api_key=_mask_key(settings.gemini_api_key),
+        mistral_api_key=_mask_key(settings.mistral_api_key),
+        anthropic_api_key=_mask_key(settings.anthropic_api_key),
         updated_at=settings.updated_at,
     )

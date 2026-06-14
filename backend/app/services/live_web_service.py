@@ -53,6 +53,7 @@ class LiveWebService:
         query: str,
         mode: LiveWebMode,
         preferred_provider: str | None = None,
+        api_keys: dict[str, str | None] | None = None,
     ) -> LiveWebContext:
         """Execute one live search flow according to configured mode."""
         cleaned_query = query.strip()
@@ -66,6 +67,7 @@ class LiveWebService:
         native_result = await self._search_with_provider_native(
             cleaned_query,
             preferred_provider=preferred_provider,
+            api_keys=api_keys,
         )
         if native_result is not None:
             return native_result
@@ -78,8 +80,9 @@ class LiveWebService:
         query: str,
         *,
         preferred_provider: str | None,
+        api_keys: dict[str, str | None] | None = None,
     ) -> LiveWebContext | None:
-        provider_name = self._select_native_provider(preferred_provider)
+        provider_name = self._select_native_provider(preferred_provider, api_keys=api_keys)
         if provider_name is None:
             return None
 
@@ -102,6 +105,7 @@ class LiveWebService:
                 messages=messages,
                 tools=tools,
                 preferred_provider=provider_name,
+                api_keys=api_keys,
             )
         except Exception:
             return None
@@ -115,8 +119,16 @@ class LiveWebService:
             answer_hint=response.content or None,
         )
 
-    def _select_native_provider(self, preferred_provider: str | None) -> str | None:
+    def _select_native_provider(
+        self,
+        preferred_provider: str | None,
+        api_keys: dict[str, str | None] | None = None,
+    ) -> str | None:
         configured = set(self._router.available_providers)
+        if api_keys:
+            for p, val in api_keys.items():
+                if val and val.strip():
+                    configured.add(p)
         native_candidates = ("openai", "deepseek")
         if preferred_provider:
             normalized = preferred_provider.strip().lower()
@@ -126,6 +138,7 @@ class LiveWebService:
             if candidate in configured:
                 return candidate
         return None
+
 
     async def _search_with_connector(self, query: str) -> list[LiveWebSource]:
         connector_url = self._settings.live_web_connector_url.strip()

@@ -114,6 +114,14 @@ class TurnService:
                 preferred_local_provider = None
                 preferred_local_model = None
 
+            api_keys = {
+                "openai": getattr(settings, "openai_api_key", None),
+                "deepseek": getattr(settings, "deepseek_api_key", None),
+                "gemini": getattr(settings, "gemini_api_key", None),
+                "mistral": getattr(settings, "mistral_api_key", None),
+                "anthropic": getattr(settings, "anthropic_api_key", None),
+            }
+
             live_web_requested = payload.use_live_web
             if live_web_requested is None:
                 live_web_requested = bool(getattr(settings, "live_web_enabled", False))
@@ -151,6 +159,7 @@ class TurnService:
                                 live_web_mode,
                             ),
                             preferred_provider=preferred_provider,
+                            api_keys=api_keys,
                         )
                     except ServiceError as exc:
                         live_web_error = str(exc)
@@ -175,6 +184,7 @@ class TurnService:
                 preferred_local_provider=preferred_local_provider,
                 preferred_local_model=preferred_local_model,
                 system_prompt=system_prompt,
+                api_keys=api_keys,
             )
             sensitivity_output = rust_bridge.filter_claims(
                 SensitivityFilterInput(
@@ -421,6 +431,7 @@ class TurnService:
         preferred_local_provider: str | None = None,
         preferred_local_model: str | None = None,
         system_prompt: str = "",
+        api_keys: dict[str, str | None] | None = None,
     ) -> tuple[list[ClaimData], str, str, str | None, str | None]:
         """Extract claims from override or from routed LLM calls."""
         if payload.claims is None:
@@ -460,12 +471,14 @@ class TurnService:
                 preferred_model=preferred_model,
                 preferred_local_provider=preferred_local_provider,
                 preferred_local_model=preferred_local_model,
+                api_keys=api_keys,
             )
             claims = await self.claim_extractor.extract(
                 llm_response_text=llm_response.content,
                 original_message=payload.text,
                 sensitivity=sensitivity,
                 turn_id=turn_id,
+                api_keys=api_keys,
             )
             return (
                 claims,

@@ -73,6 +73,7 @@ class ClaimExtractor:
         original_message: str,
         sensitivity: Sensitivity,
         turn_id: str,
+        api_keys: dict[str, str | None] | None = None,
     ) -> list[ClaimData]:
         messages: list[LLMMessage] = [
             {"role": "system", "content": EXTRACTION_SYSTEM_PROMPT},
@@ -85,10 +86,14 @@ class ClaimExtractor:
                 ),
             },
         ]
+        route_kwargs = {}
+        if api_keys is not None:
+            route_kwargs["api_keys"] = api_keys
         extraction = await self._router.route(
             intent="claim_extraction",
             sensitivity=sensitivity,
             messages=messages,
+            **route_kwargs,
         )
         raw_items = _parse_claim_array(extraction.content)
         if not raw_items:
@@ -232,4 +237,6 @@ class SupportsRouting(Protocol):
         sensitivity: Sensitivity,
         messages: list[LLMMessage],
         tools: list[dict[str, Any]] | None = None,
+        api_keys: dict[str, str | None] | None = None,
     ) -> LLMResponse: ...
+
