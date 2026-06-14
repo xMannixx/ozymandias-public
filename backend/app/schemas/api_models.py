@@ -259,6 +259,11 @@ class UserSettingsResponse(BaseModel):
     tts_voice: str
     tts_model: Literal["tts-1", "tts-1-hd"]
     tts_autoplay: bool
+    openai_api_key: str | None = None
+    deepseek_api_key: str | None = None
+    gemini_api_key: str | None = None
+    mistral_api_key: str | None = None
+    anthropic_api_key: str | None = None
     updated_at: datetime
 
 
@@ -283,6 +288,11 @@ class UpdateSettingsRequest(BaseModel):
     tts_voice: str | None = Field(default=None, min_length=1, max_length=50)
     tts_model: Literal["tts-1", "tts-1-hd"] | None = None
     tts_autoplay: bool | None = None
+    openai_api_key: str | None = None
+    deepseek_api_key: str | None = None
+    gemini_api_key: str | None = None
+    mistral_api_key: str | None = None
+    anthropic_api_key: str | None = None
 
 
 class KillSwitchRequest(BaseModel):

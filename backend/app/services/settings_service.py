@@ -25,6 +25,11 @@ class SettingsService:
             "preferred_model",
             "preferred_local_provider",
             "preferred_local_model",
+            "openai_api_key",
+            "deepseek_api_key",
+            "gemini_api_key",
+            "mistral_api_key",
+            "anthropic_api_key",
         }
 
     async def get_or_create(self, user_id: str) -> UserSettings:
@@ -48,6 +53,20 @@ class SettingsService:
         for key, value in kwargs.items():
             if value is None and key not in self._nullable_update_fields:
                 continue
+            
+            # API Key masking logic
+            if key in {
+                "openai_api_key",
+                "deepseek_api_key",
+                "gemini_api_key",
+                "mistral_api_key",
+                "anthropic_api_key",
+            }:
+                if value in {"••••••••", "********"}:
+                    continue
+                if value == "":
+                    value = None
+
             if hasattr(settings, key):
                 setattr(settings, key, value)
         settings.updated_at = datetime.now(tz=UTC)

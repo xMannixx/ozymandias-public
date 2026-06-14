@@ -352,13 +352,23 @@ CREATE TABLE IF NOT EXISTS user_settings (
     tts_model                    TEXT NOT NULL DEFAULT 'tts-1'
                                  CHECK (tts_model IN ('tts-1', 'tts-1-hd')),
     tts_autoplay                 BOOLEAN NOT NULL DEFAULT TRUE,
+    openai_api_key               TEXT,
+    deepseek_api_key             TEXT,
+    gemini_api_key               TEXT,
+    mistral_api_key              TEXT,
+    anthropic_api_key            TEXT,
     updated_at                   TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 ALTER TABLE user_settings
     ADD COLUMN IF NOT EXISTS live_web_enabled BOOLEAN NOT NULL DEFAULT FALSE,
     ADD COLUMN IF NOT EXISTS live_web_mode TEXT NOT NULL DEFAULT 'provider_native_first',
-    ADD COLUMN IF NOT EXISTS live_web_s3_confirmed_default BOOLEAN NOT NULL DEFAULT FALSE;
+    ADD COLUMN IF NOT EXISTS live_web_s3_confirmed_default BOOLEAN NOT NULL DEFAULT FALSE,
+    ADD COLUMN IF NOT EXISTS openai_api_key TEXT,
+    ADD COLUMN IF NOT EXISTS deepseek_api_key TEXT,
+    ADD COLUMN IF NOT EXISTS gemini_api_key TEXT,
+    ADD COLUMN IF NOT EXISTS mistral_api_key TEXT,
+    ADD COLUMN IF NOT EXISTS anthropic_api_key TEXT;
 
 DO $$
 BEGIN

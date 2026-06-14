@@ -59,6 +59,11 @@ class UserSettings(Base):
     tts_voice: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'ash'"))
     tts_model: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'tts-1'"))
     tts_autoplay: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("true"))
+    openai_api_key: Mapped[str | None] = mapped_column(Text)
+    deepseek_api_key: Mapped[str | None] = mapped_column(Text)
+    gemini_api_key: Mapped[str | None] = mapped_column(Text)
+    mistral_api_key: Mapped[str | None] = mapped_column(Text)
+    anthropic_api_key: Mapped[str | None] = mapped_column(Text)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
