@@ -10,9 +10,14 @@ from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.google_oauth import GoogleOAuthForbiddenError, GoogleOAuthService
-from app.auth.jwt import get_current_user
+from app.auth.jwt import decode_access_token, get_current_user
 from app.database import get_db, get_redis
-from app.schemas.api_models import GoogleAuthUrlResponse, GoogleStatusResponse
+from app.schemas.api_models import (
+    GoogleAuthUrlResponse,
+    GoogleStatusResponse,
+    TokenLoginRequest,
+    TokenLoginResponse,
+)
 from app.services.errors import ServiceError, ValidationError
 
 STATE_PREFIX = "google_oauth_state:"
@@ -92,3 +97,16 @@ async def google_disconnect(
     service = GoogleOAuthService()
     await service.disconnect(user_id=user_id, db=db)
     return {"disconnected": True}
+
+
+@router.post("/token", response_model=TokenLoginResponse)
+async def token_login(payload: TokenLoginRequest) -> TokenLoginResponse:
+    """Validate a local JWT developer token and log in."""
+    try:
+        decode_access_token(payload.token)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication token",
+        ) from exc
+    return TokenLoginResponse(access_token=payload.token)

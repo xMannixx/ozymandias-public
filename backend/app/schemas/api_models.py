@@ -37,6 +37,18 @@ class GoogleStatusResponse(BaseModel):
     scopes: list[str]
 
 
+class TokenLoginRequest(BaseModel):
+    """Payload for dev token login."""
+
+    token: str
+
+
+class TokenLoginResponse(BaseModel):
+    """Access token response payload."""
+
+    access_token: str
+
+
 class VoiceTranscriptionResponse(BaseModel):
     """Response payload for voice transcription endpoint."""
 
