@@ -11,13 +11,13 @@ vi.mock("react-router-dom", async () => {
 
 describe("ClaimsSummary", () => {
   it("shows claims_total", () => {
-    render(<ClaimsSummary claimsTotal={12} verification={{ tentative: 4, confirmed: 6 }} />);
+    render(<ClaimsSummary claimsTotal={12} verification={{ tentative: 4, confirmed: 6 }} sensitivity={{ S0: 2 }} />);
     expect(screen.getByText("12")).toBeInTheDocument();
   });
 
   it("renders verification distribution bars", () => {
-    render(<ClaimsSummary claimsTotal={12} verification={{ tentative: 4, confirmed: 6, superseded: 1, retracted: 1 }} />);
-    expect(screen.getByText("tentative")).toBeInTheDocument();
-    expect(screen.getByText("confirmed")).toBeInTheDocument();
+    render(<ClaimsSummary claimsTotal={12} verification={{ tentative: 4, confirmed: 6, superseded: 1, retracted: 1 }} sensitivity={{ S0: 2, S1: 2 }} />);
+    expect(screen.getByText("Vorläufig")).toBeInTheDocument();
+    expect(screen.getByText("Bestätigt")).toBeInTheDocument();
   });
 });
