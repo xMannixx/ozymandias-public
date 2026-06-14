@@ -24,13 +24,20 @@ Persönliche KI-Schaltzentrale. Autonomer Assistent mit langfristigem Memory, Se
 
 ## Schnellstart
 
-Für den Einstieg unter Windows steht ein interaktiver Launcher zur Verfügung:
+### Windows
 
 ```cmd
 .\bootstrap.cmd
 ```
 
-Dieses Skript führt dich durch den Setup-Prozess und bietet dir zwei Pfade zur Installation an:
+### macOS / Linux
+
+```bash
+chmod +x bootstrap.sh
+./bootstrap.sh
+```
+
+Der interaktive Launcher führt dich durch den Setup-Prozess und bietet zwei Pfade zur Installation an:
 
 ### Pfad A: Schnelle Evaluierung (Empfohlen zum Ausprobieren)
 
