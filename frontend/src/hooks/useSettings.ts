@@ -26,6 +26,13 @@ type UseSettingsResult = {
     ttsModel: "tts-1" | "tts-1-hd",
     ttsAutoplay: boolean,
   ) => Promise<void>;
+  updateApiKeys: (
+    openaiKey: string | null,
+    deepseekKey: string | null,
+    geminiKey: string | null,
+    mistralKey: string | null,
+    anthropicKey: string | null,
+  ) => Promise<void>;
 };
 
 function normalizeError(error: unknown): string {
@@ -132,6 +139,25 @@ export function useSettings(): UseSettingsResult {
     [patchSettings],
   );
 
+  const updateApiKeys = useCallback(
+    async (
+      openaiKey: string | null,
+      deepseekKey: string | null,
+      geminiKey: string | null,
+      mistralKey: string | null,
+      anthropicKey: string | null,
+    ) => {
+      await patchSettings({
+        openai_api_key: openaiKey,
+        deepseek_api_key: deepseekKey,
+        gemini_api_key: geminiKey,
+        mistral_api_key: mistralKey,
+        anthropic_api_key: anthropicKey,
+      });
+    },
+    [patchSettings],
+  );
+
   useEffect(() => {
     void refetch();
   }, [refetch]);
@@ -145,5 +171,6 @@ export function useSettings(): UseSettingsResult {
     updateCircuitBreaker,
     updateProviderPreference,
     updateVoiceSettings,
+    updateApiKeys,
   };
 }

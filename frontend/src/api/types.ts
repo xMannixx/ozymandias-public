@@ -177,6 +177,11 @@ export type UserSettingsResponse = {
   tts_voice: string;
   tts_model: "tts-1" | "tts-1-hd";
   tts_autoplay: boolean;
+  openai_api_key?: string | null;
+  deepseek_api_key?: string | null;
+  gemini_api_key?: string | null;
+  mistral_api_key?: string | null;
+  anthropic_api_key?: string | null;
   updated_at: string;
 };
 
@@ -199,6 +204,11 @@ export type UpdateSettingsRequest = {
   tts_voice?: string;
   tts_model?: "tts-1" | "tts-1-hd";
   tts_autoplay?: boolean;
+  openai_api_key?: string | null;
+  deepseek_api_key?: string | null;
+  gemini_api_key?: string | null;
+  mistral_api_key?: string | null;
+  anthropic_api_key?: string | null;
 };
 
 export type TurnRequest = {

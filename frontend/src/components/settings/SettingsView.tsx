@@ -6,6 +6,7 @@ import GoogleConnection from "@/components/settings/GoogleConnection";
 import KillSwitch from "@/components/settings/KillSwitch";
 import ModeSettings from "@/components/settings/ModeSettings";
 import ProviderSelect from "@/components/settings/ProviderSelect";
+import ApiKeysSettings from "@/components/settings/ApiKeysSettings";
 import VoiceSettings from "@/components/settings/VoiceSettings";
 import { useSettings } from "@/hooks/useSettings";
 
@@ -13,8 +14,17 @@ const DEFAULT_INTERVAL_HOURS = 24;
 const DEFAULT_CONFIDENCE_THRESHOLD = 0.5;
 
 function SettingsView(): JSX.Element {
-  const { settings, loading, error, refetch, updateDecay, updateCircuitBreaker, updateProviderPreference, updateVoiceSettings } =
-    useSettings();
+  const {
+    settings,
+    loading,
+    error,
+    refetch,
+    updateDecay,
+    updateCircuitBreaker,
+    updateProviderPreference,
+    updateVoiceSettings,
+    updateApiKeys,
+  } = useSettings();
 
   const intervalHours = settings?.decay_interval_hours ?? DEFAULT_INTERVAL_HOURS;
   const confidenceThreshold = settings?.decay_confidence_threshold ?? DEFAULT_CONFIDENCE_THRESHOLD;
@@ -71,6 +81,11 @@ function SettingsView(): JSX.Element {
         liveWebS3ConfirmedDefault={settings?.live_web_s3_confirmed_default ?? false}
         saving={loading}
         onSave={updateProviderPreference}
+      />
+      <ApiKeysSettings
+        settings={settings}
+        saving={loading}
+        onSave={updateApiKeys}
       />
       <VoiceSettings
         voiceEnabled={settings?.voice_enabled ?? false}
