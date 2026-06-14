@@ -49,9 +49,14 @@ function DashboardView(): JSX.Element {
         <ClaimsSummary
           claimsTotal={stats.claims_total}
           verification={stats.claims_by_verification}
+          sensitivity={stats.claims_by_sensitivity}
         />
-        <StatsCard value={stats.claims_total} label="Claims Gesamt" to="/memory" />
+        <SystemHealth />
+
         <ProposalsSummary pending={stats.proposals_pending} total={stats.proposals_total} />
+        <CircuitBreakerCard status={stats.circuit_breaker} />
+        <ModeSwitch />
+
         <ProjectsSummary
           projectsActive={stats.projects_active}
           tasksOpen={stats.projects_tasks_open}
@@ -59,12 +64,9 @@ function DashboardView(): JSX.Element {
           nextMilestone={stats.projects_next_milestone}
         />
         <ContactsSummary contactsTotal={stats.contacts_total} />
-        <SensitivityChart values={stats.claims_by_sensitivity} />
-        <CircuitBreakerCard status={stats.circuit_breaker} />
         <ProviderUsageChart usage={stats.provider_usage} />
+
         <RecentActionsCard entries={stats.recent_actions} />
-        <ModeSwitch />
-        <SystemHealth />
       </div>
     </section>
   );
