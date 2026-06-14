@@ -1,9 +1,5 @@
 # Ozymandias
 
-| Ozy Light (Gut) | Ozy Dark (Böse) |
-| :---: | :---: |
-| ![Ozymandias Light Banner](docs/assets/ozymandias_banner_light.png) | ![Ozymandias Dark Banner](docs/assets/ozymandias_banner_dark.png) |
-
 [![PR Gate](https://github.com/xMannixx/ozymandias-public/actions/workflows/pr.yml/badge.svg)](https://github.com/xMannixx/ozymandias-public/actions/workflows/pr.yml)
 [![Lizenz](https://img.shields.io/badge/Lizenz-Apache%202.0-blue.svg)](LICENSE)
 [![Rust](https://img.shields.io/badge/Rust-1.94%2B-orange.svg)](https://www.rust-lang.org/)
