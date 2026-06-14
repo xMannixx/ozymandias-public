@@ -83,7 +83,11 @@ while ($choice -ne "1" -and $choice -ne "2") {
 
 # Bereinige alte/konfliktbehaftete Container mit expliziten Namen
 Write-Host "Prüfe und bereinige alte Container-Instanzen..." -ForegroundColor $Yellow
-docker rm -f ozy-backend ozy-frontend-build ozy-nginx ozy-db-init ozy-pg-backup ozy-postgres ozy-redis ozy-minio *>$null
+try {
+    docker rm -f ozy-backend ozy-frontend-build ozy-nginx ozy-db-init ozy-pg-backup ozy-postgres ozy-redis ozy-minio 2>&1 | Out-Null
+} catch {
+    # Ignorieren
+}
 
 if ($choice -eq "1") {
     Write-Host ""
