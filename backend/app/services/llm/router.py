@@ -157,6 +157,11 @@ class LLMRouter:
         sensitivity: Sensitivity,
         enforce_local: bool = True,
     ) -> str:
+        # If no cloud providers are configured, route everything to the available local provider.
+        has_cloud = any(p in self._providers for p in ("deepseek", "openai", "gemini"))
+        if not has_cloud:
+            return self._get_local_provider()
+
         normalized_intent = intent.strip().lower()
         if enforce_local and sensitivity in {Sensitivity.S4, Sensitivity.S3}:
             return self._get_local_provider()
