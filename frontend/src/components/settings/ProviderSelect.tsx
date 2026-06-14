@@ -5,7 +5,7 @@ import Spinner from "@/components/common/Spinner";
 import { useHealth } from "@/hooks/useHealth";
 import type { LLMProviderName } from "@/api/types";
 
-const CLOUD_PROVIDERS = ["deepseek", "openai", "gemini"] as const;
+const CLOUD_PROVIDERS = ["deepseek", "openai", "gemini", "mistral"] as const;
 const LOCAL_PROVIDERS = ["ollama", "lmstudio"] as const;
 
 type CloudProviderName = (typeof CLOUD_PROVIDERS)[number];
@@ -44,7 +44,7 @@ function formatProviderLabel(provider: LLMProviderName): string {
 }
 
 function toCloudProviderOption(provider: LLMProviderName | null): ProviderOption {
-  if (provider === "deepseek" || provider === "openai" || provider === "gemini") {
+  if (provider === "deepseek" || provider === "openai" || provider === "gemini" || provider === "mistral") {
     return provider;
   }
   return "auto";

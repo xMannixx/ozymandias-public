@@ -12,6 +12,7 @@ const PROVIDER_OPTIONS: Array<{ value: LLMProviderName; label: string }> = [
   { value: "openai", label: "OpenAI" },
   { value: "ollama", label: "Ollama" },
   { value: "gemini", label: "Gemini" },
+  { value: "mistral", label: "Mistral" },
 ];
 
 function ChatView(): JSX.Element {

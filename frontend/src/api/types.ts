@@ -1,5 +1,5 @@
 export type Sensitivity = "S0" | "S1" | "S2" | "S3" | "S4";
-export type LLMProviderName = "deepseek" | "openai" | "ollama" | "gemini" | "lmstudio";
+export type LLMProviderName = "deepseek" | "openai" | "ollama" | "gemini" | "lmstudio" | "mistral";
 export type VoiceMode = "push_to_talk" | "hands_free";
 
 export type ClaimResponse = {
