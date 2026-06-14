@@ -51,21 +51,21 @@ function SystemHealth(): JSX.Element {
     if (statusValue === "ok" || statusValue === "dev-fallback") {
       return (
         <span className="relative flex h-2.5 w-2.5">
-          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-          <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500 shadow-[0_0_8px_#10b981]"></span>
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-300 opacity-75"></span>
+          <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-400 shadow-[0_0_12px_#10b981,0_0_20px_rgba(16,185,129,0.5)]"></span>
         </span>
       );
     }
     if (statusValue === "configured" || statusValue === "ok") {
-      return <span className="h-2.5 w-2.5 rounded-full bg-blue-500 shadow-[0_0_8px_#3b82f6]" />;
+      return <span className="h-2.5 w-2.5 rounded-full bg-blue-400 shadow-[0_0_12px_#3b82f6,0_0_20px_rgba(59,130,246,0.5)]" />;
     }
     if (statusValue === "not_configured") {
       return <span className="h-2.5 w-2.5 rounded-full bg-slate-600" />;
     }
     return (
       <span className="relative flex h-2.5 w-2.5">
-        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
-        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-rose-500 shadow-[0_0_8px_#f43f5e]"></span>
+        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-300 opacity-75"></span>
+        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-rose-400 shadow-[0_0_12px_#f43f5e,0_0_20px_rgba(244,63,94,0.5)]"></span>
       </span>
     );
   };

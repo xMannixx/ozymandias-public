@@ -12,11 +12,11 @@ const states = ["tentative", "confirmed", "superseded", "retracted"] as const;
 const levels = ["S0", "S1", "S2", "S3", "S4"] as const;
 
 const palette: Record<string, string> = {
-  S0: "#8b949e",
-  S1: "#3fb950",
-  S2: "#58a6ff",
-  S3: "#f0883e",
-  S4: "#bc8cff",
+  S0: "#94a3b8", // Vibrant silver
+  S1: "#00ff87", // Neon green
+  S2: "#00d2ff", // Neon cyan/blue
+  S3: "#ff7b00", // Neon orange
+  S4: "#d946ef", // Neon magenta
 };
 
 const stateLabels: Record<string, string> = {
