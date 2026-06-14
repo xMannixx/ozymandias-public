@@ -34,8 +34,6 @@ Ozy merkt sich Informationen auf vier Ebenen:
 
 Das Dashboard von Ozy ist im minimalistischen, dunklen NOC-Theme (Network Operations Center) gestaltet. Es bietet dir vollen Einblick in das Gedächtnis der KI und ermöglicht dir die Freigabe kritischer Aktionen.
 
-![Ozymandias NOC-Dashboard Mockup](assets/ozymandias_dashboard_mockup.png)
-
 ### Wichtige Bereiche:
 - **Chat:** Schreibe oder sprich (Voice STT/TTS) mit Ozy.
 - **Gedächtnis (Memory Browser):** Suche und filtere alle Fakten, die Ozy über dich weiß.

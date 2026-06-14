@@ -7,8 +7,6 @@
 
 Persönliche KI-Schaltzentrale. Autonomer Assistent mit langfristigem Memory, Sensitivity-basiertem Privacy-Routing, gehärteter Governance und vollständigem Audit-Trail.
 
-![Ozymandias NOC-Dashboard](docs/assets/ozymandias_dashboard_mockup.png)
-
 > [!TIP]
 > **Neu bei Ozymandias?** Lies das leicht verständliche [Benutzerhandbuch & Administrator-Leitfaden (USER_GUIDE.md)](docs/USER_GUIDE.md) für eine Schritt-für-Schritt-Anleitung zur Nutzung und Verwaltung von Gedächtnis, Vorschlägen (Proposals) und Datenschutzstufen.
 
