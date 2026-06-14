@@ -81,6 +81,10 @@ while ($choice -ne "1" -and $choice -ne "2") {
     $choice = $choice.Trim()
 }
 
+# Bereinige alte/konfliktbehaftete Container mit expliziten Namen
+Write-Host "Prüfe und bereinige alte Container-Instanzen..." -ForegroundColor $Yellow
+docker rm -f ozy-backend ozy-frontend-build ozy-nginx ozy-db-init ozy-pg-backup ozy-postgres ozy-redis ozy-minio *>$null
+
 if ($choice -eq "1") {
     Write-Host ""
     Write-Host "[3/4] Konfiguriere Bypass-Modus in der .env..." -ForegroundColor $Yellow
