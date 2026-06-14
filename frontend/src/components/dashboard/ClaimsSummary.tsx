@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import GlassCard from "@/components/common/GlassCard";
-import { Cell, Pie, PieChart, Tooltip, ResponsiveContainer } from "recharts";
+import { RadialBarChart, RadialBar, Tooltip, ResponsiveContainer } from "recharts";
 
 type ClaimsSummaryProps = {
   claimsTotal: number;
@@ -30,13 +30,18 @@ function ClaimsSummary({ claimsTotal, verification, sensitivity }: ClaimsSummary
   const navigate = useNavigate();
   const denominator = Math.max(1, claimsTotal);
 
-  const pieData = levels
-    .map((level) => ({ name: level, value: sensitivity[level] ?? 0 }))
+  // Construct radial data for concentric rings (S0 inside, S4 outside)
+  const radialData = levels
+    .map((level) => ({
+      name: level,
+      value: sensitivity[level] ?? 0,
+      fill: palette[level],
+    }))
     .filter((d) => d.value > 0);
 
   // Fallback: If no sensitivity data exists, show a neutral placeholder ring
-  if (pieData.length === 0) {
-    pieData.push({ name: "Keine", value: 1 });
+  if (radialData.length === 0) {
+    radialData.push({ name: "Keine", value: 1, fill: "#1e293b" });
   }
 
   return (
@@ -91,29 +96,26 @@ function ClaimsSummary({ claimsTotal, verification, sensitivity }: ClaimsSummary
           </div>
         </div>
 
-        {/* Right Side: Sensitivity Pie Chart */}
+        {/* Right Side: Sensitivity Radial Bar Chart */}
         <div className="flex flex-col items-center justify-center space-y-2 border-t border-slate-800/40 pt-4 md:border-t-0 md:pt-0 md:border-l md:border-slate-800/40 md:pl-6">
           <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider self-start">Sensitivitätsverteilung</p>
           <div className="w-full h-[150px] flex items-center justify-center">
             <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={pieData}
+              <RadialBarChart
+                cx="50%"
+                cy="50%"
+                innerRadius="25%"
+                outerRadius="95%"
+                barSize={8}
+                data={radialData}
+                startAngle={90}
+                endAngle={-270}
+              >
+                <RadialBar
+                  background={{ fill: "rgba(30, 41, 59, 0.15)" }}
                   dataKey="value"
-                  nameKey="name"
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={38}
-                  outerRadius={58}
-                  paddingAngle={3}
-                >
-                  {pieData.map((entry) => (
-                    <Cell
-                      key={entry.name}
-                      fill={entry.name === "Keine" ? "#1e293b" : palette[entry.name] || "#1e293b"}
-                    />
-                  ))}
-                </Pie>
+                  cornerRadius={4}
+                />
                 <Tooltip
                   contentStyle={{
                     background: "rgba(15, 23, 42, 0.9)",
@@ -123,7 +125,7 @@ function ClaimsSummary({ claimsTotal, verification, sensitivity }: ClaimsSummary
                     color: "#f8fafc",
                   }}
                 />
-              </PieChart>
+              </RadialBarChart>
             </ResponsiveContainer>
           </div>
         </div>
