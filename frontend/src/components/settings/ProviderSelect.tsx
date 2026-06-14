@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { listDeepSeekModels, listLMStudioModels, listOllamaModels } from "@/api/llm";
+import { listDeepSeekModels, listLMStudioModels, listOllamaModels, listMistralModels } from "@/api/llm";
 import GlassCard from "@/components/common/GlassCard";
 import Spinner from "@/components/common/Spinner";
 import { useHealth } from "@/hooks/useHealth";
@@ -73,6 +73,10 @@ function ProviderSelect({
   const [deepseekModelsLoading, setDeepseekModelsLoading] = useState(false);
   const [deepseekModelsError, setDeepseekModelsError] = useState<string | null>(null);
   const [selectedDeepseekModel, setSelectedDeepseekModel] = useState("");
+  const [mistralModels, setMistralModels] = useState<string[]>([]);
+  const [mistralModelsLoading, setMistralModelsLoading] = useState(false);
+  const [mistralModelsError, setMistralModelsError] = useState<string | null>(null);
+  const [selectedMistralModel, setSelectedMistralModel] = useState("");
   const [isLiveWebEnabled, setIsLiveWebEnabled] = useState(liveWebEnabled);
   const [selectedLiveWebMode, setSelectedLiveWebMode] = useState(liveWebMode);
   const [allowS3LiveWebByDefault, setAllowS3LiveWebByDefault] = useState(liveWebS3ConfirmedDefault);
@@ -110,6 +114,14 @@ function ProviderSelect({
       setSelectedDeepseekModel(model ?? "");
     } else if (selectedProvider === "deepseek") {
       setSelectedDeepseekModel("");
+    }
+  }, [selectedProvider, provider, model]);
+
+  useEffect(() => {
+    if (selectedProvider === "mistral" && provider === "mistral") {
+      setSelectedMistralModel(model ?? "");
+    } else if (selectedProvider === "mistral") {
+      setSelectedMistralModel("");
     }
   }, [selectedProvider, provider, model]);
 
@@ -197,6 +209,44 @@ function ProviderSelect({
     };
   }, [selectedProvider]);
 
+  useEffect(() => {
+    let cancelled = false;
+    async function fetchMistralModels(): Promise<void> {
+      if (selectedProvider !== "mistral") {
+        setMistralModels([]);
+        setMistralModelsError(null);
+        return;
+      }
+      setMistralModelsLoading(true);
+      setMistralModelsError(null);
+      try {
+        const models = await listMistralModels();
+        if (cancelled) {
+          return;
+        }
+        setMistralModels(models);
+        if (models.length === 0) {
+          setMistralModelsError("Keine Mistral-Modelle erhalten.");
+        }
+      } catch {
+        if (cancelled) {
+          return;
+        }
+        setMistralModels([]);
+        setMistralModelsError("Mistral-Modelle konnten nicht geladen werden.");
+      } finally {
+        if (!cancelled) {
+          setMistralModelsLoading(false);
+        }
+      }
+    }
+
+    void fetchMistralModels();
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedProvider]);
+
   const configuredProviders = useMemo(
     () => new Set((health?.llm_providers ?? []).map((item) => item.toLowerCase())),
     [health?.llm_providers],
@@ -209,9 +259,13 @@ function ProviderSelect({
         ? selectedDeepseekModel.trim().length > 0
           ? selectedDeepseekModel.trim()
           : null
-        : modelInput.trim().length > 0
-          ? modelInput.trim()
-          : null;
+        : selectedProvider === "mistral"
+          ? selectedMistralModel.trim().length > 0
+            ? selectedMistralModel.trim()
+            : null
+          : modelInput.trim().length > 0
+            ? modelInput.trim()
+            : null;
     const nextLocalProvider = selectedLocalProvider === "auto" ? null : selectedLocalProvider;
     const trimmedLocalModel = selectedLocalModel.trim();
     const nextLocalModel = nextLocalProvider === null || trimmedLocalModel.length === 0 ? null : trimmedLocalModel;
@@ -239,6 +293,13 @@ function ProviderSelect({
     : selectedDeepseekModel.trim().length > 0
       ? [selectedDeepseekModel, ...deepseekModels]
       : deepseekModels;
+
+  const mistralModelSelectValue = selectedMistralModel.trim().length > 0 ? selectedMistralModel : "__auto__";
+  const mistralModelOptions = mistralModels.includes(selectedMistralModel)
+    ? mistralModels
+    : selectedMistralModel.trim().length > 0
+      ? [selectedMistralModel, ...mistralModels]
+      : mistralModels;
 
   return (
     <GlassCard className="space-y-3">
@@ -289,6 +350,26 @@ function ProviderSelect({
             ))}
           </select>
         </label>
+      ) : selectedProvider === "mistral" ? (
+        <label className="flex flex-col gap-1 text-xs text-gray-400">
+          Modell (optional)
+          <select
+            aria-label="settings-mistral-model-select"
+            className="rounded border border-gray-700 bg-gray-900 px-2 py-2 text-sm text-gray-100"
+            value={mistralModelSelectValue}
+            onChange={(event) => {
+              setSelectedMistralModel(event.target.value === "__auto__" ? "" : event.target.value);
+            }}
+            disabled={mistralModelsLoading}
+          >
+            <option value="__auto__">Auto (Provider-Default)</option>
+            {mistralModelOptions.map((modelOption) => (
+              <option key={modelOption} value={modelOption}>
+                {modelOption}
+              </option>
+            ))}
+          </select>
+        </label>
       ) : (
         <label className="flex flex-col gap-1 text-xs text-gray-400">
           Modell (optional)
@@ -305,6 +386,11 @@ function ProviderSelect({
       {selectedProvider === "deepseek" && deepseekModelsLoading ? <Spinner /> : null}
       {selectedProvider === "deepseek" && deepseekModelsError ? (
         <p className="text-xs text-yellow-300">{deepseekModelsError}</p>
+      ) : null}
+
+      {selectedProvider === "mistral" && mistralModelsLoading ? <Spinner /> : null}
+      {selectedProvider === "mistral" && mistralModelsError ? (
+        <p className="text-xs text-yellow-300">{mistralModelsError}</p>
       ) : null}
 
       <label className="flex flex-col gap-1 text-xs text-gray-400">

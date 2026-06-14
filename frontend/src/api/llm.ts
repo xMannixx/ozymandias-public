@@ -16,3 +16,7 @@ export function listLMStudioModels(): Promise<string[]> {
 export function listDeepSeekModels(): Promise<string[]> {
   return request<string[]>("/llm/deepseek/models");
 }
+
+export function listMistralModels(): Promise<string[]> {
+  return request<string[]>("/llm/mistral/models");
+}
