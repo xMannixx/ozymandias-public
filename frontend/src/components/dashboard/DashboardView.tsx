@@ -45,6 +45,34 @@ function DashboardView(): JSX.Element {
 
       {error ? <p className="text-sm text-red-300">{error}</p> : null}
 
+      {/* KPI Header Row */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="glass-card p-4 flex items-center justify-between">
+          <div>
+            <p className="text-[10px] uppercase tracking-wider text-gray-400 font-semibold">Governance Health</p>
+            <p className="text-xl font-extrabold text-emerald-400 mt-1">98%</p>
+          </div>
+          <span className="relative flex h-3 w-3">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500 shadow-[0_0_8px_#10b981]"></span>
+          </span>
+        </div>
+        <div className="glass-card p-4 flex items-center justify-between">
+          <div>
+            <p className="text-[10px] uppercase tracking-wider text-gray-400 font-semibold">Total Claims</p>
+            <p className="text-xl font-extrabold text-blue-400 mt-1">{stats.claims_total}</p>
+          </div>
+          <span className="text-[10px] font-bold text-blue-300 bg-blue-950/40 border border-blue-500/20 px-2 py-0.5 rounded-full uppercase tracking-wider">Active</span>
+        </div>
+        <div className="glass-card p-4 flex items-center justify-between">
+          <div>
+            <p className="text-[10px] uppercase tracking-wider text-gray-400 font-semibold">Pending Proposals</p>
+            <p className="text-xl font-extrabold text-purple-400 mt-1">{stats.proposals_pending}</p>
+          </div>
+          <span className="text-[10px] font-bold text-purple-300 bg-purple-950/40 border border-purple-500/20 px-2 py-0.5 rounded-full uppercase tracking-wider">{stats.proposals_pending} neu</span>
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
         <ClaimsSummary
           claimsTotal={stats.claims_total}
