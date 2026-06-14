@@ -12,6 +12,7 @@ from app.services.llm.base import LLMMessage, LLMProvider, LLMResponse
 from app.services.llm.deepseek import DeepSeekProvider
 from app.services.llm.gemini import GeminiProvider
 from app.services.llm.lmstudio import LMStudioProvider
+from app.services.llm.mistral import MistralProvider
 from app.services.llm.ollama import OllamaProvider
 from app.services.llm.openai_provider import OpenAIProvider
 
@@ -31,6 +32,8 @@ class LLMRouter:
             self._providers["openai"] = OpenAIProvider()
         if settings.gemini_api_key:
             self._providers["gemini"] = GeminiProvider()
+        if settings.mistral_api_key:
+            self._providers["mistral"] = MistralProvider()
 
     @property
     def available_providers(self) -> list[str]:
@@ -143,7 +146,7 @@ class LLMRouter:
         # Dev-friendly fallback: use any configured provider only in explicit bypass mode.
         settings = get_settings()
         if getattr(settings, "auth_dev_bypass", False):
-            for candidate in ("deepseek", "openai", "gemini", "ollama", "lmstudio"):
+            for candidate in ("deepseek", "openai", "gemini", "mistral", "ollama", "lmstudio"):
                 candidate_provider = self._providers.get(candidate)
                 if candidate_provider is not None:
                     return candidate_provider
@@ -158,7 +161,7 @@ class LLMRouter:
         enforce_local: bool = True,
     ) -> str:
         # If no cloud providers are configured, route everything to the available local provider.
-        has_cloud = any(p in self._providers for p in ("deepseek", "openai", "gemini"))
+        has_cloud = any(p in self._providers for p in ("deepseek", "openai", "gemini", "mistral"))
         if not has_cloud:
             return self._get_local_provider()
 
