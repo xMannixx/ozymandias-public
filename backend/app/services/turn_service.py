@@ -25,6 +25,7 @@ from app.schemas import (
     TaintActionCheck,
     TaintChunk,
     TaintContext,
+    TaintSummary,
     TrustLevel,
     VerificationState,
     WriteGateInput,
@@ -183,9 +184,17 @@ class TurnService:
                     provider_is_encrypted=_provider_is_encrypted(provider_used),
                 )
             )
-            taint_summary = rust_bridge.compute_taint(
-                TaintContext(chunks=[_claim_to_taint_chunk(claim) for claim in extracted_claims])
-            )
+            if not extracted_claims:
+                taint_summary = TaintSummary(
+                    effective_trust=TrustLevel.T3,
+                    effective_sensitivity=Sensitivity.S0,
+                    is_tainted=False,
+                    taint_sources=[],
+                )
+            else:
+                taint_summary = rust_bridge.compute_taint(
+                    TaintContext(chunks=[_claim_to_taint_chunk(claim) for claim in extracted_claims])
+                )
 
             results: list[ClaimProcessResult] = []
             for claim in sensitivity_output.allowed:
