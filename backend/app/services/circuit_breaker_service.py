@@ -63,7 +63,7 @@ class CircuitBreakerService:
         decision_raw = rust_bridge.check_circuit_breaker(
             self.config,
             current_count,
-            "Closed",
+            "Open",
             None,
         )
         decision: str | dict[str, Any]
