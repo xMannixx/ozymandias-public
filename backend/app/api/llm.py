@@ -87,3 +87,9 @@ async def list_lmstudio_models(_user_id: str = Depends(get_current_user)) -> lis
 async def list_deepseek_models(_user_id: str = Depends(get_current_user)) -> list[str]:
     """Return selectable DeepSeek API model ids (static list)."""
     return ["deepseek-chat", "deepseek-reasoner"]
+
+
+@router.get("/mistral/models", response_model=list[str])
+async def list_mistral_models(_user_id: str = Depends(get_current_user)) -> list[str]:
+    """Return selectable Mistral API model ids (static list)."""
+    return ["mistral-large-latest", "mistral-medium-latest", "mistral-small-latest", "codestral-latest"]

@@ -16,7 +16,7 @@ from app.services.llm.router import get_llm_router
 
 router = APIRouter(tags=["health"])
 
-KNOWN_LLM_PROVIDERS = ("ollama", "lmstudio", "deepseek", "openai", "gemini")
+KNOWN_LLM_PROVIDERS = ("ollama", "lmstudio", "deepseek", "openai", "gemini", "mistral")
 LOCAL_LLM_PROVIDERS = {"ollama", "lmstudio"}
 
 
