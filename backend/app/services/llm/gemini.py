@@ -7,6 +7,7 @@ from typing import Any
 from google import genai
 
 from app.config import get_settings
+from app.services.errors import ServiceError
 from app.services.llm.base import LLMMessage, LLMProvider, LLMResponse
 
 
@@ -22,7 +23,8 @@ class GeminiProvider(LLMProvider):
 
     def __init__(self) -> None:
         settings = get_settings()
-        self._client = genai.Client(api_key=settings.gemini_api_key)
+        api_key = settings.gemini_api_key
+        self._client = genai.Client(api_key=api_key) if api_key else None
         self._model_name = settings.gemini_model
 
     async def chat(
@@ -31,10 +33,15 @@ class GeminiProvider(LLMProvider):
         *,
         tools: list[dict[str, Any]] | None = None,
         model: str | None = None,
+        api_key: str | None = None,
     ) -> LLMResponse:
         selected_model = model or self._model_name
         del tools  # Tools are routed to OpenAI provider.
-        response = await self._client.aio.models.generate_content(
+        client = genai.Client(api_key=api_key) if api_key else self._client
+        if client is None:
+            raise ServiceError("Gemini provider not configured — api_key is missing")
+
+        response = await client.aio.models.generate_content(
             model=selected_model,
             contents=_messages_to_prompt(messages),
         )
@@ -51,3 +58,4 @@ class GeminiProvider(LLMProvider):
             tokens_used=tokens_used,
             raw_response=raw_response,
         )
+

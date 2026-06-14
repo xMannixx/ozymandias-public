@@ -36,5 +36,6 @@ class LLMProvider(ABC):
         *,
         tools: list[dict[str, Any]] | None = None,
         model: str | None = None,
+        api_key: str | None = None,
     ) -> LLMResponse:
         """Run one chat completion and return normalized output."""

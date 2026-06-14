@@ -61,6 +61,7 @@ class LLMRouter:
         preferred_model: str | None = None,
         preferred_local_provider: str | None = None,
         preferred_local_model: str | None = None,
+        api_keys: dict[str, str | None] | None = None,
     ) -> LLMResponse:
         """Select provider and execute one chat request."""
         provider = self.select_provider(
@@ -69,6 +70,7 @@ class LLMRouter:
             enforce_local=enforce_local,
             preferred_provider=preferred_provider,
             preferred_local_provider=preferred_local_provider,
+            api_keys=api_keys,
         )
         provider_name = self._provider_name(provider)
         model_override = preferred_model
@@ -79,8 +81,17 @@ class LLMRouter:
                 model_override = preferred_local_model
             elif enforce_local and sensitivity in {Sensitivity.S3, Sensitivity.S4}:
                 model_override = None
+        
+        api_key = None
+        if api_keys and provider_name:
+            api_key = api_keys.get(provider_name)
+
+        chat_kwargs = {}
+        if api_key is not None:
+            chat_kwargs["api_key"] = api_key
+
         try:
-            return await provider.chat(messages, tools=tools, model=model_override)
+            return await provider.chat(messages, tools=tools, model=model_override, **chat_kwargs)
         except Exception as exc:
             if (
                 provider_name in {"ollama", "lmstudio"}
@@ -104,8 +115,21 @@ class LLMRouter:
         enforce_local: bool = True,
         preferred_provider: str | None = None,
         preferred_local_provider: str | None = None,
+        api_keys: dict[str, str | None] | None = None,
     ) -> LLMProvider:
         """Return one cached provider instance or fail with clear config error."""
+        if api_keys:
+            for provider_name, api_key in api_keys.items():
+                if api_key and api_key.strip() and provider_name not in self._providers:
+                    if provider_name == "openai":
+                        self._providers["openai"] = OpenAIProvider()
+                    elif provider_name == "deepseek":
+                        self._providers["deepseek"] = DeepSeekProvider()
+                    elif provider_name == "gemini":
+                        self._providers["gemini"] = GeminiProvider()
+                    elif provider_name == "mistral":
+                        self._providers["mistral"] = MistralProvider()
+
         if enforce_local and sensitivity in {Sensitivity.S4, Sensitivity.S3}:
             try:
                 local_provider_name = self._get_local_provider(
@@ -152,6 +176,7 @@ class LLMRouter:
                     return candidate_provider
 
         raise ServiceError(f"Provider '{name}' not configured — set the API key")
+
 
     def _resolve_provider_name(
         self,
