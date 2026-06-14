@@ -71,8 +71,8 @@ Write-Host "   - Verwendet das Python-Fallback-Modul."
 Write-Host "   - Deaktiviert die JWT-Login-Maske für direkte Nutzung."
 Write-Host ""
 Write-Host "2) Vollständiger Entwickler-Build (Voller Stack)"
-Write-Host "   - Erfordert installierte Rust-Toolchain (rustc >= 1.94)."
-Write-Host "   - Kompiliert den gehärteten Governance-Kern in Rust."
+Write-Host "   - Baut und kompiliert den gehärteten Governance-Kern (Rust) im Docker-Container."
+Write-Host "   - Benötigt KEINE lokale Installation von Rust/Python/Node.js."
 Write-Host "============================================================" -ForegroundColor $Cyan
 
 $choice = ""
@@ -106,18 +106,9 @@ if ($choice -eq "1") {
     & docker compose up -d
 } else {
     Write-Host ""
-    Write-Host "[3/4] Prüfe Entwickler-Abhängigkeiten..." -ForegroundColor $Yellow
-    if (-not (Get-Command cargo -ErrorAction SilentlyContinue)) {
-        Write-Host "FEHLER: Cargo/Rust Toolchain wurde nicht gefunden!" -ForegroundColor $Red
-        Write-Host "Bitte installiere Rust von https://rustup.rs/ oder wähle Modus 1 (Bypass)."
-        Read-Host "Drücke ENTER zum Beenden..."
-        exit 1
-    }
-    
-    Write-Host "  -> Baue Rust-Workspace (dies kann einen Moment dauern)..." -ForegroundColor $Yellow
-    Set-Location -Path (Join-Path $PSScriptRoot "rust")
-    & cargo build --workspace
-    Set-Location -Path $PSScriptRoot
+    Write-Host "[3/4] Entwickler-Build wird vorbereitet..." -ForegroundColor $Yellow
+    Write-Host "  -> Der gehärtete Governance-Kern (Rust) wird automatisch im Docker-Container gebaut." -ForegroundColor $Green
+    Write-Host "  -> Keine lokale Installation von Rust/Python/Node.js nötig." -ForegroundColor $Green
     
     # System starten
     Write-Host ""

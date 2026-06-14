@@ -111,12 +111,12 @@ Ozymandias schützt deine Privatsphäre durch automatische Daten-Klassifizierung
 
 ---
 
-## 5. Einfaches Setup & Start (Bypass-Modus)
+## 5. Einfaches Setup & Start (Docker-only)
 
-Für Entwickler erfordert Ozy standardmäßig eine Rust-Kompilierung. Wenn du Ozy jedoch nur schnell **ausprobieren oder evaluieren** möchtest, kannst du die Rust-Schicht komplett überspringen! In diesem Modus läuft Ozy als reine Python-Anwendung und umgeht die Anmeldeseite.
+Ozymandias läuft vollständig containerisiert. Du benötigst **keine lokale Installation** von Rust, Python 3.14 oder Node.js. Alle Komponenten (inklusive des in Rust geschriebenen Governance-Kerns) werden automatisch innerhalb der Docker-Container gebaut.
 
 ### Voraussetzungen:
-- Docker Desktop (installiert und gestartet)
+- Docker Desktop (installiert und gestartet) oder Podman
 - Git
 
 ### Installation unter Windows (Schnellstart):
@@ -125,7 +125,9 @@ Für Entwickler erfordert Ozy standardmäßig eine Rust-Kompilierung. Wenn du Oz
    ```cmd
    .\bootstrap.cmd
    ```
-3. Das Skript fragt dich, ob du die **Schnelle Evaluierung (Rust-Bypass)** nutzen möchtest. Wähle diese Option.
+3. Das Skript fragt dich nach deinem gewünschten Modus:
+   - **Option 1: Schnelle Evaluierung / Rust-Bypass** (Deaktiviert den Login-Screen und nutzt ein Python-Fallback, um den Start zu beschleunigen).
+   - **Option 2: Vollständiger Entwickler-Build** (Kompiliert den echten, gehärteten Governance-Kern in Rust vollautomatisch innerhalb des Docker-Containers).
 4. Das Skript erstellt automatisch eine funktionierende `.env`-Konfigurationsdatei und startet alle Container.
 5. Sobald das System läuft, öffnet sich dein Webbrowser automatisch unter:
    `http://localhost:8080`

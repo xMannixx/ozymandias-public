@@ -4,27 +4,25 @@ Diese Datei ist die zentrale Startseite fuer alle Anforderungen im Projekt.
 
 ## Wofuer brauche ich was?
 
-| Modus | Pflicht |
+| Modus | Voraussetzungen |
 |---|---|
-| Rust-Core Entwicklung (`rust/`) | Rust Toolchain (`rustc`, `cargo`) |
-| Backend Entwicklung (`backend/`) | Rust + Python + `backend/requirements.txt` |
-| Full Stack (Backend + Frontend + Infra) | Rust + Python + Node.js + Docker + Postgres/pgvector + Nginx |
+| **System ausführen (Standard)** | Nur Docker Engine (oder Podman) |
+| Lokale IDE-Entwicklung (Rust Core) | Rust Toolchain (`rustc`, `cargo` >= 1.94) |
+| Lokale IDE-Entwicklung (Backend) | Python >= 3.14 + pip-Abhängigkeiten |
+| Lokale IDE-Entwicklung (Frontend) | Node.js LTS >= 24 |
 
-## Pflicht-Software (Projektweit)
+## Containerisierte Software (Automatisch im Docker-Build)
 
-| Bereich | Software | Zielstand |
+Diese Versionen werden im Docker-Build verwendet und sind im System fest verankert:
+
+| Bereich | Software / Paket | Version |
 |---|---|---|
-| Rust | rustc | 1.94.1 |
-| Rust | cargo | 1.94.1 |
-| Rust | Edition | 2024 |
-| Python | Python | 3.14.2 |
-| Python API | FastAPI, Pydantic, SQLAlchemy, Celery, Alembic, Uvicorn, asyncpg, PyJWT | siehe `backend/requirements.txt` |
-| Frontend | Node.js LTS | 24.14.1 |
-| Frontend | React, TypeScript, Vite, Tailwind | siehe `docs/OZY_SOFTWARE_VERSIONEN.md` |
-| Datenbank | PostgreSQL | 18.3 |
-| Vektor | pgvector | 0.8.2 |
-| Proxy | Nginx | 1.28.3 stable |
-| Container | Docker Engine | 29.3.1 |
+| Rust | Rust compiler / Edition | 1.94+ / 2024 |
+| Python | Python runtime | 3.14-slim |
+| Frontend | Node.js (Build-Stage) | 22-alpine |
+| Datenbank | PostgreSQL | 17 (pgvector Image) |
+| Vektor | pgvector | pg17 extension |
+| Proxy | Nginx | 1.28-alpine |
 
 ## Source of Truth pro Stack
 

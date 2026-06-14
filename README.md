@@ -4,7 +4,6 @@
 | :---: | :---: |
 | ![Ozymandias Light Banner](docs/assets/ozymandias_banner_light.png) | ![Ozymandias Dark Banner](docs/assets/ozymandias_banner_dark.png) |
 
-
 [![PR Gate](https://github.com/xMannixx/ozymandias-public/actions/workflows/pr.yml/badge.svg)](https://github.com/xMannixx/ozymandias-public/actions/workflows/pr.yml)
 [![Lizenz](https://img.shields.io/badge/Lizenz-Apache%202.0-blue.svg)](LICENSE)
 [![Rust](https://img.shields.io/badge/Rust-1.94%2B-orange.svg)](https://www.rust-lang.org/)
@@ -32,48 +31,57 @@ Persönliche KI-Schaltzentrale. Autonomer Assistent mit langfristigem Memory, Se
 ## Schnellstart
 
 Für den Einstieg unter Windows steht ein interaktiver Launcher zur Verfügung:
+
 ```cmd
 .\bootstrap.cmd
 ```
+
 Dieses Skript führt dich durch den Setup-Prozess und bietet dir zwei Pfade zur Installation an:
 
 ### Pfad A: Schnelle Evaluierung (Empfohlen zum Ausprobieren)
+
 Dieser Modus umgeht die Rust-Kompilierung auf dem Host und nutzt das integrierte Python-Fallback-Modul. Außerdem wird die Authentifizierungsseite deaktiviert, damit du direkt starten kannst.
+
 1. Kopiere `.env.example` nach `.env`.
 2. Setze in deiner `.env`:
+
    ```env
    AUTH_DEV_BYPASS=true
    VITE_AUTH_BYPASS=true
    ```
+
 3. Starte das System mit Docker:
+
    ```bash
    docker compose up -d
    ```
+
 4. Öffne `http://localhost:8080` in deinem Browser.
 
 ### Pfad B: Vollständiger Entwickler-Build (Voller Stack)
-Nutzt den vollständigen, in Rust geschriebenen Governance- und Validierungs-Kern.
-*Voraussetzungen:* Docker, Rust-Toolchain (`rustc` ≥ 1.94), Python ≥ 3.14, Node.js LTS
+
+Nutzt den vollständigen, in Rust geschriebenen Governance- und Validierungs-Kern. Der Build des Rust-Kerns erfolgt vollautomatisch im Docker-Container.
+*Voraussetzungen:* Docker
+
 ```bash
-# 1. Rust-Workspace bauen und testen
-cd rust && cargo build --workspace && cargo test --workspace
-
-# 2. Python-Backend-Abhängigkeiten installieren
-cd backend && pip install -r requirements.txt -r requirements-dev.txt
-
-# 3. .env vorbereiten und stack starten
+# 1. .env vorbereiten
 cp .env.example .env
-docker compose up --build
+
+# 2. Stack starten (baut Rust, Python & Frontend automatisch im Container)
+docker compose up -d --build
 ```
+
 Das Backend ist danach unter `http://localhost:8000` erreichbar, das Frontend über Nginx auf `http://localhost:8080`.
 
 ## Benutzerhandbuch & Anleitungen
 
 Im [Benutzerhandbuch (docs/USER_GUIDE.md)](docs/USER_GUIDE.md) findest du detaillierte Schritt-für-Schritt-Anleitungen für typische Anwendungsfälle, darunter:
-* **Fakten hinzufügen:** Wie Ozy sich implizit oder explizit Dinge im Chat merkt.
+- **Fakten hinzufügen:** Wie Ozy sich implizit oder explizit Dinge im Chat merkt.
+
 - **Proposals validieren:** Wie du Vorschläge freigibst oder editierst.
+
 * **Konflikte auflösen:** Was passiert, wenn sich Aussagen widersprechen.
-* **Datenschutz konfigurieren:** Steuerung der Sensitivity-Klassen (S0 bis S4).
+- **Datenschutz konfigurieren:** Steuerung der Sensitivity-Klassen (S0 bis S4).
 
 ## Architektur
 
