@@ -27,9 +27,11 @@ class OllamaProvider(LLMProvider):
     ) -> LLMResponse:
         selected_model = model or self._model_name
         del tools  # Ollama tools are currently not used in this backend.
+        exc_to_raise = None
         try:
             response = await self._client.chat(model=selected_model, messages=messages)
         except Exception as exc:
+            exc_to_raise = exc
             error_text = str(exc).lower()
             should_retry_with_default = (
                 model is not None
@@ -37,10 +39,41 @@ class OllamaProvider(LLMProvider):
                 and "model" in error_text
                 and "not found" in error_text
             )
-            if not should_retry_with_default:
-                raise
-            selected_model = self._model_name
-            response = await self._client.chat(model=selected_model, messages=messages)
+            if should_retry_with_default:
+                selected_model = self._model_name
+                try:
+                    response = await self._client.chat(model=selected_model, messages=messages)
+                    exc_to_raise = None
+                except Exception as inner_exc:
+                    exc_to_raise = inner_exc
+                    error_text = str(inner_exc).lower()
+
+            if exc_to_raise is not None and ("not found" in error_text or "not_found" in error_text):
+                try:
+                    import httpx
+                    settings = get_settings()
+                    tags_url = f"{settings.ollama_base_url.rstrip('/')}/api/tags"
+                    async with httpx.AsyncClient(timeout=3.0) as client:
+                        resp = await client.get(tags_url)
+                        if resp.status_code == 200:
+                            payload = resp.json()
+                            models = payload.get("models", [])
+                            names = []
+                            for m in models:
+                                if isinstance(m, dict):
+                                    name = m.get("model") or m.get("name")
+                                    if isinstance(name, str) and name.strip():
+                                        names.append(name.strip())
+                            if names:
+                                selected_model = names[0]
+                                response = await self._client.chat(model=selected_model, messages=messages)
+                                exc_to_raise = None
+                except Exception:
+                    pass
+
+            if exc_to_raise is not None:
+                raise exc_to_raise
+
         raw_response: dict[str, Any]
         if hasattr(response, "model_dump"):
             raw_response = response.model_dump()
