@@ -336,7 +336,7 @@ CREATE TABLE IF NOT EXISTS user_settings (
     cb_window_seconds_override   INT,
     cb_cooldown_seconds_override INT,
     preferred_provider           TEXT
-                                 CHECK (preferred_provider IN ('deepseek', 'openai', 'ollama', 'gemini', 'lmstudio')),
+                                 CHECK (preferred_provider IN ('deepseek', 'openai', 'ollama', 'gemini', 'lmstudio', 'mistral')),
     preferred_model              TEXT,
     preferred_local_provider     TEXT
                                  CHECK (preferred_local_provider IN ('ollama', 'lmstudio')),
@@ -663,3 +663,20 @@ CREATE INDEX IF NOT EXISTS idx_rule_conflicts_rule
 --    episodes.embedding bleibt im MVP als vector(1536) bestehen.
 --    Für Modellwechsel ist ein späteres episode_embeddings-Design vorgesehen
 --    (episode_id, model_name, embedding_version, embedding) + Reindex-Migration.
+
+-- 3) Mistral API Integration: Update CHECK constraint for preferred_provider
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1
+        FROM pg_constraint
+        WHERE conname = 'user_settings_preferred_provider_check'
+    ) THEN
+        ALTER TABLE user_settings DROP CONSTRAINT user_settings_preferred_provider_check;
+    END IF;
+    
+    ALTER TABLE user_settings
+        ADD CONSTRAINT user_settings_preferred_provider_check
+        CHECK (preferred_provider IN ('deepseek', 'openai', 'ollama', 'gemini', 'lmstudio', 'mistral'));
+END
+$$;
