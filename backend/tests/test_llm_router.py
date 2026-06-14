@@ -41,6 +41,7 @@ def _patch_router_dependencies(
     deepseek_key: str = "dsk",
     openai_key: str = "oak",
     gemini_key: str = "gak",
+    mistral_key: str = "mrk",
     lmstudio_model: str = "",
 ) -> None:
     monkeypatch.setattr(
@@ -49,6 +50,7 @@ def _patch_router_dependencies(
             deepseek_api_key=deepseek_key,
             openai_api_key=openai_key,
             gemini_api_key=gemini_key,
+            mistral_api_key=mistral_key,
             lmstudio_model=lmstudio_model,
         ),
     )
@@ -63,6 +65,10 @@ def _patch_router_dependencies(
     monkeypatch.setattr(
         "app.services.llm.router.GeminiProvider",
         lambda: _FakeProvider("gemini"),
+    )
+    monkeypatch.setattr(
+        "app.services.llm.router.MistralProvider",
+        lambda: _FakeProvider("mistral"),
     )
     monkeypatch.setattr(
         "app.services.llm.router.OllamaProvider",
@@ -174,7 +180,7 @@ def test_router_raises_clear_error_when_provider_not_configured(
 def test_router_available_providers_contains_only_configured(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    _patch_router_dependencies(monkeypatch, deepseek_key="", gemini_key="")
+    _patch_router_dependencies(monkeypatch, deepseek_key="", gemini_key="", mistral_key="")
     router = LLMRouter()
     assert sorted(router.available_providers) == ["ollama", "openai"]
 
@@ -238,3 +244,18 @@ async def test_router_prefers_local_model_when_local_provider_is_explicitly_sele
     )
 
     assert local_provider.last_model == "qwen2.5:7b"
+
+
+def test_router_selects_mistral_when_preferred_provider_set(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _patch_router_dependencies(monkeypatch)
+    router = LLMRouter()
+    provider = router.select_provider(
+        intent="general_turn",
+        sensitivity=Sensitivity.S1,
+        preferred_provider="mistral",
+    )
+    assert isinstance(provider, _FakeProvider)
+    assert provider.provider_name == "mistral"
+
