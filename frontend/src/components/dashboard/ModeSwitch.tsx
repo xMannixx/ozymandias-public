@@ -3,43 +3,71 @@ import GlassCard from "@/components/common/GlassCard";
 import Button from "@/components/common/Button";
 import { useMode, type AppMode } from "@/store/mode";
 
-function nextMode(current: AppMode): AppMode {
-  if (current === "autopilot") {
-    return "guardian";
-  }
-  return "autopilot";
-}
-
 function ModeSwitch(): JSX.Element {
   const { mode, setMode } = useMode();
   const [confirmOpen, setConfirmOpen] = useState(false);
 
-  const target = nextMode(mode);
-  const modeClass = mode === "autopilot" ? "neon-glow-orange border-orange-500/40 text-orange-400 bg-orange-950/20" : "neon-glow-blue border-blue-500/40 text-blue-400 bg-blue-950/20";
+  const target: AppMode = mode === "autopilot" ? "guardian" : "autopilot";
+  const modeClass = mode === "autopilot" 
+    ? "neon-glow-orange border-orange-500/40 text-orange-400 bg-orange-950/20" 
+    : "neon-glow-blue border-blue-500/40 text-blue-400 bg-blue-950/20";
 
   return (
     <GlassCard className="space-y-4 border border-slate-800/80 bg-slate-950/30 backdrop-blur-md">
       <div className="flex items-center justify-between border-b border-slate-800/60 pb-2">
         <p className="text-xs uppercase tracking-wider text-gray-400 font-semibold">Governance-Modus</p>
-        <span className={`rounded-full border px-3 py-0.5 text-[10px] font-bold tracking-wider transition-all duration-300 ${modeClass}`}>
+        <span data-testid="mode-status" className={`rounded-full border px-3 py-0.5 text-[10px] font-bold tracking-wider transition-all duration-300 ${modeClass}`}>
           {mode === "autopilot" ? "Autopilot" : "Guardian"}
         </span>
       </div>
 
       <div className="space-y-3">
-        <p className="text-[10px] text-gray-400 leading-relaxed">
+        <p className="text-[10px] text-gray-400 leading-relaxed min-h-[38px]">
           {mode === "autopilot" 
             ? "Der Autopilot-Modus erlaubt dem System eigenständig Entscheidungen im Hintergrund zu treffen (schnelle Antworten, automatische Konsolidierung)."
             : "Der Guardian-Modus sichert alle Aktionen durch manuelle Bestätigungen ab (maximale Transparenz und Governance)."}
         </p>
 
-        <button
-          type="button"
-          className="w-full rounded-lg border border-slate-800 bg-slate-900/60 hover:bg-slate-900 hover:border-blue-500/40 px-3 py-2 text-xs font-semibold text-gray-200 transition-all duration-200 cursor-pointer shadow-inner"
-          onClick={() => setConfirmOpen(true)}
-        >
-          Zu {target === "autopilot" ? "Autopilot" : "Guardian"} wechseln
-        </button>
+        {/* Sliding Pill Control */}
+        <div className="flex bg-slate-900/60 p-1 rounded-full border border-slate-800/80 relative h-9 items-center overflow-hidden">
+          {/* Autopilot Button */}
+          <button
+            type="button"
+            className={`flex-1 text-center py-1 rounded-full text-xs font-bold transition-all duration-300 relative z-10 cursor-pointer ${
+              mode === "autopilot" ? "text-orange-400" : "text-gray-400 hover:text-gray-200"
+            }`}
+            onClick={() => {
+              if (mode !== "autopilot") setConfirmOpen(true);
+            }}
+          >
+            Autopilot
+          </button>
+          
+          {/* Guardian Button */}
+          <button
+            type="button"
+            className={`flex-1 text-center py-1 rounded-full text-xs font-bold transition-all duration-300 relative z-10 cursor-pointer ${
+              mode === "guardian" ? "text-blue-400" : "text-gray-400 hover:text-gray-200"
+            }`}
+            onClick={() => {
+              if (mode !== "guardian") setConfirmOpen(true);
+            }}
+          >
+            Guardian
+          </button>
+          
+          {/* Sliding Pill Background indicator */}
+          <div
+            className={`absolute top-1 bottom-1 w-[calc(50%-4px)] rounded-full transition-all duration-300 border ${
+              mode === "autopilot"
+                ? "bg-orange-950/35 border-orange-500/40 shadow-[0_0_10px_rgba(240,136,62,0.15)]"
+                : "bg-blue-950/35 border-blue-500/40 shadow-[0_0_10px_rgba(88,166,255,0.15)]"
+            }`}
+            style={{
+              left: mode === "autopilot" ? "4px" : "calc(50%)"
+            }}
+          />
+        </div>
       </div>
 
       {confirmOpen ? (
@@ -75,3 +103,4 @@ function ModeSwitch(): JSX.Element {
 }
 
 export default ModeSwitch;
+

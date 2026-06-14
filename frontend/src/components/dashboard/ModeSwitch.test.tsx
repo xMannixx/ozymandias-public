@@ -14,19 +14,19 @@ function renderWithProvider(): void {
 describe("ModeSwitch", () => {
   it("guardian mode shows blue glow", () => {
     renderWithProvider();
-    expect(screen.getByText("Guardian")).toHaveClass("neon-glow-blue");
+    expect(screen.getByTestId("mode-status")).toHaveClass("neon-glow-blue");
   });
 
   it("toggle opens confirmation dialog", async () => {
     renderWithProvider();
-    await userEvent.click(screen.getByRole("button", { name: "Zu Autopilot wechseln" }));
+    await userEvent.click(screen.getByRole("button", { name: "Autopilot" }));
     expect(screen.getByRole("dialog", { name: "mode-confirm-dialog" })).toBeInTheDocument();
   });
 
   it("confirm switches mode", async () => {
     renderWithProvider();
-    await userEvent.click(screen.getByRole("button", { name: "Zu Autopilot wechseln" }));
+    await userEvent.click(screen.getByRole("button", { name: "Autopilot" }));
     await userEvent.click(screen.getByRole("button", { name: "Bestaetigen" }));
-    expect(screen.getByText("Autopilot")).toBeInTheDocument();
+    expect(screen.getByTestId("mode-status")).toHaveTextContent("Autopilot");
   });
 });
