@@ -2,19 +2,24 @@
 
 from __future__ import annotations
 
+import logging
 from datetime import date
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import get_settings
 from app.models.claim import Claim
 from app.models.contact import Contact
 from app.models.project import Project, ProjectTask
 from app.schemas import Sensitivity
+from app.schemas.token_budget import TokenBudgetRequest
 from app.services.claim_service import ClaimService
 from app.services.contact_service import ContactService
 from app.services.memory_recall_service import MemoryRecallService
 from app.services.project_service import ProjectService
+from app.services.rust_bridge import OzyRustError, allocate_token_budget
 
+_log = logging.getLogger(__name__)
 _CHAR_LIMIT = 6000
 _MAX_CLAIMS = 50
 _MAX_CONTACTS = 30
@@ -58,6 +63,7 @@ class ContextAssembler:
         user_id: str,
         sensitivity: Sensitivity,
         provider_is_local: bool,
+        intent: str = "general_turn",
     ) -> str:
         """Fetch and format user context, with size-aware fallback compaction."""
         del sensitivity  # Reserved for future relevance/scope filtering.
@@ -69,7 +75,24 @@ class ContextAssembler:
                 for claim in claims
                 if claim.sensitivity not in {Sensitivity.S3.value, Sensitivity.S4.value}
             ]
-        claims = claims[:_MAX_CLAIMS]
+
+        # Determine max_claims via Rust token budget allocator.
+        max_claims = _MAX_CLAIMS
+        if claims:
+            try:
+                settings = get_settings()
+                budget = allocate_token_budget(
+                    TokenBudgetRequest(
+                        available_tokens=settings.context_token_budget,
+                        claims_count=len(claims),
+                        intent_type=intent,
+                    )
+                )
+                max_claims = int(budget.max_claims)
+            except OzyRustError as exc:
+                _log.warning("token_budget allocation failed, using default: %s", exc)
+
+        claims = claims[:max_claims]
 
         projects = await self.project_service.list_projects(user_id, status="active")
         tasks_by_project: dict[str, list[ProjectTask]] = {}

@@ -11,8 +11,9 @@ from sqlalchemy.sql import text
 
 from app.config import get_settings
 from app.database import get_db, get_redis
-from app.schemas.api_models import HealthResponse, LiveWebHealth, LLMProviderHealth
+from app.schemas.api_models import HealthResponse, LiveWebHealth, LLMProviderHealth, LLMProviderTokenUsage
 from app.services.llm.router import get_llm_router
+from app.services.llm.token_usage_tracker import get_token_usage_tracker
 
 router = APIRouter(tags=["health"])
 
@@ -79,6 +80,9 @@ async def health(
 
     llm_router = get_llm_router()
     configured_providers = set(llm_router.available_providers)
+    tracker = get_token_usage_tracker()
+    all_token_usage = tracker.get_all_usage()
+
     llm_provider_health: list[LLMProviderHealth] = []
     for provider_name in KNOWN_LLM_PROVIDERS:
         is_configured = provider_name in configured_providers
@@ -87,6 +91,18 @@ async def health(
             if db_key and db_key.strip():
                 is_configured = True
 
+        # Build token usage block for cloud providers.
+        token_usage: LLMProviderTokenUsage | None = None
+        if provider_name not in LOCAL_LLM_PROVIDERS and provider_name in all_token_usage:
+            raw = all_token_usage[provider_name]
+            budget_status = tracker.get_status(provider_name)
+            token_usage = LLMProviderTokenUsage(
+                used=raw["used"],
+                limit=raw["limit"],
+                pct=raw["pct"],
+                budget_status=budget_status,  # type: ignore[arg-type]
+            )
+
         if not is_configured:
             llm_provider_health.append(
                 LLMProviderHealth(
@@ -94,6 +110,7 @@ async def health(
                     is_local=provider_name in LOCAL_LLM_PROVIDERS,
                     configured=False,
                     status="not_configured",
+                    token_usage=token_usage,
                 )
             )
             continue
@@ -104,15 +121,22 @@ async def health(
             model_name = llm_router.get_model_name(provider_name)
         elif user_settings:
             model_name = getattr(settings, f"{provider_name}_model", "default")
-            
+
+        # Elevate status when token budget is exhausted or warning.
+        if token_usage and token_usage.budget_status in {"warning", "limit_reached"}:
+            effective_status = token_usage.budget_status
+        else:
+            effective_status = status_value
+
         llm_provider_health.append(
             LLMProviderHealth(
                 name=provider_name,
                 is_local=provider_name in LOCAL_LLM_PROVIDERS,
                 configured=True,
-                status=status_value,
+                status=effective_status,
                 model=model_name,
                 detail=detail,
+                token_usage=token_usage,
             )
         )
 

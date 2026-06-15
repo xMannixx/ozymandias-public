@@ -309,15 +309,25 @@ class LLMProviderInfo(BaseModel):
     current_model: str
 
 
+class LLMProviderTokenUsage(BaseModel):
+    """Daily token usage for one cloud provider."""
+
+    used: int = Field(ge=0)
+    limit: int = Field(ge=0, description="0 means no limit configured")
+    pct: float | None = Field(default=None, description="Usage percentage; null when no limit set")
+    budget_status: Literal["ok", "warning", "limit_reached"] = "ok"
+
+
 class LLMProviderHealth(BaseModel):
     """Detailed per-provider health summary for dashboard status."""
 
     name: str
     is_local: bool
     configured: bool
-    status: Literal["ok", "unavailable", "configured", "not_configured"]
+    status: Literal["ok", "unavailable", "configured", "not_configured", "warning", "limit_reached"]
     model: str | None = None
     detail: str | None = None
+    token_usage: LLMProviderTokenUsage | None = None
 
 
 class LiveWebHealth(BaseModel):

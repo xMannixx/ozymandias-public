@@ -8,14 +8,15 @@ from typing import Any
 from app.config import get_settings
 from app.schemas import Sensitivity
 from app.services.errors import LocalProviderUnavailableError, ServiceError
-from app.services.llm.base import LLMMessage, LLMProvider, LLMResponse
 from app.services.llm.anthropic_provider import AnthropicProvider
+from app.services.llm.base import LLMMessage, LLMProvider, LLMResponse
 from app.services.llm.deepseek import DeepSeekProvider
 from app.services.llm.gemini import GeminiProvider
 from app.services.llm.lmstudio import LMStudioProvider
 from app.services.llm.mistral import MistralProvider
 from app.services.llm.ollama import OllamaProvider
 from app.services.llm.openai_provider import OpenAIProvider
+from app.services.llm.token_usage_tracker import get_token_usage_tracker
 
 
 class LLMRouter:
@@ -78,10 +79,16 @@ class LLMRouter:
             preferred_local_provider=preferred_local_provider,
         )
 
+        tracker = get_token_usage_tracker()
         last_exc: Exception = ServiceError("No providers available")
         for provider_name in chain:
             provider = self._providers.get(provider_name)
             if provider is None:
+                continue
+
+            # Skip cloud providers that have exceeded their daily token limit.
+            if provider_name not in {"ollama", "lmstudio"} and tracker.is_limit_exceeded(provider_name):
+                last_exc = ServiceError(f"Daily token limit reached for '{provider_name}'")
                 continue
 
             model_override = preferred_model
@@ -98,7 +105,10 @@ class LLMRouter:
                 chat_kwargs["api_key"] = api_key
 
             try:
-                return await provider.chat(messages, tools=tools, model=model_override, **chat_kwargs)
+                response = await provider.chat(messages, tools=tools, model=model_override, **chat_kwargs)
+                if response.tokens_used:
+                    tracker.record(provider_name, response.tokens_used)
+                return response
             except Exception as exc:
                 # S3/S4 local-only failure — surface immediately with structured error.
                 if (
