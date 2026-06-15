@@ -42,6 +42,7 @@ def _patch_router_dependencies(
     openai_key: str = "oak",
     gemini_key: str = "gak",
     mistral_key: str = "mrk",
+    anthropic_key: str = "ank",
     lmstudio_model: str = "",
 ) -> None:
     monkeypatch.setattr(
@@ -51,7 +52,9 @@ def _patch_router_dependencies(
             openai_api_key=openai_key,
             gemini_api_key=gemini_key,
             mistral_api_key=mistral_key,
+            anthropic_api_key=anthropic_key,
             lmstudio_model=lmstudio_model,
+            auth_dev_bypass=False,
         ),
     )
     monkeypatch.setattr(
@@ -69,6 +72,10 @@ def _patch_router_dependencies(
     monkeypatch.setattr(
         "app.services.llm.router.MistralProvider",
         lambda: _FakeProvider("mistral"),
+    )
+    monkeypatch.setattr(
+        "app.services.llm.router.AnthropicProvider",
+        lambda: _FakeProvider("anthropic"),
     )
     monkeypatch.setattr(
         "app.services.llm.router.OllamaProvider",
@@ -124,12 +131,13 @@ def test_router_selects_gemini_for_creative_intent(monkeypatch: pytest.MonkeyPat
     assert provider.provider_name == "gemini"
 
 
-def test_router_selects_deepseek_by_default(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_router_selects_mistral_by_default(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Mistral is first in the cloud priority chain for general intents."""
     _patch_router_dependencies(monkeypatch)
     router = LLMRouter()
     provider = router.select_provider(intent="general_turn", sensitivity=Sensitivity.S1)
     assert isinstance(provider, _FakeProvider)
-    assert provider.provider_name == "deepseek"
+    assert provider.provider_name == "mistral"
 
 
 def test_router_selects_gemini_when_preferred_provider_set(
@@ -149,6 +157,7 @@ def test_router_selects_gemini_when_preferred_provider_set(
 def test_router_falls_back_when_preferred_provider_not_configured(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """When preferred provider is not configured, fall through to first available in priority order."""
     _patch_router_dependencies(monkeypatch, gemini_key="")
     router = LLMRouter()
     provider = router.select_provider(
@@ -157,7 +166,8 @@ def test_router_falls_back_when_preferred_provider_not_configured(
         preferred_provider="gemini",
     )
     assert isinstance(provider, _FakeProvider)
-    assert provider.provider_name == "deepseek"
+    # Mistral is first in the cloud priority chain.
+    assert provider.provider_name == "mistral"
 
 
 def test_router_keeps_s4_override_for_claim_extraction(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -168,13 +178,32 @@ def test_router_keeps_s4_override_for_claim_extraction(monkeypatch: pytest.Monke
     assert provider.provider_name == "ollama"
 
 
-def test_router_raises_clear_error_when_provider_not_configured(
+def test_router_falls_back_to_mistral_when_openai_not_configured_for_tool_call(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """When openai is unavailable for tool_call, fallback chain delivers mistral."""
     _patch_router_dependencies(monkeypatch, openai_key="")
     router = LLMRouter()
-    with pytest.raises(ServiceError, match="Provider 'openai' not configured"):
-        router.select_provider(intent="tool_call", sensitivity=Sensitivity.S1)
+    provider = router.select_provider(intent="tool_call", sensitivity=Sensitivity.S1)
+    assert isinstance(provider, _FakeProvider)
+    assert provider.provider_name == "mistral"
+
+
+def test_router_raises_when_no_provider_available(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Raise ServiceError when no provider is configured at all."""
+    _patch_router_dependencies(
+        monkeypatch,
+        deepseek_key="",
+        openai_key="",
+        gemini_key="",
+        mistral_key="",
+        anthropic_key="",
+    )
+    router = LLMRouter()
+    with pytest.raises(ServiceError):
+        router.select_provider(intent="general_turn", sensitivity=Sensitivity.S1)
 
 
 def test_router_available_providers_contains_only_configured(
@@ -258,4 +287,155 @@ def test_router_selects_mistral_when_preferred_provider_set(
     )
     assert isinstance(provider, _FakeProvider)
     assert provider.provider_name == "mistral"
+
+
+# ---------------------------------------------------------------------------
+# Fallback chain tests
+# ---------------------------------------------------------------------------
+
+
+def test_fallback_chain_cloud_priority_order(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Chain for S0–S2 general_turn follows Mistral→DeepSeek→OpenAI→Anthropic→Gemini→local."""
+    _patch_router_dependencies(monkeypatch)
+    router = LLMRouter()
+    chain = router._build_fallback_chain(
+        intent="general_turn",
+        sensitivity=Sensitivity.S1,
+        enforce_local=True,
+    )
+    cloud_part = [p for p in chain if p not in {"ollama", "lmstudio"}]
+    assert cloud_part == ["mistral", "deepseek", "openai", "anthropic", "gemini"]
+
+
+def test_fallback_chain_s4_is_local_only(monkeypatch: pytest.MonkeyPatch) -> None:
+    """S4 chain contains only the local provider."""
+    _patch_router_dependencies(monkeypatch)
+    router = LLMRouter()
+    chain = router._build_fallback_chain(
+        intent="general_turn",
+        sensitivity=Sensitivity.S4,
+        enforce_local=True,
+    )
+    assert chain == ["ollama"]
+
+
+def test_fallback_chain_s3_is_local_only(monkeypatch: pytest.MonkeyPatch) -> None:
+    """S3 with enforce_local chain contains only the local provider."""
+    _patch_router_dependencies(monkeypatch)
+    router = LLMRouter()
+    chain = router._build_fallback_chain(
+        intent="general_turn",
+        sensitivity=Sensitivity.S3,
+        enforce_local=True,
+    )
+    assert chain == ["ollama"]
+
+
+def test_fallback_chain_preferred_provider_is_first(monkeypatch: pytest.MonkeyPatch) -> None:
+    """User's preferred provider appears at the front of the chain."""
+    _patch_router_dependencies(monkeypatch)
+    router = LLMRouter()
+    chain = router._build_fallback_chain(
+        intent="general_turn",
+        sensitivity=Sensitivity.S1,
+        enforce_local=True,
+        preferred_provider="openai",
+    )
+    assert chain[0] == "openai"
+
+
+@pytest.mark.asyncio
+async def test_route_falls_back_on_transient_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    """When the primary provider raises a transient error, route() tries the next one."""
+    _patch_router_dependencies(monkeypatch)
+    router = LLMRouter()
+
+    # Make mistral (first in chain) fail with a transient error.
+    mistral_provider = router._providers["mistral"]
+    assert isinstance(mistral_provider, _FakeProvider)
+
+    call_count = {"n": 0}
+
+    async def _failing_chat(
+        messages: list[LLMMessage],
+        *,
+        tools: object = None,
+        model: object = None,
+        api_key: object = None,
+    ) -> LLMResponse:
+        call_count["n"] += 1
+        raise ConnectionError("connection refused")
+
+    mistral_provider.chat = _failing_chat  # type: ignore[method-assign]
+
+    result = await router.route(
+        intent="general_turn",
+        sensitivity=Sensitivity.S1,
+        messages=[{"role": "user", "content": "test"}],
+    )
+    assert call_count["n"] == 1
+    # DeepSeek is next in chain after mistral.
+    assert result.provider == "deepseek"
+
+
+@pytest.mark.asyncio
+async def test_route_does_not_fall_back_on_auth_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Auth errors propagate immediately without trying further providers."""
+    _patch_router_dependencies(monkeypatch)
+    router = LLMRouter()
+
+    mistral_provider = router._providers["mistral"]
+    assert isinstance(mistral_provider, _FakeProvider)
+
+    async def _auth_error_chat(
+        messages: list[LLMMessage],
+        *,
+        tools: object = None,
+        model: object = None,
+        api_key: object = None,
+    ) -> LLMResponse:
+        raise PermissionError("401 invalid api key")
+
+    mistral_provider.chat = _auth_error_chat  # type: ignore[method-assign]
+
+    with pytest.raises(PermissionError, match="401 invalid api key"):
+        await router.route(
+            intent="general_turn",
+            sensitivity=Sensitivity.S1,
+            messages=[{"role": "user", "content": "test"}],
+        )
+
+
+@pytest.mark.asyncio
+async def test_route_raises_last_error_when_all_providers_fail(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """When all providers in the chain fail, the last exception is raised."""
+    _patch_router_dependencies(
+        monkeypatch,
+        gemini_key="",
+        anthropic_key="",
+    )
+    router = LLMRouter()
+
+    for pname in list(router._providers):
+        p = router._providers[pname]
+        if isinstance(p, _FakeProvider):
+            async def _fail(
+                messages: list[LLMMessage],
+                *,
+                tools: object = None,
+                model: object = None,
+                api_key: object = None,
+                _name: str = pname,
+            ) -> LLMResponse:
+                raise OSError(f"{_name} unreachable")
+            p.chat = _fail  # type: ignore[method-assign]
+
+    with pytest.raises(OSError):
+        await router.route(
+            intent="general_turn",
+            sensitivity=Sensitivity.S1,
+            messages=[{"role": "user", "content": "test"}],
+        )
 

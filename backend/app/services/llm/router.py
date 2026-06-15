@@ -66,49 +66,62 @@ class LLMRouter:
         preferred_local_model: str | None = None,
         api_keys: dict[str, str | None] | None = None,
     ) -> LLMResponse:
-        """Select provider and execute one chat request."""
-        provider = self.select_provider(
+        """Select provider and execute one chat request with cross-provider fallback."""
+        # Ensure any runtime API keys are lazily registered before building the chain.
+        self._register_runtime_keys(api_keys)
+
+        chain = self._build_fallback_chain(
             intent=intent,
             sensitivity=sensitivity,
             enforce_local=enforce_local,
             preferred_provider=preferred_provider,
             preferred_local_provider=preferred_local_provider,
-            api_keys=api_keys,
         )
-        provider_name = self._provider_name(provider)
-        model_override = preferred_model
-        if provider_name in {"ollama", "lmstudio"}:
-            # For local providers prefer the dedicated local model setting so
-            # cloud model names from chat overrides/localStorage do not leak through.
-            if preferred_local_model:
-                model_override = preferred_local_model
-            elif enforce_local and sensitivity in {Sensitivity.S3, Sensitivity.S4}:
-                model_override = None
-        
-        api_key = None
-        if api_keys and provider_name:
-            api_key = api_keys.get(provider_name)
 
-        chat_kwargs = {}
-        if api_key is not None:
-            chat_kwargs["api_key"] = api_key
+        last_exc: Exception = ServiceError("No providers available")
+        for provider_name in chain:
+            provider = self._providers.get(provider_name)
+            if provider is None:
+                continue
 
-        try:
-            return await provider.chat(messages, tools=tools, model=model_override, **chat_kwargs)
-        except Exception as exc:
-            if (
-                provider_name in {"ollama", "lmstudio"}
-                and enforce_local
-                and sensitivity in {Sensitivity.S3, Sensitivity.S4}
-                and _is_connection_error(exc)
-            ):
-                raise LocalProviderUnavailableError(
-                    provider=provider_name,
-                    sensitivity=sensitivity.value,
-                    fallback_allowed=sensitivity is Sensitivity.S3,
-                    detail=str(exc),
-                ) from exc
-            raise
+            model_override = preferred_model
+            if provider_name in {"ollama", "lmstudio"}:
+                # Prevent cloud model names from leaking through local overrides.
+                if preferred_local_model:
+                    model_override = preferred_local_model
+                elif enforce_local and sensitivity in {Sensitivity.S3, Sensitivity.S4}:
+                    model_override = None
+
+            api_key = api_keys.get(provider_name) if api_keys else None
+            chat_kwargs: dict[str, Any] = {}
+            if api_key is not None:
+                chat_kwargs["api_key"] = api_key
+
+            try:
+                return await provider.chat(messages, tools=tools, model=model_override, **chat_kwargs)
+            except Exception as exc:
+                # S3/S4 local-only failure — surface immediately with structured error.
+                if (
+                    provider_name in {"ollama", "lmstudio"}
+                    and enforce_local
+                    and sensitivity in {Sensitivity.S3, Sensitivity.S4}
+                    and _is_connection_error(exc)
+                ):
+                    raise LocalProviderUnavailableError(
+                        provider=provider_name,
+                        sensitivity=sensitivity.value,
+                        fallback_allowed=sensitivity is Sensitivity.S3,
+                        detail=str(exc),
+                    ) from exc
+
+                # Auth / permission errors are hard failures — no point retrying other providers.
+                if _is_auth_error(exc):
+                    raise
+
+                last_exc = exc
+                # Try next provider in the chain.
+
+        raise last_exc
 
     def select_provider(
         self,
@@ -120,93 +133,118 @@ class LLMRouter:
         preferred_local_provider: str | None = None,
         api_keys: dict[str, str | None] | None = None,
     ) -> LLMProvider:
-        """Return one cached provider instance or fail with clear config error."""
-        if api_keys:
-            for provider_name, api_key in api_keys.items():
-                if api_key and api_key.strip() and provider_name not in self._providers:
-                    if provider_name == "openai":
-                        self._providers["openai"] = OpenAIProvider()
-                    elif provider_name == "deepseek":
-                        self._providers["deepseek"] = DeepSeekProvider()
-                    elif provider_name == "gemini":
-                        self._providers["gemini"] = GeminiProvider()
-                    elif provider_name == "mistral":
-                        self._providers["mistral"] = MistralProvider()
-                    elif provider_name == "anthropic":
-                        self._providers["anthropic"] = AnthropicProvider()
+        """Return the primary provider for one request (no fallback iteration).
 
-        if enforce_local and sensitivity in {Sensitivity.S4, Sensitivity.S3}:
-            try:
-                local_provider_name = self._get_local_provider(
-                    preferred_local_provider=preferred_local_provider
-                )
-            except ServiceError as exc:
-                raise LocalProviderUnavailableError(
-                    provider="local",
-                    sensitivity=sensitivity.value,
-                    fallback_allowed=sensitivity is Sensitivity.S3,
-                    detail=str(exc),
-                ) from exc
-            provider = self._providers.get(local_provider_name)
-            if provider is not None:
-                return provider
-            raise LocalProviderUnavailableError(
-                provider=local_provider_name,
-                sensitivity=sensitivity.value,
-                fallback_allowed=sensitivity is Sensitivity.S3,
-                detail=f"Provider '{local_provider_name}' not configured — set the API key",
-            )
+        Kept for backwards-compatibility with callers that do not use route().
+        """
+        self._register_runtime_keys(api_keys)
 
-        if preferred_provider:
-            normalized_preferred_provider = preferred_provider.strip().lower()
-            preferred = self._providers.get(normalized_preferred_provider)
-            if preferred is not None:
-                return preferred
-
-        name = self._resolve_provider_name(
+        chain = self._build_fallback_chain(
             intent=intent,
             sensitivity=sensitivity,
             enforce_local=enforce_local,
+            preferred_provider=preferred_provider,
+            preferred_local_provider=preferred_local_provider,
         )
-        provider = self._providers.get(name)
-        if provider is not None:
-            return provider
+        for name in chain:
+            provider = self._providers.get(name)
+            if provider is not None:
+                return provider
+        raise ServiceError("No configured provider available for this request")
 
-        # Dev-friendly fallback: use any configured provider only in explicit bypass mode.
-        settings = get_settings()
-        if getattr(settings, "auth_dev_bypass", False):
-            for candidate in ("deepseek", "openai", "gemini", "mistral", "ollama", "lmstudio"):
-                candidate_provider = self._providers.get(candidate)
-                if candidate_provider is not None:
-                    return candidate_provider
+    def _register_runtime_keys(self, api_keys: dict[str, str | None] | None) -> None:
+        """Lazily register providers supplied via per-request API keys."""
+        if not api_keys:
+            return
+        _factory: dict[str, type[LLMProvider]] = {
+            "openai": OpenAIProvider,
+            "deepseek": DeepSeekProvider,
+            "gemini": GeminiProvider,
+            "mistral": MistralProvider,
+            "anthropic": AnthropicProvider,
+        }
+        for provider_name, api_key in api_keys.items():
+            if api_key and api_key.strip() and provider_name not in self._providers:
+                factory = _factory.get(provider_name)
+                if factory is not None:
+                    self._providers[provider_name] = factory()
 
-        raise ServiceError(f"Provider '{name}' not configured — set the API key")
-
-
-    def _resolve_provider_name(
+    def _build_fallback_chain(
         self,
         *,
         intent: str,
         sensitivity: Sensitivity,
         enforce_local: bool = True,
-    ) -> str:
-        # If no cloud providers are configured, route everything to the available local provider.
-        has_cloud = any(p in self._providers for p in ("deepseek", "openai", "gemini", "mistral"))
-        if not has_cloud:
-            return self._get_local_provider()
+        preferred_provider: str | None = None,
+        preferred_local_provider: str | None = None,
+    ) -> list[str]:
+        """Return an ordered list of provider names to try for this request.
 
-        normalized_intent = intent.strip().lower()
-        if enforce_local and sensitivity in {Sensitivity.S4, Sensitivity.S3}:
-            return self._get_local_provider()
-        if normalized_intent == "intimate_reflection":
-            return self._get_local_provider()
-        if normalized_intent in {"tool_call", "critical_action"}:
+        Fallback priority (S0–S2):
+            preferred_provider → intent primary → Mistral → DeepSeek → OpenAI →
+            Anthropic → Gemini → local (last resort)
+
+        S3/S4 with enforce_local: only local providers, no cloud fallback.
+        """
+        # S3/S4 hard-local: one entry only.
+        if enforce_local and sensitivity in {Sensitivity.S3, Sensitivity.S4}:
+            try:
+                local = self._get_local_provider(preferred_local_provider=preferred_local_provider)
+                return [local]
+            except ServiceError:
+                return []
+
+        chain: list[str] = []
+
+        # 1. User's explicit preferred provider (highest priority).
+        if preferred_provider:
+            norm = preferred_provider.strip().lower()
+            if norm in self._providers and norm not in chain:
+                chain.append(norm)
+
+        # 2. Intent-based primary provider.
+        intent_primary = self._intent_primary(intent)
+        if intent_primary and intent_primary not in chain:
+            chain.append(intent_primary)
+
+        # 3. Remaining cloud providers in defined cost/quality priority order.
+        _CLOUD_PRIORITY = ("mistral", "deepseek", "openai", "anthropic", "gemini")
+        for name in _CLOUD_PRIORITY:
+            if name in self._providers and name not in chain:
+                chain.append(name)
+
+        # 4. Local providers as last resort.
+        for local in ("ollama", "lmstudio"):
+            if local in self._providers and local not in chain:
+                chain.append(local)
+
+        # Dev-bypass: ensure at least one provider is available.
+        if not chain:
+            settings = get_settings()
+            if getattr(settings, "auth_dev_bypass", False):
+                for candidate in ("mistral", "deepseek", "openai", "anthropic", "gemini", "ollama", "lmstudio"):
+                    if candidate in self._providers:
+                        chain.append(candidate)
+                        break
+
+        return chain
+
+
+    def _intent_primary(self, intent: str) -> str | None:
+        """Return the preferred provider name for a given intent, or None."""
+        normalized = intent.strip().lower()
+        if normalized == "intimate_reflection":
+            return self._get_local_provider() if self._has_local() else None
+        if normalized in {"tool_call", "critical_action"}:
             return "openai"
-        if normalized_intent in {"creative", "talk"}:
+        if normalized in {"creative", "talk"}:
             return "gemini"
-        if normalized_intent == "claim_extraction":
+        if normalized == "claim_extraction":
             return "deepseek"
-        return "deepseek"
+        return None
+
+    def _has_local(self) -> bool:
+        return "ollama" in self._providers or "lmstudio" in self._providers
 
     def _get_local_provider(self, *, preferred_local_provider: str | None = None) -> str:
         if preferred_local_provider:
@@ -244,5 +282,20 @@ def _is_connection_error(exc: Exception) -> bool:
         "connection error",
         "all connection attempts failed",
         "unreachable",
+    )
+    return any(marker in error_text for marker in markers)
+
+
+def _is_auth_error(exc: Exception) -> bool:
+    """Return True for authentication/authorisation failures — no point retrying."""
+    error_text = str(exc).lower()
+    markers = (
+        "401",
+        "403",
+        "authentication",
+        "unauthorized",
+        "forbidden",
+        "invalid api key",
+        "incorrect api key",
     )
     return any(marker in error_text for marker in markers)
