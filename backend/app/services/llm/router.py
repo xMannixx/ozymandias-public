@@ -9,6 +9,7 @@ from app.config import get_settings
 from app.schemas import Sensitivity
 from app.services.errors import LocalProviderUnavailableError, ServiceError
 from app.services.llm.base import LLMMessage, LLMProvider, LLMResponse
+from app.services.llm.anthropic_provider import AnthropicProvider
 from app.services.llm.deepseek import DeepSeekProvider
 from app.services.llm.gemini import GeminiProvider
 from app.services.llm.lmstudio import LMStudioProvider
@@ -34,6 +35,8 @@ class LLMRouter:
             self._providers["gemini"] = GeminiProvider()
         if settings.mistral_api_key:
             self._providers["mistral"] = MistralProvider()
+        if settings.anthropic_api_key:
+            self._providers["anthropic"] = AnthropicProvider()
 
     @property
     def available_providers(self) -> list[str]:
@@ -129,6 +132,8 @@ class LLMRouter:
                         self._providers["gemini"] = GeminiProvider()
                     elif provider_name == "mistral":
                         self._providers["mistral"] = MistralProvider()
+                    elif provider_name == "anthropic":
+                        self._providers["anthropic"] = AnthropicProvider()
 
         if enforce_local and sensitivity in {Sensitivity.S4, Sensitivity.S3}:
             try:

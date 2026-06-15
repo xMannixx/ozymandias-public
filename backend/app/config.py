@@ -40,6 +40,8 @@ class Settings(BaseSettings):
     gemini_api_key: str = Field(default="")
     mistral_api_key: str = Field(default="")
     mistral_base_url: str = Field(default="https://api.mistral.ai/v1")
+    anthropic_api_key: str = Field(default="")
+    anthropic_model: str = Field(default="claude-opus-4-5")
     ollama_base_url: str = Field(default="http://localhost:11434")
     lmstudio_base_url: str = Field(default="http://localhost:1234/v1")
     deepseek_model: str = Field(default="deepseek-chat")

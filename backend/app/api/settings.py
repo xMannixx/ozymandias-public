@@ -18,7 +18,7 @@ from app.services.circuit_breaker_service import CircuitBreakerService
 from app.services.settings_service import SettingsService
 
 router = APIRouter(tags=["settings"])
-_PROVIDER_VALUES = {"deepseek", "openai", "ollama", "gemini", "lmstudio", "mistral"}
+_PROVIDER_VALUES = {"deepseek", "openai", "ollama", "gemini", "lmstudio", "mistral", "anthropic"}
 _LOCAL_PROVIDER_VALUES = {"ollama", "lmstudio"}
 _LIVE_WEB_MODE_VALUES = {"provider_native_first", "connector_only", "off"}
 _VOICE_MODE_VALUES = {"push_to_talk", "hands_free"}
@@ -113,7 +113,7 @@ def _to_settings_response(settings: UserSettings) -> UserSettingsResponse:
     if preferred_local_provider not in _LOCAL_PROVIDER_VALUES:
         preferred_local_provider = None
     typed_preferred_provider = cast(
-        Literal["deepseek", "openai", "ollama", "gemini", "lmstudio", "mistral"] | None,
+        Literal["deepseek", "openai", "ollama", "gemini", "lmstudio", "mistral", "anthropic"] | None,
         preferred_provider,
     )
     typed_preferred_local_provider = cast(
