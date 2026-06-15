@@ -16,7 +16,7 @@ from app.schemas import (
     VerificationState,
 )
 from app.services.llm.base import LLMMessage, LLMResponse
-from app.services.llm.claim_extractor import ClaimExtractor, _apply_defaults
+from app.services.llm.claim_extractor import ClaimExtractor, _apply_defaults, _is_question
 
 
 @dataclass
@@ -199,3 +199,92 @@ def test_apply_defaults_keeps_valid_memory_type_health() -> None:
         turn_id="turn-6",
     )
     assert merged["memory_type"] == "health"
+
+
+# ---------------------------------------------------------------------------
+# _is_question unit tests
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Wie nutzt du das?",
+        "wie nutzt du das?",
+        "Was ist dein Name?",
+        "Warum speicherst du das?",
+        "Wo wohnst du?",
+        "Wann hast du das gemacht?",
+        "Wer bist du?",
+        "Welche Modelle nutzt du?",
+        "How does this work?",
+        "What is your name?",
+        "Why did you do that?",
+        "Can you help me?",
+        "Kannst du mir helfen?",
+    ],
+)
+def test_is_question_returns_true(text: str) -> None:
+    assert _is_question(text) is True
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Ich bin Manfred.",
+        "Merk dir: Ich arbeite bei Arriva.",
+        "Mein Projekt heißt Pflanzcheck.",
+        "Ich wohne in Berlin.",
+        "",
+    ],
+)
+def test_is_question_returns_false(text: str) -> None:
+    assert _is_question(text) is False
+
+
+@pytest.mark.asyncio
+async def test_extract_skips_question_with_question_mark() -> None:
+    """Questions ending with '?' must yield no claims and skip the LLM call."""
+    router = _FakeRouter(payload='[{"subject":"user","value":"x","memory_type":"profile","confidence":0.9,"sensitivity":"S1"}]')
+    extractor = ClaimExtractor(router=router)
+    claims = await extractor.extract(
+        llm_response_text="irrelevant",
+        original_message="Wie funktioniert das?",
+        sensitivity=Sensitivity.S1,
+        turn_id="turn-q1",
+    )
+    assert claims == []
+    assert router.last_sensitivity is None  # router was never called
+
+
+@pytest.mark.asyncio
+async def test_extract_skips_question_word_without_mark() -> None:
+    """Questions starting with a question word (no '?') must also yield no claims."""
+    router = _FakeRouter(payload="[]")
+    extractor = ClaimExtractor(router=router)
+    claims = await extractor.extract(
+        llm_response_text="irrelevant",
+        original_message="Wie nutze ich das",
+        sensitivity=Sensitivity.S1,
+        turn_id="turn-q2",
+    )
+    assert claims == []
+    assert router.last_sensitivity is None
+
+
+@pytest.mark.asyncio
+async def test_extract_does_not_skip_statement() -> None:
+    """Normal statements must still reach the router and return claims."""
+    router = _FakeRouter(
+        payload='[{"subject":"user","attribute":"name","value":"Manfred","confidence":0.95,"sensitivity":"S2","memory_type":"profile","explicit":true}]'
+    )
+    extractor = ClaimExtractor(router=router)
+    claims = await extractor.extract(
+        llm_response_text="irrelevant",
+        original_message="Ich heiße Manfred.",
+        sensitivity=Sensitivity.S2,
+        turn_id="turn-q3",
+    )
+    assert len(claims) == 1
+    assert claims[0].subject == "user"
+    assert router.last_sensitivity is Sensitivity.S2

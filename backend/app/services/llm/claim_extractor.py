@@ -27,6 +27,9 @@ EXTRACTION_SYSTEM_PROMPT = (
     "Extrahiere faktische Claims als reines JSON-Array ohne Markdown. "
     "Jeder Eintrag braucht genau diese Felder: "
     "subject, attribute, value, confidence, sensitivity, memory_type, explicit.\n"
+    "WICHTIG: Wenn die Original-Nachricht eine Frage ist (endet mit '?' oder beginnt mit "
+    "Fragewörtern wie 'wie', 'was', 'warum', 'wo', 'wann', 'wer', 'welche', etc.), "
+    "extrahiere KEINE Claims daraus. Antworte dann mit einem leeren Array: []\n"
     "- memory_type: MUSS einer dieser Werte sein: profile, health, preference, relationship, "
     "event, location, work, finance, security, intimate\n"
     "- profile = Name, Alter, Herkunft, Beruf, persoenliche Fakten\n"
@@ -59,6 +62,54 @@ VALID_MEMORY_TYPES = frozenset(
     }
 )
 
+_QUESTION_WORDS = frozenset(
+    {
+        # German
+        "wie",
+        "was",
+        "warum",
+        "weshalb",
+        "wieso",
+        "wo",
+        "woher",
+        "wohin",
+        "wozu",
+        "womit",
+        "wobei",
+        "wann",
+        "wer",
+        "wen",
+        "wem",
+        "wessen",
+        "welche",
+        "welcher",
+        "welches",
+        "welchem",
+        "welchen",
+        "inwiefern",
+        "inwieweit",
+        # English
+        "how",
+        "what",
+        "why",
+        "where",
+        "when",
+        "who",
+        "whom",
+        "whose",
+        "which",
+    }
+)
+
+
+def _is_question(text: str) -> bool:
+    """Return True if *text* is a question and should not yield any claims."""
+    stripped = text.strip()
+    if stripped.endswith("?"):
+        return True
+    first_word = stripped.split()[0].lower().rstrip(".,!;:") if stripped else ""
+    return first_word in _QUESTION_WORDS
+
 
 class ClaimExtractor:
     """Extract claims from model responses and validate against ClaimData."""
@@ -75,6 +126,10 @@ class ClaimExtractor:
         turn_id: str,
         api_keys: dict[str, str | None] | None = None,
     ) -> list[ClaimData]:
+        if _is_question(original_message):
+            LOGGER.debug("Skipping claim extraction: original_message is a question")
+            return []
+
         messages: list[LLMMessage] = [
             {"role": "system", "content": EXTRACTION_SYSTEM_PROMPT},
             {
