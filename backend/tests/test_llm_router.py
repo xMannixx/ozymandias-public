@@ -157,7 +157,7 @@ def test_router_selects_gemini_when_preferred_provider_set(
 def test_router_falls_back_when_preferred_provider_not_configured(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """When preferred provider is not configured, fall through to first available in priority order."""
+    """Unconfigured preferences fall through to the next available provider."""
     _patch_router_dependencies(monkeypatch, gemini_key="")
     router = LLMRouter()
     provider = router.select_provider(
@@ -438,4 +438,3 @@ async def test_route_raises_last_error_when_all_providers_fail(
             sensitivity=Sensitivity.S1,
             messages=[{"role": "user", "content": "test"}],
         )
-

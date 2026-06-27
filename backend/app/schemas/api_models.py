@@ -9,6 +9,17 @@ from pydantic import BaseModel, Field
 
 from app.schemas import Channel, ClaimData, ProposalData, Sensitivity, TaintSummary
 
+ProviderLiteral = Literal[
+    "deepseek",
+    "openai",
+    "ollama",
+    "gemini",
+    "lmstudio",
+    "mistral",
+    "anthropic",
+]
+LocalProviderLiteral = Literal["ollama", "lmstudio"]
+
 
 class TurnRequest(BaseModel):
     """Incoming request for turn processing."""
@@ -16,7 +27,7 @@ class TurnRequest(BaseModel):
     text: str = Field(min_length=1)
     channel: Channel = Channel.web
     claims: list[ClaimData] | None = None
-    provider: Literal["deepseek", "openai", "ollama", "gemini", "lmstudio", "mistral", "anthropic"] | None = None
+    provider: ProviderLiteral | None = None
     model: str | None = Field(default=None, min_length=1, max_length=120)
     allow_s3_cloud_fallback: bool = False
     use_live_web: bool | None = None
@@ -247,9 +258,9 @@ class UserSettingsResponse(BaseModel):
     cb_max_actions_override: int | None
     cb_window_seconds_override: int | None
     cb_cooldown_seconds_override: int | None
-    preferred_provider: Literal["deepseek", "openai", "ollama", "gemini", "lmstudio", "mistral", "anthropic"] | None
+    preferred_provider: ProviderLiteral | None
     preferred_model: str | None
-    preferred_local_provider: Literal["ollama", "lmstudio"] | None
+    preferred_local_provider: LocalProviderLiteral | None
     preferred_local_model: str | None
     live_web_enabled: bool
     live_web_mode: Literal["provider_native_first", "connector_only", "off"]
@@ -276,9 +287,9 @@ class UpdateSettingsRequest(BaseModel):
     cb_max_actions_override: int | None = Field(default=None, ge=1, le=1000)
     cb_window_seconds_override: int | None = Field(default=None, ge=10, le=3600)
     cb_cooldown_seconds_override: int | None = Field(default=None, ge=10, le=7200)
-    preferred_provider: Literal["deepseek", "openai", "ollama", "gemini", "lmstudio", "mistral", "anthropic"] | None = None
+    preferred_provider: ProviderLiteral | None = None
     preferred_model: str | None = Field(default=None, min_length=1, max_length=120)
-    preferred_local_provider: Literal["ollama", "lmstudio"] | None = None
+    preferred_local_provider: LocalProviderLiteral | None = None
     preferred_local_model: str | None = Field(default=None, min_length=1, max_length=120)
     live_web_enabled: bool | None = None
     live_web_mode: Literal["provider_native_first", "connector_only", "off"] | None = None

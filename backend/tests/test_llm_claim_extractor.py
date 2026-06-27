@@ -245,7 +245,12 @@ def test_is_question_returns_false(text: str) -> None:
 @pytest.mark.asyncio
 async def test_extract_skips_question_with_question_mark() -> None:
     """Questions ending with '?' must yield no claims and skip the LLM call."""
-    router = _FakeRouter(payload='[{"subject":"user","value":"x","memory_type":"profile","confidence":0.9,"sensitivity":"S1"}]')
+    router = _FakeRouter(
+        payload=(
+            '[{"subject":"user","value":"x","memory_type":"profile",'
+            '"confidence":0.9,"sensitivity":"S1"}]'
+        )
+    )
     extractor = ClaimExtractor(router=router)
     claims = await extractor.extract(
         llm_response_text="irrelevant",

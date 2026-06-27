@@ -203,7 +203,9 @@ class TurnService:
                 )
             else:
                 taint_summary = rust_bridge.compute_taint(
-                    TaintContext(chunks=[_claim_to_taint_chunk(claim) for claim in extracted_claims])
+                    TaintContext(
+                        chunks=[_claim_to_taint_chunk(claim) for claim in extracted_claims]
+                    )
                 )
 
             results: list[ClaimProcessResult] = []
