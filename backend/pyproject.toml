@@ -76,7 +76,7 @@ module = ["google", "google.*", "ollama", "ollama.*", "openai", "openai.*"]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
-module = ["googleapiclient", "googleapiclient.*", "google_auth_oauthlib", "google_auth_oauthlib.*"]
+module = ["googleapiclient.*", "google_auth_oauthlib.*"]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]

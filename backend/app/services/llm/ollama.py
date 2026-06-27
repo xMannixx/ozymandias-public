@@ -24,9 +24,10 @@ class OllamaProvider(LLMProvider):
         *,
         tools: list[dict[str, Any]] | None = None,
         model: str | None = None,
+        api_key: str | None = None,
     ) -> LLMResponse:
         selected_model = model or self._model_name
-        del tools  # Ollama tools are currently not used in this backend.
+        del api_key, tools  # Ollama tools are currently not used in this backend.
         exc_to_raise = None
         try:
             response = await self._client.chat(model=selected_model, messages=messages)

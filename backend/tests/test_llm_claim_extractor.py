@@ -31,8 +31,9 @@ class _FakeRouter:
         sensitivity: Sensitivity,
         messages: list[LLMMessage],
         tools: list[dict[str, Any]] | None = None,
+        api_keys: dict[str, str | None] | None = None,
     ) -> LLMResponse:
-        del messages, tools
+        del api_keys, messages, tools
         assert intent == "claim_extraction"
         self.last_sensitivity = sensitivity
         return LLMResponse(

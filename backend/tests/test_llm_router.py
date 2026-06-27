@@ -8,7 +8,6 @@ from typing import Any
 import pytest
 
 from app.schemas import Sensitivity
-from app.services.errors import ServiceError
 from app.services.llm.base import LLMMessage, LLMResponse
 from app.services.llm.router import LLMRouter
 
@@ -24,8 +23,9 @@ class _FakeProvider:
         *,
         tools: list[dict[str, Any]] | None = None,
         model: str | None = None,
+        api_key: str | None = None,
     ) -> LLMResponse:
-        del messages, tools
+        del api_key, messages, tools
         self.last_model = model
         return LLMResponse(
             content="ok",
@@ -189,10 +189,10 @@ def test_router_falls_back_to_mistral_when_openai_not_configured_for_tool_call(
     assert provider.provider_name == "mistral"
 
 
-def test_router_raises_when_no_provider_available(
+def test_router_falls_back_to_ollama_when_no_cloud_provider_available(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Raise ServiceError when no provider is configured at all."""
+    """Without cloud keys, general traffic still falls back to Ollama."""
     _patch_router_dependencies(
         monkeypatch,
         deepseek_key="",
@@ -202,8 +202,9 @@ def test_router_raises_when_no_provider_available(
         anthropic_key="",
     )
     router = LLMRouter()
-    with pytest.raises(ServiceError):
-        router.select_provider(intent="general_turn", sensitivity=Sensitivity.S1)
+    provider = router.select_provider(intent="general_turn", sensitivity=Sensitivity.S1)
+    assert isinstance(provider, _FakeProvider)
+    assert provider.provider_name == "ollama"
 
 
 def test_router_available_providers_contains_only_configured(
@@ -211,7 +212,7 @@ def test_router_available_providers_contains_only_configured(
 ) -> None:
     _patch_router_dependencies(monkeypatch, deepseek_key="", gemini_key="", mistral_key="")
     router = LLMRouter()
-    assert sorted(router.available_providers) == ["ollama", "openai"]
+    assert sorted(router.available_providers) == ["anthropic", "ollama", "openai"]
 
 
 @pytest.mark.asyncio

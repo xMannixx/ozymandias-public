@@ -1,7 +1,7 @@
 """Health endpoints."""
 
 from importlib import import_module
-from typing import Literal
+from typing import Literal, cast
 
 import httpx
 from fastapi import APIRouter, Depends, Header, status
@@ -13,9 +13,9 @@ from app.config import get_settings
 from app.database import get_db, get_redis
 from app.schemas.api_models import (
     HealthResponse,
+    LiveWebHealth,
     LLMProviderHealth,
     LLMProviderTokenUsage,
-    LiveWebHealth,
 )
 from app.services.llm.router import get_llm_router
 from app.services.llm.token_usage_tracker import get_token_usage_tracker
@@ -131,7 +131,10 @@ async def health(
 
         # Elevate status when token budget is exhausted or warning.
         if token_usage and token_usage.budget_status in {"warning", "limit_reached"}:
-            effective_status = token_usage.budget_status
+            effective_status = cast(
+                Literal["ok", "unavailable", "configured", "warning", "limit_reached"],
+                token_usage.budget_status,
+            )
         else:
             effective_status = status_value
 

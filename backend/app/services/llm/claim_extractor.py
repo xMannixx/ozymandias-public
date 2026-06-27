@@ -141,14 +141,11 @@ class ClaimExtractor:
                 ),
             },
         ]
-        route_kwargs = {}
-        if api_keys is not None:
-            route_kwargs["api_keys"] = api_keys
         extraction = await self._router.route(
             intent="claim_extraction",
             sensitivity=sensitivity,
             messages=messages,
-            **route_kwargs,
+            api_keys=api_keys,
         )
         raw_items = _parse_claim_array(extraction.content)
         if not raw_items:
@@ -294,4 +291,3 @@ class SupportsRouting(Protocol):
         tools: list[dict[str, Any]] | None = None,
         api_keys: dict[str, str | None] | None = None,
     ) -> LLMResponse: ...
-
