@@ -53,7 +53,7 @@ class SettingsService:
         for key, value in kwargs.items():
             if value is None and key not in self._nullable_update_fields:
                 continue
-            
+
             # API Key masking logic
             if key in {
                 "openai_api_key",

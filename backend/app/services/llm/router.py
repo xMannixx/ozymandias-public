@@ -87,7 +87,9 @@ class LLMRouter:
                 continue
 
             # Skip cloud providers that have exceeded their daily token limit.
-            if provider_name not in {"ollama", "lmstudio"} and tracker.is_limit_exceeded(provider_name):
+            if provider_name not in {"ollama", "lmstudio"} and tracker.is_limit_exceeded(
+                provider_name
+            ):
                 last_exc = ServiceError(f"Daily token limit reached for '{provider_name}'")
                 continue
 
@@ -105,7 +107,12 @@ class LLMRouter:
                 chat_kwargs["api_key"] = api_key
 
             try:
-                response = await provider.chat(messages, tools=tools, model=model_override, **chat_kwargs)
+                response = await provider.chat(
+                    messages,
+                    tools=tools,
+                    model=model_override,
+                    **chat_kwargs,
+                )
                 if response.tokens_used:
                     tracker.record(provider_name, response.tokens_used)
                 return response
@@ -232,13 +239,20 @@ class LLMRouter:
         if not chain:
             settings = get_settings()
             if getattr(settings, "auth_dev_bypass", False):
-                for candidate in ("mistral", "deepseek", "openai", "anthropic", "gemini", "ollama", "lmstudio"):
+                for candidate in (
+                    "mistral",
+                    "deepseek",
+                    "openai",
+                    "anthropic",
+                    "gemini",
+                    "ollama",
+                    "lmstudio",
+                ):
                     if candidate in self._providers:
                         chain.append(candidate)
                         break
 
         return chain
-
 
     def _intent_primary(self, intent: str) -> str | None:
         """Return the preferred provider name for a given intent, or None."""

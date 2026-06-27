@@ -27,7 +27,9 @@ class LMStudioProvider(LLMProvider):
         *,
         tools: list[dict[str, Any]] | None = None,
         model: str | None = None,
+        api_key: str | None = None,
     ) -> LLMResponse:
+        del api_key
         selected_model = model or self._model_name
         request_payload: dict[str, Any] = {
             "model": selected_model,

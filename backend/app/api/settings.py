@@ -12,7 +12,12 @@ from app.auth.jwt import get_current_user
 from app.database import get_db, get_redis
 from app.models.settings import UserSettings
 from app.schemas import AuditEventType, AuditResult, Channel, Sensitivity
-from app.schemas.api_models import KillSwitchRequest, UpdateSettingsRequest, UserSettingsResponse
+from app.schemas.api_models import (
+    KillSwitchRequest,
+    ProviderLiteral,
+    UpdateSettingsRequest,
+    UserSettingsResponse,
+)
 from app.services.audit_service import AuditService
 from app.services.circuit_breaker_service import CircuitBreakerService
 from app.services.settings_service import SettingsService
@@ -113,7 +118,7 @@ def _to_settings_response(settings: UserSettings) -> UserSettingsResponse:
     if preferred_local_provider not in _LOCAL_PROVIDER_VALUES:
         preferred_local_provider = None
     typed_preferred_provider = cast(
-        Literal["deepseek", "openai", "ollama", "gemini", "lmstudio", "mistral", "anthropic"] | None,
+        ProviderLiteral | None,
         preferred_provider,
     )
     typed_preferred_local_provider = cast(

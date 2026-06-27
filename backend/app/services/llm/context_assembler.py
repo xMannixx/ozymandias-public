@@ -88,7 +88,7 @@ class ContextAssembler:
                         intent_type=intent,
                     )
                 )
-                max_claims = int(budget.max_claims)
+                max_claims = min(_MAX_CLAIMS, int(budget.max_claims))
             except OzyRustError as exc:
                 _log.warning("token_budget allocation failed, using default: %s", exc)
 

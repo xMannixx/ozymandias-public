@@ -58,4 +58,3 @@ class GeminiProvider(LLMProvider):
             tokens_used=tokens_used,
             raw_response=raw_response,
         )
-

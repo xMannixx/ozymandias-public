@@ -1,17 +1,22 @@
 """Health endpoints."""
 
 from importlib import import_module
-from typing import Literal
+from typing import Literal, cast
 
 import httpx
-from fastapi import APIRouter, Depends, status, Header
+from fastapi import APIRouter, Depends, Header, status
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql import text
 
 from app.config import get_settings
 from app.database import get_db, get_redis
-from app.schemas.api_models import HealthResponse, LiveWebHealth, LLMProviderHealth, LLMProviderTokenUsage
+from app.schemas.api_models import (
+    HealthResponse,
+    LiveWebHealth,
+    LLMProviderHealth,
+    LLMProviderTokenUsage,
+)
 from app.services.llm.router import get_llm_router
 from app.services.llm.token_usage_tracker import get_token_usage_tracker
 
@@ -49,16 +54,18 @@ async def health(
     authorization: str | None = Header(default=None),
 ) -> HealthResponse:
     await db.execute(text("SELECT 1"))
-    
+
     user_settings = None
     if authorization and authorization.startswith("Bearer "):
         token = authorization.split(" ")[1]
         try:
             from app.auth.jwt import decode_access_token
+
             payload = decode_access_token(token)
             user_id = payload.get("sub")
             if user_id:
                 from app.services.settings_service import SettingsService
+
                 user_settings = await SettingsService(db).get_or_create(user_id)
         except Exception:
             pass
@@ -124,7 +131,10 @@ async def health(
 
         # Elevate status when token budget is exhausted or warning.
         if token_usage and token_usage.budget_status in {"warning", "limit_reached"}:
-            effective_status = token_usage.budget_status
+            effective_status = cast(
+                Literal["ok", "unavailable", "configured", "warning", "limit_reached"],
+                token_usage.budget_status,
+            )
         else:
             effective_status = status_value
 
