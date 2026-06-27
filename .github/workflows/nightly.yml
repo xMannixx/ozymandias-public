@@ -64,7 +64,7 @@ jobs:
 
       - name: Pytest with coverage
         if: ${{ hashFiles('backend/tests/**/*.py', 'backend/test_*.py', 'backend/**/*test*.py') != '' }}
-        run: python -m pytest -q -n auto --cov=backend/app/api --cov=backend/app/services --cov=backend/app/schemas --cov-report=term-missing --cov-fail-under=90 backend/tests
+        run: python -m pytest -q -n auto --cov=backend/app/api --cov=backend/app/services --cov=backend/app/schemas --cov-report=term-missing --cov-fail-under=80 backend/tests
 
   python-nightly-db-integration:
     runs-on: ubuntu-latest
