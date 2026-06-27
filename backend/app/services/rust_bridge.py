@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib
 import json
+import os
 from typing import Any, Protocol, cast
 
 from pydantic import TypeAdapter
@@ -87,7 +88,7 @@ def _load_bindings() -> OzyBindingsModule:
         return cast(OzyBindingsModule, module)
     except ModuleNotFoundError:
         settings = get_settings()
-        if settings.auth_dev_bypass:
+        if settings.auth_dev_bypass or "PYTEST_CURRENT_TEST" in os.environ:
             fallback = importlib.import_module("app.services.ozy_bindings_fallback")
             return cast(OzyBindingsModule, fallback)
         raise

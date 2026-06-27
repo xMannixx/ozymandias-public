@@ -17,10 +17,14 @@ class MistralProvider(LLMProvider):
     def __init__(self) -> None:
         settings = get_settings()
         api_key = settings.mistral_api_key
-        self._client = AsyncOpenAI(
-            api_key=api_key,
-            base_url=settings.mistral_base_url,
-        ) if api_key else None
+        self._client = (
+            AsyncOpenAI(
+                api_key=api_key,
+                base_url=settings.mistral_base_url,
+            )
+            if api_key
+            else None
+        )
         self._model_name = settings.mistral_model
         self._base_url = settings.mistral_base_url
 
@@ -33,10 +37,14 @@ class MistralProvider(LLMProvider):
         api_key: str | None = None,
     ) -> LLMResponse:
         selected_model = model or self._model_name
-        client = AsyncOpenAI(
-            api_key=api_key,
-            base_url=self._base_url,
-        ) if api_key else self._client
+        client = (
+            AsyncOpenAI(
+                api_key=api_key,
+                base_url=self._base_url,
+            )
+            if api_key
+            else self._client
+        )
         if client is None:
             raise ServiceError("Mistral provider not configured — api_key is missing")
 
@@ -60,4 +68,3 @@ class MistralProvider(LLMProvider):
             tokens_used=tokens_used,
             raw_response=raw_response,
         )
-

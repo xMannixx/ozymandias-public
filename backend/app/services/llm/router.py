@@ -87,9 +87,8 @@ class LLMRouter:
                 continue
 
             # Skip cloud providers that have exceeded their daily token limit.
-            if (
-                provider_name not in {"ollama", "lmstudio"}
-                and tracker.is_limit_exceeded(provider_name)
+            if provider_name not in {"ollama", "lmstudio"} and tracker.is_limit_exceeded(
+                provider_name
             ):
                 last_exc = ServiceError(f"Daily token limit reached for '{provider_name}'")
                 continue
@@ -254,7 +253,6 @@ class LLMRouter:
                         break
 
         return chain
-
 
     def _intent_primary(self, intent: str) -> str | None:
         """Return the preferred provider name for a given intent, or None."""

@@ -39,9 +39,7 @@ class AnthropicProvider(LLMProvider):
             "",
         )
         user_messages: list[dict[str, Any]] = [
-            {"role": m["role"], "content": m["content"]}
-            for m in messages
-            if m["role"] != "system"
+            {"role": m["role"], "content": m["content"]} for m in messages if m["role"] != "system"
         ]
 
         create_kwargs: dict[str, Any] = {

@@ -139,7 +139,6 @@ class LiveWebService:
                 return candidate
         return None
 
-
     async def _search_with_connector(self, query: str) -> list[LiveWebSource]:
         connector_url = self._settings.live_web_connector_url.strip()
         connector_key = self._settings.live_web_connector_api_key.strip()

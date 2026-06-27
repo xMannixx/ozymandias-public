@@ -422,6 +422,7 @@ async def test_route_raises_last_error_when_all_providers_fail(
     for pname in list(router._providers):
         p = router._providers[pname]
         if isinstance(p, _FakeProvider):
+
             async def _fail(
                 messages: list[LLMMessage],
                 *,
@@ -431,6 +432,7 @@ async def test_route_raises_last_error_when_all_providers_fail(
                 _name: str = pname,
             ) -> LLMResponse:
                 raise OSError(f"{_name} unreachable")
+
             p.chat = _fail  # type: ignore[method-assign]
 
     with pytest.raises(OSError):
