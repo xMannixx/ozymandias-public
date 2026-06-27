@@ -210,9 +210,15 @@ def test_router_falls_back_to_ollama_when_no_cloud_provider_available(
 def test_router_available_providers_contains_only_configured(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    _patch_router_dependencies(monkeypatch, deepseek_key="", gemini_key="", mistral_key="")
+    _patch_router_dependencies(
+        monkeypatch,
+        deepseek_key="",
+        gemini_key="",
+        mistral_key="",
+        anthropic_key="",
+    )
     router = LLMRouter()
-    assert sorted(router.available_providers) == ["anthropic", "ollama", "openai"]
+    assert sorted(router.available_providers) == ["ollama", "openai"]
 
 
 @pytest.mark.asyncio
