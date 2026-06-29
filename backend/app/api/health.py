@@ -68,7 +68,7 @@ async def health(
 
                 user_settings = await SettingsService(db).get_or_create(user_id)
         except Exception:
-            pass
+            user_settings = None
 
     settings = get_settings()
     try:

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from contextlib import suppress
 from typing import Any, cast
 
 from ollama import AsyncClient
@@ -52,7 +53,7 @@ class OllamaProvider(LLMProvider):
             if exc_to_raise is not None and (
                 "not found" in error_text or "not_found" in error_text
             ):
-                try:
+                with suppress(Exception):
                     import httpx
 
                     settings = get_settings()
@@ -75,8 +76,6 @@ class OllamaProvider(LLMProvider):
                                     messages=messages,
                                 )
                                 exc_to_raise = None
-                except Exception:
-                    pass
 
             if exc_to_raise is not None:
                 if exc_to_raise is exc:
