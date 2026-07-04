@@ -1,12 +1,50 @@
+import { useMemo } from "react";
 import Spinner from "@/components/common/Spinner";
 import Toast from "@/components/common/Toast";
 import ClaimCard from "@/components/memory/ClaimCard";
 import ClaimDetail from "@/components/memory/ClaimDetail";
 import ClaimFilters from "@/components/memory/ClaimFilters";
 import { useClaims } from "@/hooks/useClaims";
+import type { ClaimResponse } from "@/api/types";
+
+type ConflictInfo = {
+  key: string;
+  count: number;
+};
+
+function conflictKeyFor(claim: ClaimResponse): string {
+  return `${claim.subject.trim().toLowerCase()}|${(claim.attribute ?? "").trim().toLowerCase()}`;
+}
+
+/**
+ * Client-side heuristic: claims that share the same subject/attribute but
+ * disagree on the value are flagged as a possible conflict/duplicate. There
+ * is no backend conflict_group_id on claims, so this stays purely visual.
+ */
+function buildConflictMap(claims: ClaimResponse[]): Map<string, ConflictInfo> {
+  const byKey = new Map<string, ClaimResponse[]>();
+  claims
+    .filter((claim) => claim.lifecycle !== "archived" && claim.verification_state !== "retracted")
+    .forEach((claim) => {
+      const key = conflictKeyFor(claim);
+      const list = byKey.get(key) ?? [];
+      list.push(claim);
+      byKey.set(key, list);
+    });
+
+  const result = new Map<string, ConflictInfo>();
+  byKey.forEach((list, key) => {
+    const distinctValues = new Set(list.map((claim) => claim.value.trim().toLowerCase()));
+    if (list.length > 1 && distinctValues.size > 1) {
+      list.forEach((claim) => result.set(claim.claim_id, { key, count: list.length }));
+    }
+  });
+  return result;
+}
 
 function MemoryBrowser(): JSX.Element {
   const {
+    claims,
     filteredClaims,
     loading,
     error,
@@ -29,6 +67,9 @@ function MemoryBrowser(): JSX.Element {
     clearToast,
   } = useClaims();
 
+  const conflictMap = useMemo(() => buildConflictMap(claims), [claims]);
+  const selectedConflict = selectedClaim ? conflictMap.get(selectedClaim.claim_id) : undefined;
+
   return (
     <section className="space-y-4">
       <div className="flex items-center justify-between gap-3">
@@ -36,7 +77,7 @@ function MemoryBrowser(): JSX.Element {
           aria-label="memory-search"
           value={searchQuery}
           onChange={(event) => setSearchQuery(event.target.value)}
-          placeholder="Suche nach Subject oder Value"
+          placeholder="Search your memories"
           className="w-full rounded border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-gray-100"
         />
       </div>
@@ -58,7 +99,10 @@ function MemoryBrowser(): JSX.Element {
       {error ? <p className="text-sm text-red-300">{error}</p> : null}
 
       {!loading && filteredClaims.length === 0 ? (
-        <p className="glass-card p-4 text-sm text-gray-400">Keine Claims gefunden.</p>
+        <p className="glass-card p-4 text-sm text-gray-400">
+          No memories match these filters yet. Memories appear here once you approve a proposal or Ozymandias
+          confirms something automatically.
+        </p>
       ) : (
         <div className="grid gap-4 md:grid-cols-[3fr_2fr]">
           <div className="grid auto-rows-min gap-3 sm:grid-cols-2 xl:grid-cols-3">
@@ -68,6 +112,7 @@ function MemoryBrowser(): JSX.Element {
                 claim={claim}
                 isSelected={selectedClaim?.claim_id === claim.claim_id}
                 onSelect={(item) => void selectClaim(item)}
+                hasConflict={conflictMap.has(claim.claim_id)}
               />
             ))}
           </div>
@@ -81,6 +126,8 @@ function MemoryBrowser(): JSX.Element {
               <ClaimDetail
                 claim={selectedClaim}
                 versions={versions}
+                conflictGroupId={selectedConflict?.key ?? null}
+                conflictRelatedCount={selectedConflict?.count}
                 onConfirm={confirmClaim}
                 onRetract={retractClaim}
                 onArchive={archiveClaim}
@@ -90,7 +137,7 @@ function MemoryBrowser(): JSX.Element {
               />
             )
           ) : (
-            <div className="glass-card h-fit p-4 text-sm text-gray-400">Waehle einen Claim fuer Details.</div>
+            <div className="glass-card h-fit p-4 text-sm text-gray-400">Select a memory to see details.</div>
           )}
         </div>
       )}

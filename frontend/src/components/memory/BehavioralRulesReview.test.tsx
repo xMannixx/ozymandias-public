@@ -55,19 +55,19 @@ describe("BehavioralRulesReview", () => {
   it("renders a pending rule with activate action", () => {
     render(<BehavioralRulesReview />);
     expect(screen.getByText("Antworte immer in Markdown")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Aktivieren" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Activate" })).toBeEnabled();
   });
 
   it("disables activation when a hard conflict exists", () => {
     hookState.conflicts = [hardConflict];
     render(<BehavioralRulesReview />);
-    expect(screen.getByRole("button", { name: "Aktivieren" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Activate" })).toBeDisabled();
     expect(screen.getByText(/HARD/)).toBeInTheDocument();
   });
 
   it("calls approve when activated", async () => {
     render(<BehavioralRulesReview />);
-    await userEvent.click(screen.getByRole("button", { name: "Aktivieren" }));
+    await userEvent.click(screen.getByRole("button", { name: "Activate" }));
     expect(hookState.approve).toHaveBeenCalledWith("rule-1", false);
   });
 });

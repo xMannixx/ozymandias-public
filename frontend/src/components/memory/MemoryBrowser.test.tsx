@@ -4,6 +4,7 @@ import MemoryBrowser from "@/components/memory/MemoryBrowser";
 import { mockClaimTentative, mockClaimVersions } from "@/test/fixtures";
 
 const hookState = {
+  claims: [mockClaimTentative],
   filteredClaims: [mockClaimTentative],
   loading: false,
   error: null as string | null,
@@ -49,10 +50,10 @@ describe("MemoryBrowser", () => {
     hookState.loading = false;
   });
 
-  it("renders empty state when no claims", () => {
+  it("renders empty state when no claims match filters", () => {
     hookState.filteredClaims = [];
     render(<MemoryBrowser />);
-    expect(screen.getByText("Keine Claims gefunden.")).toBeInTheDocument();
+    expect(screen.getByText(/No memories match these filters yet\./)).toBeInTheDocument();
     hookState.filteredClaims = [mockClaimTentative];
   });
 
@@ -60,7 +61,7 @@ describe("MemoryBrowser", () => {
     hookState.selectClaim.mockClear();
     render(<MemoryBrowser />);
     const claimButton = screen.getAllByRole("button").find((button) =>
-      button.textContent?.includes(mockClaimTentative.value),
+      button.textContent?.includes("Preference: dark mode"),
     );
     expect(claimButton).toBeDefined();
     await userEvent.click(claimButton as HTMLButtonElement);
@@ -68,9 +69,9 @@ describe("MemoryBrowser", () => {
   });
 
   it("renders toast message when present", () => {
-    hookState.toast = { message: "Konflikt", type: "error" };
+    hookState.toast = { message: "Conflict", type: "error" };
     render(<MemoryBrowser />);
-    expect(screen.getByText("Konflikt")).toBeInTheDocument();
+    expect(screen.getByText("Conflict")).toBeInTheDocument();
     hookState.toast = null;
   });
 });

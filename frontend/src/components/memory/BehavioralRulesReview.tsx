@@ -31,7 +31,7 @@ function RuleRow({
         <div>
           <p className="text-sm text-gray-100">{rule.behavior_text}</p>
           <p className="mt-1 text-xs text-gray-400">
-            Domain: {rule.domain} · Status: {rule.status} · Artefakt-Kosten: {rule.artifact_cost}
+            Domain: {rule.domain} &middot; Status: {rule.status} &middot; Artifact cost: {rule.artifact_cost}
           </p>
         </div>
       </div>
@@ -43,7 +43,7 @@ function RuleRow({
               key={conflict.conflict_id}
               className={`text-xs ${conflict.severity === "hard" ? "text-red-400" : "text-amber-400"}`}
             >
-              [{conflict.severity.toUpperCase()} · {conflict.conflict_type}] {conflict.detail}
+              [{conflict.severity.toUpperCase()} &middot; {conflict.conflict_type}] {conflict.detail}
             </li>
           ))}
         </ul>
@@ -54,13 +54,13 @@ function RuleRow({
           <Button
             variant="primary"
             disabled={hasHard}
-            title={hasHard ? "Harter Konflikt blockiert die Aktivierung" : undefined}
+            title={hasHard ? "A hard conflict blocks activation" : undefined}
             onClick={() => onApprove(rule.rule_id, hasSoft)}
           >
-            {hasSoft ? "Mit Override aktivieren" : "Aktivieren"}
+            {hasSoft ? "Activate with override" : "Activate"}
           </Button>
           <Button variant="danger" onClick={() => onReject(rule.rule_id)}>
-            Ablehnen
+            Reject
           </Button>
         </div>
       )}
@@ -68,7 +68,7 @@ function RuleRow({
       {rule.status === "active" && (
         <div className="mt-3">
           <Button variant="ghost" onClick={() => onRetire(rule.rule_id)}>
-            Stilllegen
+            Retire
           </Button>
         </div>
       )}
@@ -86,20 +86,20 @@ function BehavioralRulesReview(): JSX.Element {
   return (
     <GlassCard className="space-y-3">
       <header className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-gray-100">Verhaltensregeln (Procedural Lane)</h2>
+        <h2 className="text-lg font-semibold text-gray-100">Behavior rules</h2>
         <div className="flex gap-2">
           <Button variant={tab === "pending" ? "primary" : "ghost"} onClick={() => setTab("pending")}>
             Review
           </Button>
           <Button variant={tab === "active" ? "primary" : "ghost"} onClick={() => setTab("active")}>
-            Aktiv
+            Active
           </Button>
         </div>
       </header>
 
       <p className="text-xs text-gray-400">
-        Selbstgeschriebene Regeln werden nie automatisch aktiviert. Harte Konflikte blockieren die
-        Freigabe, weiche Konflikte erfordern eine bewusste Override-Entscheidung.
+        Rules Ozymandias writes for its own behavior are never activated automatically. Hard conflicts block
+        activation; soft conflicts require you to consciously override them.
       </p>
 
       {toast && (
@@ -112,12 +112,12 @@ function BehavioralRulesReview(): JSX.Element {
         </div>
       )}
 
-      {loading && <p className="text-sm text-gray-400">Lade Regeln…</p>}
+      {loading && <p className="text-sm text-gray-400">Loading rules...</p>}
       {error && <p className="text-sm text-red-400">{error}</p>}
 
       {!loading && visible.length === 0 && (
         <p className="text-sm text-gray-500">
-          {tab === "pending" ? "Keine Regeln zur Freigabe." : "Keine aktiven Regeln."}
+          {tab === "pending" ? "No rules waiting for review." : "No active rules."}
         </p>
       )}
 

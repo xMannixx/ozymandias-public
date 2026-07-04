@@ -112,6 +112,39 @@ export const AUDIT_RESULT_LABELS: Record<string, string> = {
   rolled_back: "Rolled back",
 };
 
+const LIFECYCLE_STATUS_PHRASES: Record<string, string> = {
+  session: "kept for this session only",
+  temporary: "kept temporarily",
+  permanent: "kept permanently",
+  expiry: "kept until it expires",
+  archived: "archived",
+};
+
+const HANDLING_POLICY_PHRASES: Record<string, string> = {
+  cloud_ok_encrypted: "cloud allowed if encrypted",
+  local_only: "local only",
+  local_preferred: "prefers a local provider",
+  s4_isolated: "local only, isolated",
+};
+
+export type ClaimStatusInput = {
+  verification_state: string;
+  lifecycle: string;
+  handling_policy: string;
+};
+
+/**
+ * Builds a one-line status sentence for a claim, e.g.
+ * "Confirmed - kept permanently - cloud allowed if encrypted".
+ */
+export function claimStatusSentence(claim: ClaimStatusInput): string {
+  return [
+    labelFor(VERIFICATION_LABELS, claim.verification_state),
+    labelFor(LIFECYCLE_STATUS_PHRASES, claim.lifecycle),
+    labelFor(HANDLING_POLICY_PHRASES, claim.handling_policy),
+  ].join(" - ");
+}
+
 export type AuditCategory = "memory" | "actions" | "security" | "system";
 
 export const AUDIT_CATEGORY_LABELS: Record<AuditCategory, string> = {

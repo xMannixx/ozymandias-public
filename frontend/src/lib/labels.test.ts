@@ -1,4 +1,4 @@
-import { categoryForEventType, humanizeSnakeCase, labelFor, SENSITIVITY_LABELS } from "@/lib/labels";
+import { categoryForEventType, claimStatusSentence, humanizeSnakeCase, labelFor, SENSITIVITY_LABELS } from "@/lib/labels";
 
 describe("labels", () => {
   it("provides a human label for every sensitivity level", () => {
@@ -24,5 +24,15 @@ describe("labels", () => {
 
   it("categoryForEventType returns null for unknown event types", () => {
     expect(categoryForEventType("something_unknown")).toBeNull();
+  });
+
+  it("claimStatusSentence builds a readable status line", () => {
+    expect(
+      claimStatusSentence({
+        verification_state: "confirmed",
+        lifecycle: "permanent",
+        handling_policy: "cloud_ok_encrypted",
+      }),
+    ).toBe("Confirmed - kept permanently - cloud allowed if encrypted");
   });
 });

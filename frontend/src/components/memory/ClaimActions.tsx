@@ -1,5 +1,6 @@
 import { useState } from "react";
 import Button from "@/components/common/Button";
+import InfoHint from "@/components/common/InfoHint";
 import type { ClaimResponse, Sensitivity } from "@/api/types";
 
 type ClaimActionsProps = {
@@ -13,6 +14,14 @@ type ClaimActionsProps = {
 };
 
 const sensitivityOptions: Sensitivity[] = ["S0", "S1", "S2", "S3", "S4"];
+
+const ACTION_HINTS = {
+  confirm: "Marks this memory as correct. It stays as-is and won't need review again.",
+  retract: "Marks this memory as wrong. It will no longer be used, but stays visible for history.",
+  archive: "Keeps the memory for history but marks it as no longer active.",
+  lock: "Prevents automatic changes (e.g. decay) until you unlock it.",
+  unlock: "Allows automatic changes again.",
+};
 
 function ClaimActions({
   claim,
@@ -37,52 +46,67 @@ function ClaimActions({
   }
 
   function confirmRetract(): boolean {
-    return window.confirm("Claim wirklich zurueckziehen? Diese Aktion markiert ihn als retracted.");
+    return window.confirm("Retract this memory? It will be marked as wrong and will no longer be used.");
   }
 
   function confirmArchive(): boolean {
-    return window.confirm("Claim archivieren? Der Claim bleibt korrekt, wird aber als archived markiert.");
+    return window.confirm("Archive this memory? It stays correct but is marked as no longer active.");
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <div className="flex flex-wrap items-center gap-3">
       {claim.verification_state === "tentative" ? (
-        <Button disabled={busy || isRetracted} onClick={() => void run(() => onConfirm(claim.claim_id))}>
-          Confirm
-        </Button>
+        <span className="flex items-center gap-1">
+          <Button disabled={busy || isRetracted} onClick={() => void run(() => onConfirm(claim.claim_id))}>
+            Confirm
+          </Button>
+          <InfoHint text={ACTION_HINTS.confirm} label="What does Confirm do?" />
+        </span>
       ) : null}
 
-      <Button
-        variant="danger"
-        disabled={busy || isRetracted}
-        onClick={() => {
-          if (confirmRetract()) {
-            void run(() => onRetract(claim.claim_id));
-          }
-        }}
-      >
-        Retract
-      </Button>
+      <span className="flex items-center gap-1">
+        <Button
+          variant="danger"
+          disabled={busy || isRetracted}
+          onClick={() => {
+            if (confirmRetract()) {
+              void run(() => onRetract(claim.claim_id));
+            }
+          }}
+        >
+          Retract
+        </Button>
+        <InfoHint text={ACTION_HINTS.retract} label="What does Retract do?" />
+      </span>
 
-      <Button
-        variant="ghost"
-        disabled={busy || isRetracted}
-        onClick={() => {
-          if (confirmArchive()) {
-            void run(() => onArchive(claim.claim_id));
-          }
-        }}
-      >
-        Archive
-      </Button>
+      <span className="flex items-center gap-1">
+        <Button
+          variant="ghost"
+          disabled={busy || isRetracted}
+          onClick={() => {
+            if (confirmArchive()) {
+              void run(() => onArchive(claim.claim_id));
+            }
+          }}
+        >
+          Archive
+        </Button>
+        <InfoHint text={ACTION_HINTS.archive} label="What does Archive do?" />
+      </span>
 
-      <Button
-        variant="ghost"
-        disabled={busy}
-        onClick={() => void run(() => (claim.user_locked ? onUnlock(claim.claim_id) : onLock(claim.claim_id)))}
-      >
-        {claim.user_locked ? "Unlock" : "Lock"}
-      </Button>
+      <span className="flex items-center gap-1">
+        <Button
+          variant="ghost"
+          disabled={busy}
+          onClick={() => void run(() => (claim.user_locked ? onUnlock(claim.claim_id) : onLock(claim.claim_id)))}
+        >
+          {claim.user_locked ? "Unlock" : "Lock"}
+        </Button>
+        <InfoHint
+          text={claim.user_locked ? ACTION_HINTS.unlock : ACTION_HINTS.lock}
+          label={claim.user_locked ? "What does Unlock do?" : "What does Lock do?"}
+        />
+      </span>
 
       <label className="text-xs text-gray-300">
         Sensitivity
