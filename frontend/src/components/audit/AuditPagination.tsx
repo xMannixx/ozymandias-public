@@ -21,11 +21,11 @@ function AuditPagination({
 
   return (
     <div className="glass-card flex flex-wrap items-center justify-between gap-3 p-3">
-      <p className="text-sm text-gray-300">Seite {page} von {totalPages}</p>
+      <p className="text-sm text-gray-300">Page {page} of {totalPages}</p>
 
       <div className="flex items-center gap-2">
         <label className="text-xs text-gray-400" htmlFor="audit-page-size">
-          Seitengroesse
+          Page size
         </label>
         <select
           id="audit-page-size"
@@ -43,14 +43,14 @@ function AuditPagination({
 
       <div className="flex items-center gap-2">
         <Button variant="ghost" onClick={() => onPageChange(page - 1)} disabled={page <= 1}>
-          Zurueck
+          Previous
         </Button>
         <Button
           variant="ghost"
           onClick={() => onPageChange(page + 1)}
           disabled={page >= totalPages}
         >
-          Vor
+          Next
         </Button>
       </div>
     </div>

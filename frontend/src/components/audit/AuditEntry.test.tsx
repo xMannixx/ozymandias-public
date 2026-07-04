@@ -17,30 +17,35 @@ describe("AuditEntry", () => {
     expect(screen.getByTestId("event-icon")).toHaveTextContent("brain");
   });
 
-  it("shows result badge tone for success and blocked", () => {
+  it("renders a plain-language sentence built from the event type and payload", () => {
+    render(<AuditEntry entry={mockAuditTurnProcessed} />);
+    expect(screen.getByText("Chat message processed via deepseek")).toBeInTheDocument();
+  });
+
+  it("shows result badge tone and label for success and blocked", () => {
     const blocked = { ...mockAuditTurnProcessed, result: "blocked" };
     const { rerender } = render(<AuditEntry entry={mockAuditTurnProcessed} />);
-    expect(screen.getByText("success")).toHaveClass("bg-green-700");
+    expect(screen.getByText("Success")).toHaveClass("bg-green-700");
 
     rerender(<AuditEntry entry={blocked} />);
-    expect(screen.getByText("blocked")).toHaveClass("bg-orange-700");
+    expect(screen.getByText("Blocked")).toHaveClass("bg-orange-700");
   });
 
-  it("shows sensitivity badge", () => {
+  it("shows sensitivity chip", () => {
     render(<AuditEntry entry={mockAuditTurnProcessed} />);
-    expect(screen.getByText("S0")).toBeInTheDocument();
+    expect(screen.getAllByText(/S0/).length).toBeGreaterThan(0);
   });
 
-  it("is expandable and renders formatted payload json", async () => {
+  it("is expandable and renders formatted raw event data", async () => {
     render(<AuditEntry entry={mockAuditTurnProcessed} />);
-    await userEvent.click(screen.getByRole("button", { name: "Payload anzeigen" }));
+    await userEvent.click(screen.getByRole("button", { name: "Show raw event data" }));
     expect(screen.getByText(/"provider": "deepseek"/)).toBeInTheDocument();
   });
 
   it("is not expandable when payload is null", () => {
     const withoutPayload = { ...mockAuditTurnProcessed, payload: null };
     render(<AuditEntry entry={withoutPayload} />);
-    expect(screen.queryByRole("button", { name: "Payload anzeigen" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Show raw event data" })).not.toBeInTheDocument();
   });
 
   it("shows channel badge", () => {
