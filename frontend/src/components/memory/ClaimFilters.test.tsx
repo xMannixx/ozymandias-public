@@ -63,22 +63,22 @@ describe("ClaimFilters", () => {
     expect(onReset).toHaveBeenCalledTimes(1);
   });
 
-  it("zeigt alle 10 deutschen Memory-Type Labels im Dropdown", () => {
+  it("shows all 10 memory type labels in the dropdown", () => {
     render(<ClaimFilters filters={baseFilters} onChange={() => undefined} onReset={() => undefined} />);
 
     const memoryTypeSelect = screen.getByLabelText("Memory Type");
     [
-      "Alle",
-      "Profil",
-      "Gesundheit",
-      "Vorliebe",
-      "Beziehung",
-      "Ereignis",
-      "Ort",
-      "Arbeit",
-      "Finanzen",
-      "Sicherheit",
-      "Intim",
+      "All",
+      "Profile",
+      "Health",
+      "Preference",
+      "Relationship",
+      "Event",
+      "Location",
+      "Work",
+      "Finance",
+      "Security",
+      "Intimate",
     ].forEach((label) => {
       expect(within(memoryTypeSelect).getByRole("option", { name: label })).toBeInTheDocument();
     });

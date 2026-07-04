@@ -40,13 +40,20 @@ describe("ProposalList", () => {
 
   it("renders proposal cards from visible list", () => {
     render(<ProposalList />);
-    expect(screen.getAllByText(mockProposalPending.proposed_claim.subject)).toHaveLength(2);
+    expect(screen.getAllByText(/Ozymandias wants to remember:/)).toHaveLength(2);
   });
 
-  it("shows empty state when no proposals are visible", () => {
+  it("shows a tab-specific empty state when no proposals are visible", () => {
     hookState.visibleProposals = [];
     render(<ProposalList />);
-    expect(screen.getByText("Keine Proposals in diesem Tab.")).toBeInTheDocument();
+    expect(
+      screen.getByText("Nothing waiting for review. New proposals from Ozymandias will show up here first."),
+    ).toBeInTheDocument();
     hookState.visibleProposals = [mockProposalPending, mockProposalAutoConfirmed];
+  });
+
+  it("renders the review inbox explainer", () => {
+    render(<ProposalList />);
+    expect(screen.getByText("Review Inbox")).toBeInTheDocument();
   });
 });

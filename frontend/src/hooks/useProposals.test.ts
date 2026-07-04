@@ -82,7 +82,7 @@ describe("useProposals", () => {
       await result.current.approve(mockProposalPending.proposal_id);
     });
 
-    expect(result.current.toast?.message).toContain("Konflikt");
+    expect(result.current.toast?.message).toContain("Conflict");
   });
 
   it("surfaces error for invalid proposals response shape", async () => {
@@ -90,7 +90,7 @@ describe("useProposals", () => {
     const { result } = renderHook(() => useProposals());
 
     await waitFor(() => {
-      expect(result.current.error).toBe("Ungueltige Proposals-Antwort vom Server");
+      expect(result.current.error).toBe("Invalid proposals response from server");
     });
   });
 });

@@ -43,7 +43,7 @@ function normalizeError(error: unknown): string {
   if (error instanceof Error) {
     return error.message;
   }
-  return "Unbekannter Fehler";
+  return "Unknown error";
 }
 
 export function useAudit(): UseAuditResult {

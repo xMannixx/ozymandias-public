@@ -20,7 +20,7 @@ describe("ProposalActions", () => {
         onReject={async () => undefined}
       />,
     );
-    expect(screen.getByText(/Entscheidung:/)).toBeInTheDocument();
+    expect(screen.getByText(/Decision:/)).toBeInTheDocument();
   });
 
   it("calls approve action", async () => {

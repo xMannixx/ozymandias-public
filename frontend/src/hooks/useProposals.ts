@@ -32,7 +32,7 @@ function normalizeError(error: unknown): string {
   if (error instanceof Error) {
     return error.message;
   }
-  return "Unbekannter Fehler";
+  return "Unknown error";
 }
 
 function isConflict(error: unknown): error is ApiError {
@@ -62,7 +62,7 @@ export function useProposals(): UseProposalsResult {
     try {
       const data = await listProposals();
       if (!Array.isArray(data)) {
-        throw new Error("Ungueltige Proposals-Antwort vom Server");
+        throw new Error("Invalid proposals response from server");
       }
       setProposals(data);
     } catch (err) {
@@ -93,10 +93,10 @@ export function useProposals(): UseProposalsResult {
     try {
       const updated = await approveProposal(id);
       setProposals((prev) => prev.map((proposal) => (proposal.proposal_id === updated.proposal_id ? updated : proposal)));
-      setToast({ type: "success", message: "Proposal bestaetigt." });
+      setToast({ type: "success", message: "Approved. This is now a confirmed memory." });
     } catch (err) {
       const message = normalizeError(err);
-      setToast({ type: "error", message: isConflict(err) ? `Konflikt: ${message}` : message });
+      setToast({ type: "error", message: isConflict(err) ? `Conflict: ${message}` : message });
     }
   }, []);
 
@@ -104,10 +104,10 @@ export function useProposals(): UseProposalsResult {
     try {
       const updated = await rejectProposal(id, reason);
       setProposals((prev) => prev.map((proposal) => (proposal.proposal_id === updated.proposal_id ? updated : proposal)));
-      setToast({ type: "success", message: "Proposal abgelehnt." });
+      setToast({ type: "success", message: "Rejected. Nothing was stored." });
     } catch (err) {
       const message = normalizeError(err);
-      setToast({ type: "error", message: isConflict(err) ? `Konflikt: ${message}` : message });
+      setToast({ type: "error", message: isConflict(err) ? `Conflict: ${message}` : message });
     }
   }, []);
 
