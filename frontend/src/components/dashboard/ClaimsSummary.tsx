@@ -31,7 +31,7 @@ function ClaimsSummary({ claimsTotal, verification, sensitivity }: ClaimsSummary
   const denominator = Math.max(1, claimsTotal);
 
   // Construct radial data for concentric rings (S0 inside, S4 outside)
-  const radialData = levels
+  const radialData: { name: string; value: number; fill: string }[] = levels
     .map((level) => ({
       name: level,
       value: sensitivity[level] ?? 0,

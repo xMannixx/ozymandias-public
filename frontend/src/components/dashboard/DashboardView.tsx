@@ -6,8 +6,6 @@ import ProposalsSummary from "@/components/dashboard/ProposalsSummary";
 import ProjectsSummary from "@/components/dashboard/ProjectsSummary";
 import ProviderUsageChart from "@/components/dashboard/ProviderUsageChart";
 import RecentActionsCard from "@/components/dashboard/RecentActionsCard";
-import SensitivityChart from "@/components/dashboard/SensitivityChart";
-import StatsCard from "@/components/dashboard/StatsCard";
 import SystemHealth from "@/components/dashboard/SystemHealth";
 import Spinner from "@/components/common/Spinner";
 import { useDashboard } from "@/hooks/useDashboard";

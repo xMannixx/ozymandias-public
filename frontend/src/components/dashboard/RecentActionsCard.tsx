@@ -70,7 +70,7 @@ function RecentActionsCard({ entries }: RecentActionsCardProps): JSX.Element {
               <div className="flex items-center gap-3">
                 {getEventBadge(entry.event_type)}
                 <span className="text-[10px] text-gray-500 max-w-[200px] sm:max-w-[400px] truncate group-hover:text-gray-300 transition-colors">
-                  ID: {entry.audit_id.slice(0, 8)}... | {entry.actor}
+                  ID: {entry.audit_id.slice(0, 8)}... | {entry.user_id}
                 </span>
               </div>
               <span className="text-[10px] text-gray-500 group-hover:text-gray-400 font-medium">

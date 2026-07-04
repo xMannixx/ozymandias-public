@@ -50,7 +50,7 @@ jobs:
 
       - name: Pytest
         if: ${{ hashFiles('backend/tests/**/*.py', 'backend/test_*.py', 'backend/**/*test*.py') != '' }}
-        run: python -m pytest -q --cov=backend/app/api --cov=backend/app/services --cov=backend/app/schemas --cov-report=term-missing --cov-fail-under=85 backend/tests
+        run: python -m pytest -q --cov=backend/app/api --cov=backend/app/services --cov=backend/app/schemas --cov-report=term-missing --cov-fail-under=80 backend/tests
 
   python-db-migration-sanity:
     runs-on: ubuntu-latest

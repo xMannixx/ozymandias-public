@@ -3,23 +3,6 @@ import Spinner from "@/components/common/Spinner";
 import { useHealth } from "@/hooks/useHealth";
 import type { LLMProviderHealth } from "@/api/types";
 
-function statusClass(value: string): string {
-  return value === "ok" ? "text-green-300" : "text-red-300";
-}
-
-function providerStatusClass(status: LLMProviderHealth["status"]): string {
-  switch (status) {
-    case "ok":
-      return "text-green-300";
-    case "unavailable":
-      return "text-red-300";
-    case "configured":
-      return "text-blue-300";
-    case "not_configured":
-      return "text-gray-400";
-  }
-}
-
 function providerStatusLabel(status: LLMProviderHealth["status"]): string {
   switch (status) {
     case "ok":
