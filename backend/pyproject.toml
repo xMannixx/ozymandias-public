@@ -27,6 +27,7 @@ dependencies = [
     "google-api-python-client",
     "minio",
     "ollama",
+    "anthropic",
 ]
 
 [project.optional-dependencies]
