@@ -100,7 +100,7 @@ describe("ChatView", () => {
     });
 
     const { getByText } = render(<ChatView />);
-    fireEvent.click(getByText("Cloud-Fallback erlauben"));
+    fireEvent.click(getByText("Allow cloud fallback"));
     await waitFor(() => {
       expect(confirmMock).toHaveBeenCalled();
     });

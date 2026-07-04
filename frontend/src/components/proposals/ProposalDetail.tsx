@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import SensitivityChip from "@/components/common/SensitivityChip";
 import { MEMORY_TYPE_LABELS } from "@/constants/memoryTypes";
 import { claimSentence } from "@/lib/claimText";
@@ -20,6 +21,7 @@ function ProposalDetail({ proposal }: ProposalDetailProps): JSX.Element {
   const sourceLabel = labelFor(SOURCE_TYPE_LABELS, proposed.source_type);
   const isPending = proposal.status === "pending";
   const decidedByAuto = proposal.decided_by === "auto_confirm";
+  const isConfirmed = proposal.status === "confirmed" || proposal.status === "auto_confirmed";
 
   return (
     <section className="glass-card space-y-4 p-4">
@@ -69,6 +71,16 @@ function ProposalDetail({ proposal }: ProposalDetailProps): JSX.Element {
           </p>
           {proposal.decided_at ? <p>Decided {toRelativeTime(proposal.decided_at)}.</p> : null}
           {proposal.rejection_reason ? <p>Reason: {proposal.rejection_reason}</p> : null}
+          {isConfirmed ? (
+            <p>
+              <Link
+                to={`/memory?search=${encodeURIComponent(proposed.subject)}`}
+                className="font-semibold text-blue-300 underline hover:text-blue-200"
+              >
+                View in Memory
+              </Link>
+            </p>
+          ) : null}
         </div>
       )}
 

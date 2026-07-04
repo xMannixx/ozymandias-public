@@ -1,7 +1,16 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { MemoryRouter } from "react-router-dom";
 import AuditFeed from "@/components/audit/AuditFeed";
 import { mockAuditList } from "@/test/fixtures";
+
+function renderWithRouter(initialEntries: string[] = ["/audit"]): ReturnType<typeof render> {
+  return render(
+    <MemoryRouter initialEntries={initialEntries}>
+      <AuditFeed />
+    </MemoryRouter>,
+  );
+}
 
 const defaultAuditFilters = {
   event_type: "",
@@ -34,7 +43,7 @@ vi.mock("@/hooks/useAudit", () => ({
 
 describe("AuditFeed", () => {
   it("renders list entries", () => {
-    render(<AuditFeed />);
+    renderWithRouter();
     expect(
       screen.getAllByText(/Chat message processed|Memory confirmed|Sensitivity violation/).length,
     ).toBeGreaterThan(0);
@@ -42,18 +51,18 @@ describe("AuditFeed", () => {
 
   it("shows empty state when list is empty", () => {
     hookState.entries = [];
-    render(<AuditFeed />);
+    renderWithRouter();
     expect(screen.getByText("No audit entries match these filters.")).toBeInTheDocument();
     hookState.entries = mockAuditList;
   });
 
   it("groups entries by day with a day header", () => {
-    render(<AuditFeed />);
+    renderWithRouter();
     expect(screen.getAllByText(/Today|Yesterday|\d{4}/).length).toBeGreaterThan(0);
   });
 
   it("filtering by category only shows matching entries", async () => {
-    render(<AuditFeed />);
+    renderWithRouter();
     await userEvent.click(screen.getByRole("button", { name: "Security" }));
     expect(
       screen.queryByText("Chat message processed via deepseek", { selector: "p" }),
@@ -65,21 +74,33 @@ describe("AuditFeed", () => {
 
   it("shows loading spinner", () => {
     hookState.loading = true;
-    render(<AuditFeed />);
+    renderWithRouter();
     expect(screen.getByLabelText("loading")).toBeInTheDocument();
     hookState.loading = false;
   });
 
   it("pagination previous and next call setPage", async () => {
     hookState.setPage.mockClear();
-    render(<AuditFeed />);
+    renderWithRouter();
 
     await userEvent.click(screen.getByRole("button", { name: "Next" }));
     expect(hookState.setPage).toHaveBeenCalledWith(2);
   });
 
   it("S4 toggle is disabled by default", () => {
-    render(<AuditFeed />);
+    renderWithRouter();
     expect(screen.getByLabelText("s4-toggle")).not.toBeChecked();
+  });
+
+  it("applies a source_ref filter from the URL with a clearable chip", async () => {
+    renderWithRouter(["/audit?source_ref=turn-99"]);
+    expect(screen.getByText(/Filtered by source:/)).toBeInTheDocument();
+    expect(screen.getByText("turn-99")).toBeInTheDocument();
+    expect(
+      screen.getAllByText(/Chat message processed|Memory confirmed|Sensitivity violation/).length,
+    ).toBeGreaterThan(0);
+
+    await userEvent.click(screen.getByRole("button", { name: "Clear" }));
+    expect(screen.queryByText(/Filtered by source:/)).not.toBeInTheDocument();
   });
 });

@@ -1,4 +1,4 @@
-import Badge from "@/components/common/Badge";
+import { Link } from "react-router-dom";
 import type { ChatMessage } from "@/hooks/useChat";
 
 type MessageBubbleProps = {
@@ -7,6 +7,9 @@ type MessageBubbleProps = {
 
 function MessageBubble({ message }: MessageBubbleProps): JSX.Element {
   const isUser = message.role === "user";
+  const results = message.results ?? [];
+  const proposalCount = results.filter((item) => item.status === "proposal_created").length;
+  const createdCount = results.filter((item) => item.status === "created").length;
 
   return (
     <div className={`mb-3 flex ${isUser ? "justify-end" : "justify-start"}`}>
@@ -17,7 +20,7 @@ function MessageBubble({ message }: MessageBubbleProps): JSX.Element {
       >
         {!isUser && message.reasoning_content?.trim() ? (
           <details className="mb-2 rounded bg-gray-800/50 p-2 text-xs text-gray-300">
-            <summary className="cursor-pointer select-none text-gray-400">Denkprozess</summary>
+            <summary className="cursor-pointer select-none text-gray-400">Reasoning</summary>
             <pre className="mt-2 max-h-64 overflow-y-auto whitespace-pre-wrap break-words font-sans">
               {message.reasoning_content}
             </pre>
@@ -30,11 +33,25 @@ function MessageBubble({ message }: MessageBubbleProps): JSX.Element {
             {message.model ? ` / ${message.model}` : ""}
           </p>
         ) : null}
-        {!isUser && message.claims && message.claims.length > 0 ? (
-          <div className="mt-2 flex flex-wrap gap-1">
-            {message.claims.map((claim) => (
-              <Badge key={claim.claim_id} sensitivity={claim.sensitivity} />
-            ))}
+        {!isUser && (proposalCount > 0 || createdCount > 0) ? (
+          <div className="mt-2 space-y-1 rounded border border-blue-500/30 bg-blue-950/30 px-2 py-1 text-xs text-blue-100">
+            {proposalCount > 0 ? (
+              <p>
+                {proposalCount} memory {proposalCount === 1 ? "proposal" : "proposals"} created -{" "}
+                <Link to="/proposals" className="font-semibold underline hover:text-blue-200">
+                  Review now
+                </Link>
+              </p>
+            ) : null}
+            {createdCount > 0 ? (
+              <p>
+                {createdCount} {createdCount === 1 ? "memory" : "memories"} saved automatically. See{" "}
+                <Link to="/memory" className="font-semibold underline hover:text-blue-200">
+                  Memory
+                </Link>
+                .
+              </p>
+            ) : null}
           </div>
         ) : null}
       </div>

@@ -1,4 +1,5 @@
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
+import { useSearchParams } from "react-router-dom";
 import Spinner from "@/components/common/Spinner";
 import Toast from "@/components/common/Toast";
 import ClaimCard from "@/components/memory/ClaimCard";
@@ -66,6 +67,17 @@ function MemoryBrowser(): JSX.Element {
     updateSensitivity,
     clearToast,
   } = useClaims();
+
+  const [searchParams] = useSearchParams();
+
+  useEffect(() => {
+    // Applies the URL's search term, e.g. when arriving from a cross-link
+    // such as "View in Memory" on a confirmed proposal.
+    const searchFromUrl = searchParams.get("search");
+    if (searchFromUrl) {
+      setSearchQuery(searchFromUrl);
+    }
+  }, [searchParams, setSearchQuery]);
 
   const conflictMap = useMemo(() => buildConflictMap(claims), [claims]);
   const selectedConflict = selectedClaim ? conflictMap.get(selectedClaim.claim_id) : undefined;

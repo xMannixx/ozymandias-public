@@ -115,11 +115,11 @@ function ChatView(): JSX.Element {
         </label>
 
         <label className="flex flex-col gap-1 text-xs text-gray-400">
-          Modell (optional)
+          Model (optional)
           <input
             aria-label="chat-model-input"
             className="rounded border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-gray-100"
-            placeholder="z.B. deepseek-chat"
+            placeholder="e.g. deepseek-chat"
             value={selectedModel}
             onChange={(event) => setSelectedModel(event.target.value)}
           />
@@ -134,10 +134,10 @@ function ChatView(): JSX.Element {
                 void toggleVoice();
               }}
             />
-            Voice aktiv
+            Voice enabled
           </label>
           <label className="flex flex-col gap-1">
-            Voice-Modus
+            Voice mode
             <select
               aria-label="chat-voice-mode"
               className="rounded border border-gray-700 bg-gray-900 px-2 py-2 text-sm text-gray-100 disabled:opacity-60"
@@ -146,17 +146,17 @@ function ChatView(): JSX.Element {
               disabled={!isVoiceEnabled}
             >
               <option value="push_to_talk">Push-to-Talk</option>
-              <option value="hands_free">Freisprechen</option>
+              <option value="hands_free">Hands-free</option>
             </select>
           </label>
         </div>
       </div>
       <MessageList messages={messages} />
-      {isLoading ? <p className="mt-2 text-sm text-gray-400">Ozy tippt...</p> : null}
-      <Modal open={Boolean(s3LiveWebPrompt)} onClose={cancelS3LiveWeb} title="S3 Live-Web bestaetigen">
+      {isLoading ? <p className="mt-2 text-sm text-gray-400">Ozy is typing...</p> : null}
+      <Modal open={Boolean(s3LiveWebPrompt)} onClose={cancelS3LiveWeb} title="Confirm S3 live web access">
         <p className="mb-3 text-sm text-gray-200">
           {s3LiveWebPrompt?.message
-            ?? "S3-Inhalt erkannt. Soll ich fuer diese Nachricht einmalig Live-Web-Zugriff nutzen?"}
+            ?? "S3 content detected. Should I use live web access once for this message?"}
         </p>
         <div className="flex items-center justify-end gap-2">
           <button
@@ -164,7 +164,7 @@ function ChatView(): JSX.Element {
             className="rounded border border-gray-600 px-3 py-2 text-sm text-gray-200 hover:bg-gray-800"
             onClick={cancelS3LiveWeb}
           >
-            Abbrechen
+            Cancel
           </button>
           <button
             type="button"
@@ -173,14 +173,14 @@ function ChatView(): JSX.Element {
               void confirmS3LiveWeb();
             }}
           >
-            Einmalig erlauben
+            Allow once
           </button>
         </div>
       </Modal>
-      <Modal open={Boolean(s3FallbackPrompt)} onClose={cancelS3Fallback} title="S3 Cloud-Fallback">
+      <Modal open={Boolean(s3FallbackPrompt)} onClose={cancelS3Fallback} title="S3 cloud fallback">
         <p className="mb-3 text-sm text-gray-200">
           {s3FallbackPrompt?.message
-            ?? "Lokaler Provider ist nicht verfuegbar. Soll die S3-Nachricht einmalig ueber Cloud verarbeitet werden?"}
+            ?? "Local provider is unavailable. Should this S3 message be processed via cloud, just this once?"}
         </p>
         <div className="flex items-center justify-end gap-2">
           <button
@@ -188,7 +188,7 @@ function ChatView(): JSX.Element {
             className="rounded border border-gray-600 px-3 py-2 text-sm text-gray-200 hover:bg-gray-800"
             onClick={cancelS3Fallback}
           >
-            Abbrechen
+            Cancel
           </button>
           <button
             type="button"
@@ -197,7 +197,7 @@ function ChatView(): JSX.Element {
               void confirmS3Fallback();
             }}
           >
-            Cloud-Fallback erlauben
+            Allow cloud fallback
           </button>
         </div>
       </Modal>

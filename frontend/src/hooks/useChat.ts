@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { ApiError } from "@/api/client";
 import { getSettings } from "@/api/settings";
 import { postTurn } from "@/api/turns";
-import type { ClaimResponse, LLMProviderName } from "@/api/types";
+import type { ClaimProcessResult, LLMProviderName } from "@/api/types";
 
 const CHAT_PROVIDER_KEY = "ozy-chat-provider";
 const CHAT_MODEL_KEY = "ozy-chat-model";
@@ -13,7 +13,7 @@ export type ChatMessage = {
   id: string;
   role: ChatRole;
   text: string;
-  claims?: ClaimResponse[];
+  results?: ClaimProcessResult[];
   provider?: string;
   model?: string;
   reasoning_content?: string | null;
@@ -181,12 +181,12 @@ export function useChat(): UseChatResult {
       liveWebEnabled && liveWebMode !== "off",
       allowS3LiveWeb,
     );
-    const assistantText = result.response_text ?? result.response ?? "Keine Antwort.";
+    const assistantText = result.response_text ?? result.response ?? "No response.";
     const assistantMessage: ChatMessage = {
       id: result.turn_id || randomId(),
       role: "assistant",
       text: assistantText,
-      claims: result.claims ?? [],
+      results: result.results ?? [],
       provider: result.provider,
       model: result.model,
       reasoning_content: result.reasoning_content,
@@ -219,7 +219,7 @@ export function useChat(): UseChatResult {
           text: trimmed,
           message:
             liveWebConfirmation.message
-            ?? "S3-Inhalt erkannt. Soll ich fuer diese Nachricht einmalig Live-Web-Zugriff nutzen?",
+            ?? "S3 content detected. Should I use live web access once for this message?",
         });
         return;
       }
@@ -232,22 +232,22 @@ export function useChat(): UseChatResult {
           text: trimmed,
           message:
             localUnavailable.message
-            ?? "Lokaler Provider nicht verfuegbar. Soll ich diese S3-Nachricht einmalig ueber Cloud verarbeiten?",
+            ?? "Local provider unavailable. Should I process this S3 message via cloud, just this once?",
         });
         return;
       }
       if (localUnavailable?.sensitivity === "S4") {
         appendAssistantMessage(
           localUnavailable.message
-            ?? "S4-Inhalt bleibt lokal-only. Lokaler Provider ist nicht verfuegbar.",
+            ?? "S4 content stays local-only. The local provider is unavailable.",
         );
         return;
       }
       if (error instanceof ApiError && typeof error.message === "string" && error.message.trim()) {
-        appendAssistantMessage(`Fehler: ${error.message}`);
+        appendAssistantMessage(`Error: ${error.message}`);
         return;
       }
-      appendAssistantMessage("Fehler beim Senden der Nachricht.");
+      appendAssistantMessage("Failed to send the message.");
     } finally {
       setIsLoading(false);
     }
@@ -264,9 +264,9 @@ export function useChat(): UseChatResult {
       await sendTurn(retryText, true, false);
     } catch (error) {
       if (error instanceof ApiError && typeof error.message === "string" && error.message.trim()) {
-        appendAssistantMessage(`Fehler: ${error.message}`);
+        appendAssistantMessage(`Error: ${error.message}`);
       } else {
-        appendAssistantMessage("Fehler beim Senden der Nachricht.");
+        appendAssistantMessage("Failed to send the message.");
       }
     } finally {
       setIsLoading(false);
@@ -275,7 +275,7 @@ export function useChat(): UseChatResult {
 
   function cancelS3Fallback(): void {
     setS3FallbackPrompt(null);
-    appendAssistantMessage("Cloud-Fallback fuer diese S3-Nachricht abgebrochen.");
+    appendAssistantMessage("Cancelled the cloud fallback for this S3 message.");
   }
 
   async function confirmS3LiveWeb(): Promise<void> {
@@ -289,9 +289,9 @@ export function useChat(): UseChatResult {
       await sendTurn(retryText, false, true);
     } catch (error) {
       if (error instanceof ApiError && typeof error.message === "string" && error.message.trim()) {
-        appendAssistantMessage(`Fehler: ${error.message}`);
+        appendAssistantMessage(`Error: ${error.message}`);
       } else {
-        appendAssistantMessage("Fehler beim Senden der Nachricht.");
+        appendAssistantMessage("Failed to send the message.");
       }
     } finally {
       setIsLoading(false);
@@ -300,7 +300,7 @@ export function useChat(): UseChatResult {
 
   function cancelS3LiveWeb(): void {
     setS3LiveWebPrompt(null);
-    appendAssistantMessage("Live-Web fuer diese S3-Nachricht abgebrochen.");
+    appendAssistantMessage("Cancelled live web access for this S3 message.");
   }
 
   return {

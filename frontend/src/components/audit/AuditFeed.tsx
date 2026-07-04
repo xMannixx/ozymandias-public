@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import AuditEntry from "@/components/audit/AuditEntry";
 import AuditFilters from "@/components/audit/AuditFilters";
 import AuditPagination from "@/components/audit/AuditPagination";
@@ -24,13 +25,29 @@ function AuditFeed(): JSX.Element {
     setShowS4,
   } = useAudit();
   const [category, setCategory] = useState<AuditCategory | "all">("all");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const sourceRefFilter = searchParams.get("source_ref");
 
-  const visibleEntries = useMemo(
-    () => (category === "all" ? entries : entries.filter((entry) => categoryForEventType(entry.event_type) === category)),
-    [entries, category],
-  );
+  const visibleEntries = useMemo(() => {
+    let list = entries;
+    if (category !== "all") {
+      list = list.filter((entry) => categoryForEventType(entry.event_type) === category);
+    }
+    if (sourceRefFilter) {
+      list = list.filter((entry) => entry.source_ref === sourceRefFilter);
+    }
+    return list;
+  }, [entries, category, sourceRefFilter]);
 
   const dayGroups = useMemo(() => groupByDay(visibleEntries), [visibleEntries]);
+
+  function clearSourceRefFilter(): void {
+    setSearchParams((current) => {
+      const next = new URLSearchParams(current);
+      next.delete("source_ref");
+      return next;
+    });
+  }
 
   return (
     <section className="space-y-4">
@@ -46,6 +63,21 @@ function AuditFeed(): JSX.Element {
         category={category}
         onCategoryChange={setCategory}
       />
+
+      {sourceRefFilter ? (
+        <div className="glass-card flex items-center justify-between gap-2 p-2 text-sm text-blue-100">
+          <span>
+            Filtered by source: <span className="font-semibold">{sourceRefFilter}</span>
+          </span>
+          <button
+            type="button"
+            onClick={clearSourceRefFilter}
+            className="rounded border border-blue-500/40 px-2 py-1 text-xs hover:bg-blue-900/40"
+          >
+            Clear
+          </button>
+        </div>
+      ) : null}
 
       {loading ? (
         <div className="glass-card flex justify-center p-6">

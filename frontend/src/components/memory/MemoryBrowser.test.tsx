@@ -1,7 +1,16 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { MemoryRouter } from "react-router-dom";
 import MemoryBrowser from "@/components/memory/MemoryBrowser";
 import { mockClaimTentative, mockClaimVersions } from "@/test/fixtures";
+
+function renderWithRouter(initialEntries: string[] = ["/memory"]): ReturnType<typeof render> {
+  return render(
+    <MemoryRouter initialEntries={initialEntries}>
+      <MemoryBrowser />
+    </MemoryRouter>,
+  );
+}
 
 const hookState = {
   claims: [mockClaimTentative],
@@ -39,27 +48,27 @@ vi.mock("@/hooks/useClaims", () => ({
 
 describe("MemoryBrowser", () => {
   it("renders search input", () => {
-    render(<MemoryBrowser />);
+    renderWithRouter();
     expect(screen.getByLabelText("memory-search")).toBeInTheDocument();
   });
 
   it("renders loading state with spinner", () => {
     hookState.loading = true;
-    render(<MemoryBrowser />);
+    renderWithRouter();
     expect(screen.getByLabelText("loading")).toBeInTheDocument();
     hookState.loading = false;
   });
 
   it("renders empty state when no claims match filters", () => {
     hookState.filteredClaims = [];
-    render(<MemoryBrowser />);
+    renderWithRouter();
     expect(screen.getByText(/No memories match these filters yet\./)).toBeInTheDocument();
     hookState.filteredClaims = [mockClaimTentative];
   });
 
   it("calls selectClaim when card is clicked", async () => {
     hookState.selectClaim.mockClear();
-    render(<MemoryBrowser />);
+    renderWithRouter();
     const claimButton = screen.getAllByRole("button").find((button) =>
       button.textContent?.includes("Preference: dark mode"),
     );
@@ -70,8 +79,13 @@ describe("MemoryBrowser", () => {
 
   it("renders toast message when present", () => {
     hookState.toast = { message: "Conflict", type: "error" };
-    render(<MemoryBrowser />);
+    renderWithRouter();
     expect(screen.getByText("Conflict")).toBeInTheDocument();
     hookState.toast = null;
+  });
+
+  it("applies a search term from the URL (cross-link from a confirmed proposal)", () => {
+    renderWithRouter(["/memory?search=dark%20mode"]);
+    expect(hookState.setSearchQuery).toHaveBeenCalledWith("dark mode");
   });
 });

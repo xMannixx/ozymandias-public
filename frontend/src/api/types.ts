@@ -222,6 +222,14 @@ export type TurnRequest = {
   allow_s3_live_web?: boolean;
 };
 
+export type ClaimProcessResult = {
+  claim_ref: string;
+  status: "created" | "proposal_created" | "rejected" | "filtered_out";
+  reason: string | null;
+  claim_id: string | null;
+  proposal_id: string | null;
+};
+
 export type TurnResult = {
   turn_id: string;
   response_text?: string;
@@ -229,7 +237,7 @@ export type TurnResult = {
   reasoning_content?: string | null;
   provider?: string;
   model?: string;
-  claims?: ClaimResponse[];
+  results?: ClaimProcessResult[];
 };
 
 export type VoiceTranscriptionResponse = {

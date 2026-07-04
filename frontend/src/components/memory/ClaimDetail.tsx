@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import ClaimActions from "@/components/memory/ClaimActions";
 import ClaimVersionTimeline from "@/components/memory/ClaimVersionTimeline";
 import ConflictGroup from "@/components/memory/ConflictGroup";
@@ -152,7 +153,20 @@ function ClaimDetail({
       <S4Guard isS4={isS4}>
         <div className="space-y-3">
           <p className="text-base font-semibold text-gray-100">{sentence}</p>
-          <p className="text-xs text-gray-500">Source: {labelFor(SOURCE_TYPE_LABELS, claim.source_type)}</p>
+          <p className="text-xs text-gray-500">
+            Source: {labelFor(SOURCE_TYPE_LABELS, claim.source_type)}
+            {claim.source_ref ? (
+              <>
+                {" - "}
+                <Link
+                  to={`/audit?source_ref=${encodeURIComponent(claim.source_ref)}`}
+                  className="text-blue-300 underline hover:text-blue-200"
+                >
+                  View related audit entries
+                </Link>
+              </>
+            ) : null}
+          </p>
           <div className="space-y-0.5">
             <TimestampLine label="Created" value={claim.created_at} />
             <TimestampLine label="Last updated" value={claim.updated_at} />
