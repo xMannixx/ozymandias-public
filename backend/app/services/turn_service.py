@@ -192,6 +192,7 @@ class TurnService:
                     intent_type="general_turn",
                     provider_is_local=_provider_is_local(provider_used),
                     provider_is_encrypted=_provider_is_encrypted(provider_used),
+                    allow_s3_cloud_fallback=payload.allow_s3_cloud_fallback,
                 )
             )
             if not extracted_claims:

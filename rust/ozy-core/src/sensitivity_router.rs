@@ -18,7 +18,13 @@ pub fn filter_claims(input: &SensitivityFilterInput) -> Result<SensitivityFilter
                 }
             }
             Sensitivity::S3 => {
-                if input.provider_is_local || input.provider_is_encrypted {
+                // S3 is default-local. A non-local (cloud) provider may only
+                // receive S3 claims if the caller explicitly opted in via
+                // allow_s3_cloud_fallback for this turn AND the provider is
+                // encrypted. Encryption alone is not sufficient consent.
+                if input.provider_is_local
+                    || (input.allow_s3_cloud_fallback && input.provider_is_encrypted)
+                {
                     None
                 } else {
                     Some(FilterReason::SensitivityTooHigh {

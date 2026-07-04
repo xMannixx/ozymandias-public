@@ -436,6 +436,55 @@ async def test_process_turn_routes_high_sensitivity_locally(
 
 
 @pytest.mark.asyncio
+async def test_process_turn_passes_allow_s3_cloud_fallback_to_sensitivity_filter(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = TurnService(cast(AsyncSession, FakeAsyncSession()))
+    _prepare_service(service)
+    _patch_context_assembler(monkeypatch)
+
+    def _filter(payload: object) -> SensitivityFilterOutput:
+        input_payload = cast(SensitivityFilterInput, payload)
+        assert input_payload.allow_s3_cloud_fallback is True
+        return SensitivityFilterOutput(allowed=[], filtered_count=0, filter_reasons=[])
+
+    monkeypatch.setattr("app.services.turn_service.rust_bridge.filter_claims", _filter)
+    monkeypatch.setattr(
+        "app.services.turn_service.rust_bridge.compute_taint",
+        lambda _payload: TaintSummary(
+            effective_trust=TrustLevel.T3,
+            effective_sensitivity=Sensitivity.S3,
+            is_tainted=False,
+            taint_sources=[],
+        ),
+    )
+    monkeypatch.setattr(
+        "app.services.turn_service.classify_sensitivity",
+        AsyncMock(
+            return_value=SensitivityClassification(
+                sensitivity=Sensitivity.S3,
+                source="keyword",
+                local_classifier_available=True,
+            )
+        ),
+    )
+    service.llm_router.route = AsyncMock(  # type: ignore[method-assign]
+        return_value=LLMResponse(
+            content="ok",
+            model="deepseek-chat",
+            provider="deepseek",
+            tokens_used=10,
+        )
+    )
+    service.claim_extractor.extract = AsyncMock(return_value=[])  # type: ignore[method-assign]
+
+    await service.process_turn(
+        user_id="user-1",
+        payload=TurnRequest(text="mein gehalt ist privat", allow_s3_cloud_fallback=True),
+    )
+
+
+@pytest.mark.asyncio
 async def test_process_turn_uses_settings_provider_preferences(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

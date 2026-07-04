@@ -32,11 +32,28 @@ fn run_filter(
     provider_is_local: bool,
     provider_is_encrypted: bool,
 ) -> SensitivityFilterOutput {
+    run_filter_with_s3_fallback(
+        claims,
+        intent_type,
+        provider_is_local,
+        provider_is_encrypted,
+        false,
+    )
+}
+
+fn run_filter_with_s3_fallback(
+    claims: Vec<ClaimData>,
+    intent_type: &str,
+    provider_is_local: bool,
+    provider_is_encrypted: bool,
+    allow_s3_cloud_fallback: bool,
+) -> SensitivityFilterOutput {
     let input = SensitivityFilterInput {
         claims,
         intent_type: intent_type.to_owned(),
         provider_is_local,
         provider_is_encrypted,
+        allow_s3_cloud_fallback,
     };
 
     filter_claims(&input).expect("filter_claims should not error")
@@ -123,15 +140,59 @@ fn s3_is_allowed_when_provider_is_local() {
 }
 
 #[test]
-fn s3_is_allowed_when_remote_but_encrypted() {
+fn s3_is_filtered_when_remote_encrypted_without_fallback_opt_in() {
+    // S3 is default-local. Encryption alone does not authorize a cloud
+    // fallback; the caller must explicitly opt in via allow_s3_cloud_fallback.
     let output = run_filter(
         vec![claim_with_sensitivity(Sensitivity::S3)],
         "work",
         false,
         true,
     );
+    assert!(output.allowed.is_empty());
+    assert_eq!(output.filtered_count, 1);
+    assert_eq!(
+        output.filter_reasons,
+        vec![FilterReason::SensitivityTooHigh {
+            claim_sensitivity: Sensitivity::S3,
+            max_allowed: Sensitivity::S2,
+        }]
+    );
+}
+
+#[test]
+fn s3_is_allowed_when_remote_encrypted_with_fallback_opt_in() {
+    let output = run_filter_with_s3_fallback(
+        vec![claim_with_sensitivity(Sensitivity::S3)],
+        "work",
+        false,
+        true,
+        true,
+    );
     assert_eq!(output.allowed.len(), 1);
     assert_eq!(output.filtered_count, 0);
+}
+
+#[test]
+fn s3_is_filtered_when_remote_with_fallback_opt_in_but_not_encrypted() {
+    // The opt-in alone is not enough: a non-local S3 fallback still requires
+    // an encrypted provider.
+    let output = run_filter_with_s3_fallback(
+        vec![claim_with_sensitivity(Sensitivity::S3)],
+        "work",
+        false,
+        false,
+        true,
+    );
+    assert!(output.allowed.is_empty());
+    assert_eq!(output.filtered_count, 1);
+    assert_eq!(
+        output.filter_reasons,
+        vec![FilterReason::SensitivityTooHigh {
+            claim_sensitivity: Sensitivity::S3,
+            max_allowed: Sensitivity::S2,
+        }]
+    );
 }
 
 #[test]
@@ -253,6 +314,9 @@ fn s4_remote_heartbeat_is_provider_not_local_first() {
 
 #[test]
 fn mixed_batch_is_partitioned_correctly() {
+    // provider_is_local=false, provider_is_encrypted=true, no S3 cloud
+    // fallback opt-in: S3 is now filtered too (default-local), on top of the
+    // already-filtered S4.
     let claims = vec![
         claim_with_sensitivity(Sensitivity::S0),
         claim_with_sensitivity(Sensitivity::S2),
@@ -262,12 +326,34 @@ fn mixed_batch_is_partitioned_correctly() {
     ];
 
     let output = run_filter(claims, "work", false, true);
+    assert_eq!(output.allowed.len(), 3);
+    assert_eq!(output.filtered_count, 2);
+    assert_eq!(
+        output.filter_reasons,
+        vec![
+            FilterReason::SensitivityTooHigh {
+                claim_sensitivity: Sensitivity::S3,
+                max_allowed: Sensitivity::S2,
+            },
+            FilterReason::ProviderNotLocal,
+        ]
+    );
+}
+
+#[test]
+fn mixed_batch_allows_s3_when_cloud_fallback_opted_in() {
+    let claims = vec![
+        claim_with_sensitivity(Sensitivity::S0),
+        claim_with_sensitivity(Sensitivity::S2),
+        claim_with_sensitivity(Sensitivity::S3),
+        claim_with_sensitivity(Sensitivity::S4),
+        claim_with_sensitivity(Sensitivity::S1),
+    ];
+
+    let output = run_filter_with_s3_fallback(claims, "work", false, true, true);
     assert_eq!(output.allowed.len(), 4);
     assert_eq!(output.filtered_count, 1);
-    assert!(matches!(
-        output.filter_reasons[0],
-        FilterReason::ProviderNotLocal
-    ));
+    assert_eq!(output.filter_reasons, vec![FilterReason::ProviderNotLocal]);
 }
 
 #[test]
