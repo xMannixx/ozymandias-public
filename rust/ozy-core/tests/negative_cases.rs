@@ -37,6 +37,7 @@ fn run_filter(
         intent_type: intent_type.to_owned(),
         provider_is_local,
         provider_is_encrypted,
+        allow_s3_cloud_fallback: false,
     };
     filter_claims(&input).expect("filter should not error")
 }
@@ -97,6 +98,7 @@ fn s4_multiple_wrong_intent_claims_all_filtered() {
         intent_type: "work".to_owned(),
         provider_is_local: true,
         provider_is_encrypted: true,
+        allow_s3_cloud_fallback: false,
     };
 
     let output = filter_claims(&input).expect("filter should not error");
@@ -112,6 +114,7 @@ fn s3_remote_unencrypted_is_rejected() {
         intent_type: "work".to_owned(),
         provider_is_local: false,
         provider_is_encrypted: false,
+        allow_s3_cloud_fallback: false,
     };
 
     let output = filter_claims(&input).expect("filter should not error");
@@ -136,10 +139,46 @@ fn filtered_count_always_matches_filter_reason_len() {
         intent_type: "briefing".to_owned(),
         provider_is_local: false,
         provider_is_encrypted: false,
+        allow_s3_cloud_fallback: false,
     };
 
     let output = filter_claims(&input).expect("filter should not error");
     assert_eq!(output.filtered_count as usize, output.filter_reasons.len());
+}
+
+#[test]
+fn s3_remote_encrypted_with_fallback_opt_in_is_allowed() {
+    let input = SensitivityFilterInput {
+        claims: vec![mk_claim(Sensitivity::S3)],
+        intent_type: "work".to_owned(),
+        provider_is_local: false,
+        provider_is_encrypted: true,
+        allow_s3_cloud_fallback: true,
+    };
+
+    let output = filter_claims(&input).expect("filter should not error");
+    assert_eq!(output.allowed.len(), 1);
+    assert_eq!(output.filtered_count, 0);
+}
+
+#[test]
+fn s3_remote_encrypted_without_fallback_opt_in_is_rejected() {
+    let input = SensitivityFilterInput {
+        claims: vec![mk_claim(Sensitivity::S3)],
+        intent_type: "work".to_owned(),
+        provider_is_local: false,
+        provider_is_encrypted: true,
+        allow_s3_cloud_fallback: false,
+    };
+
+    let output = filter_claims(&input).expect("filter should not error");
+    assert_eq!(
+        output.filter_reasons,
+        vec![FilterReason::SensitivityTooHigh {
+            claim_sensitivity: Sensitivity::S3,
+            max_allowed: Sensitivity::S2,
+        }]
+    );
 }
 
 #[test]

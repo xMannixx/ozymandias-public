@@ -229,6 +229,7 @@ class SensitivityFilterInput(BaseModel):
     intent_type: str
     provider_is_local: bool
     provider_is_encrypted: bool
+    allow_s3_cloud_fallback: bool = False
 
 
 class SensitivityFilterOutput(BaseModel):

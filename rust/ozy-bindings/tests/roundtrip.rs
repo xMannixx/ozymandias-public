@@ -66,6 +66,7 @@ fn filter_claims_wrapper_roundtrip() {
         intent_type: "normal_recall".to_owned(),
         provider_is_local: true,
         provider_is_encrypted: true,
+        allow_s3_cloud_fallback: false,
     };
     let input_json = serde_json::to_string(&input).expect("serialize input");
     let output_json = filter_claims_json(&input_json).expect("conversion should succeed");
@@ -274,6 +275,7 @@ fn large_filter_claims_payload_succeeds() {
         intent_type: "normal_recall".to_owned(),
         provider_is_local: true,
         provider_is_encrypted: true,
+        allow_s3_cloud_fallback: false,
     };
     let output_json = filter_claims_json(&serde_json::to_string(&input).expect("serialize input"))
         .expect("conversion should succeed");

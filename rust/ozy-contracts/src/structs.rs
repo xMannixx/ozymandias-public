@@ -65,6 +65,11 @@ pub struct SensitivityFilterInput {
     pub intent_type: String,
     pub provider_is_local: bool,
     pub provider_is_encrypted: bool,
+    /// Explicit per-turn opt-in to allow S3 claims to reach an encrypted cloud
+    /// provider. Defaults to false (fail-closed) if absent from the payload.
+    /// Has no effect on S4, which is always hard-local regardless of this flag.
+    #[serde(default)]
+    pub allow_s3_cloud_fallback: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -255,6 +260,7 @@ mod tests {
             intent_type: "summarize".to_owned(),
             provider_is_local: true,
             provider_is_encrypted: true,
+            allow_s3_cloud_fallback: true,
         };
         assert_eq!(roundtrip_json(&input), input);
 
@@ -264,6 +270,19 @@ mod tests {
             filter_reasons: vec![FilterReason::ProviderNotEncrypted],
         };
         assert_eq!(roundtrip_json(&output), output);
+    }
+
+    #[test]
+    fn sensitivity_filter_input_allow_s3_cloud_fallback_defaults_to_false() {
+        let json_without_field = r#"{
+            "claims": [],
+            "intent_type": "summarize",
+            "provider_is_local": false,
+            "provider_is_encrypted": true
+        }"#;
+        let parsed: SensitivityFilterInput = from_str(json_without_field)
+            .expect("payload without allow_s3_cloud_fallback must still deserialize");
+        assert!(!parsed.allow_s3_cloud_fallback);
     }
 
     #[test]

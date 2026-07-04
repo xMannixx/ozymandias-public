@@ -21,7 +21,9 @@ Ozymandias ist ein **Privacy-first, Fail-closed** System. Sicherheit ist kein na
 Ozymandias behandelt folgende Bereiche als **sicherheitskritisch** — Fehler hier haben höchste Priorität:
 
 ### 1. Sensitivity-Routing (Rust-Kern)
-S3- und S4-Daten dürfen **unter keinen Umständen** an Cloud-Provider gesendet werden. Diese Grenze ist in `ozy-core/sensitivity_router.rs` implementiert und in `ozy-bindings` nach Python exponiert.
+**S4** (Intimsphäre) darf **unter keinen Umständen** an Cloud-Provider gesendet werden — kein Fallback, keine Ausnahme.
+**S3** (Finanzen, Keys, Sicherheitsrelevantes) wird standardmäßig lokal verarbeitet (`enforce_local=true`). Ein Cloud-Fallback ist pro Turn nur möglich, wenn der Request explizit `allow_s3_cloud_fallback: true` setzt; diese Freigabe liegt beim Aufrufer und wird protokolliert.
+Diese Grenze ist in `ozy-core/sensitivity_router.rs` implementiert und in `ozy-bindings` nach Python exponiert.
 
 **Severity: KRITISCH**
 
@@ -60,7 +62,7 @@ Diese Mechanismen sind absichtlich implementiert und gelten nicht als Bugs:
 |---|---|
 | **Taint-Tracking** | Untrusted-Quellen (T0/T1) kontaminieren den gesamten Turn — alle nachfolgenden Aktionen werden hochgestuft |
 | **Context Tainting** | S3/S4-Claims im Kontext erhöhen die Approval-Klasse für alle Aktionen im selben Turn |
-| **Fail-Closed-Routing** | Wenn kein lokaler Provider verfügbar ist und S3/S4-Inhalte angefordert werden, wirft das System einen Fehler statt auf Cloud zu fallen |
+| **Fail-Closed-Routing** | S4: Immer Fehler, wenn kein lokaler Provider verfügbar ist. S3: Fehler, wenn kein lokaler Provider verfügbar ist und `allow_s3_cloud_fallback=false`; bei `allow_s3_cloud_fallback=true` wird auf einen Cloud-Provider gefallen |
 | **Core Invariants** | Selbst-Änderungen (Autopilot deaktiviert seine eigene Aufsicht) sind hardcoded Klasse 4 — immer Human-in-the-Loop |
 | **Payload-Sensitivity-Check** | Bevor ein Payload versendet wird (E-Mail, Upload, API-Call), wird seine Sensitivity geprüft — S4-Payload + Remote Write → explizite Warnung |
 

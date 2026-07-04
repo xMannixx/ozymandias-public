@@ -103,6 +103,7 @@ fn sensitivity_filter_input_roundtrip() {
         intent_type: "summarize".to_owned(),
         provider_is_local: true,
         provider_is_encrypted: true,
+        allow_s3_cloud_fallback: true,
     };
     assert_roundtrip(&input);
 }
