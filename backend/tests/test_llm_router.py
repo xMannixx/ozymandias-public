@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
 from types import SimpleNamespace
 from typing import Any
 
 import pytest
 
 from app.schemas import Sensitivity
-from app.services.llm.base import LLMMessage, LLMResponse
+from app.services.llm.base import LLMMessage, LLMResponse, LLMStreamItem
 from app.services.llm.router import LLMRouter
 
 
@@ -33,6 +34,19 @@ class _FakeProvider:
             provider=self.provider_name,
             tokens_used=1,
         )
+
+    async def chat_stream(
+        self,
+        messages: list[LLMMessage],
+        *,
+        tools: list[dict[str, Any]] | None = None,
+        model: str | None = None,
+        api_key: str | None = None,
+    ) -> AsyncIterator[LLMStreamItem]:
+        response = await self.chat(messages, tools=tools, model=model, api_key=api_key)
+        yield "o"
+        yield "k"
+        yield response
 
 
 def _patch_router_dependencies(
@@ -411,6 +425,133 @@ async def test_route_does_not_fall_back_on_auth_error(monkeypatch: pytest.Monkey
             sensitivity=Sensitivity.S1,
             messages=[{"role": "user", "content": "test"}],
         )
+
+
+# ---------------------------------------------------------------------------
+# route_stream tests
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_route_stream_yields_deltas_then_final_response(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _patch_router_dependencies(monkeypatch)
+    router = LLMRouter()
+
+    items = [
+        item
+        async for item in router.route_stream(
+            intent="general_turn",
+            sensitivity=Sensitivity.S1,
+            messages=[{"role": "user", "content": "test"}],
+        )
+    ]
+    assert items[:-1] == ["o", "k"]
+    final = items[-1]
+    assert isinstance(final, LLMResponse)
+    assert final.provider == "mistral"
+
+
+@pytest.mark.asyncio
+async def test_route_stream_falls_back_before_first_delta(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A provider failing before emitting tokens is skipped in favor of the next one."""
+    _patch_router_dependencies(monkeypatch)
+    router = LLMRouter()
+
+    mistral_provider = router._providers["mistral"]
+    assert isinstance(mistral_provider, _FakeProvider)
+
+    async def _failing_stream(
+        messages: list[LLMMessage],
+        *,
+        tools: object = None,
+        model: object = None,
+        api_key: object = None,
+    ) -> AsyncIterator[LLMStreamItem]:
+        raise ConnectionError("connection refused")
+        yield ""  # pragma: no cover - makes this an async generator
+
+    mistral_provider.chat_stream = _failing_stream  # type: ignore[method-assign]
+
+    items = [
+        item
+        async for item in router.route_stream(
+            intent="general_turn",
+            sensitivity=Sensitivity.S1,
+            messages=[{"role": "user", "content": "test"}],
+        )
+    ]
+    final = items[-1]
+    assert isinstance(final, LLMResponse)
+    assert final.provider == "deepseek"
+
+
+@pytest.mark.asyncio
+async def test_route_stream_does_not_fall_back_after_first_delta(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Once tokens flowed, mid-stream errors terminate the stream instead of retrying."""
+    _patch_router_dependencies(monkeypatch)
+    router = LLMRouter()
+
+    mistral_provider = router._providers["mistral"]
+    assert isinstance(mistral_provider, _FakeProvider)
+
+    async def _midstream_failure(
+        messages: list[LLMMessage],
+        *,
+        tools: object = None,
+        model: object = None,
+        api_key: object = None,
+    ) -> AsyncIterator[LLMStreamItem]:
+        yield "partial"
+        raise ConnectionError("connection reset")
+
+    mistral_provider.chat_stream = _midstream_failure  # type: ignore[method-assign]
+
+    received: list[LLMStreamItem] = []
+    with pytest.raises(ConnectionError):
+        async for item in router.route_stream(
+            intent="general_turn",
+            sensitivity=Sensitivity.S1,
+            messages=[{"role": "user", "content": "test"}],
+        ):
+            received.append(item)
+    assert received == ["partial"]
+
+
+@pytest.mark.asyncio
+async def test_route_stream_does_not_fall_back_on_auth_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _patch_router_dependencies(monkeypatch)
+    router = LLMRouter()
+
+    mistral_provider = router._providers["mistral"]
+    assert isinstance(mistral_provider, _FakeProvider)
+
+    async def _auth_error_stream(
+        messages: list[LLMMessage],
+        *,
+        tools: object = None,
+        model: object = None,
+        api_key: object = None,
+    ) -> AsyncIterator[LLMStreamItem]:
+        raise PermissionError("401 invalid api key")
+        yield ""  # pragma: no cover - makes this an async generator
+
+    mistral_provider.chat_stream = _auth_error_stream  # type: ignore[method-assign]
+
+    with pytest.raises(PermissionError, match="401 invalid api key"):
+        async for _item in router.route_stream(
+            intent="general_turn",
+            sensitivity=Sensitivity.S1,
+            messages=[{"role": "user", "content": "test"}],
+        ):
+            pass
 
 
 @pytest.mark.asyncio

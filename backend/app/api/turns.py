@@ -1,6 +1,10 @@
 """Turn endpoints."""
 
+import json
+from collections.abc import AsyncIterator
+
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.jwt import get_current_user
@@ -53,3 +57,29 @@ async def process_turn(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     except ServiceError as exc:
         raise HTTPException(status_code=status.HTTP_423_LOCKED, detail=str(exc)) from exc
+
+
+@router.post("/stream")
+async def process_turn_stream(
+    payload: TurnRequest,
+    user_id: str = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> StreamingResponse:
+    """Stream a turn as server-sent events: delta, result and error."""
+    service = TurnService(db)
+
+    async def event_source() -> AsyncIterator[str]:
+        async for event in service.process_turn_stream(user_id=user_id, payload=payload):
+            data = json.dumps(event["data"], ensure_ascii=False)
+            yield f"event: {event['event']}\ndata: {data}\n\n"
+
+    return StreamingResponse(
+        event_source(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            # Nginx: never buffer SSE responses.
+            "X-Accel-Buffering": "no",
+        },
+    )

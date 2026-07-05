@@ -2,12 +2,19 @@
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
 from typing import Any, cast
 
 from openai import AsyncOpenAI
 
 from app.config import get_settings
-from app.services.llm.base import LLMMessage, LLMProvider, LLMResponse
+from app.services.llm.base import (
+    LLMMessage,
+    LLMProvider,
+    LLMResponse,
+    LLMStreamItem,
+    stream_openai_compatible,
+)
 
 
 class LMStudioProvider(LLMProvider):
@@ -50,3 +57,22 @@ class LMStudioProvider(LLMProvider):
             tokens_used=tokens_used,
             raw_response=raw_response,
         )
+
+    async def chat_stream(
+        self,
+        messages: list[LLMMessage],
+        *,
+        tools: list[dict[str, Any]] | None = None,
+        model: str | None = None,
+        api_key: str | None = None,
+    ) -> AsyncIterator[LLMStreamItem]:
+        del api_key
+        selected_model = model or self._model_name
+        async for item in stream_openai_compatible(
+            self._client,
+            model=selected_model,
+            messages=messages,
+            provider_name="lmstudio",
+            tools=tools,
+        ):
+            yield item

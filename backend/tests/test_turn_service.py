@@ -1040,6 +1040,112 @@ async def test_process_turn_with_claims_override_skips_conversation(
 
 
 @pytest.mark.asyncio
+async def test_process_turn_stream_yields_deltas_and_result(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = TurnService(cast(AsyncSession, FakeAsyncSession()))
+    _prepare_service(service)
+    _patch_context_assembler(monkeypatch)
+    _patch_default_rust(monkeypatch, claims=[])
+    conversation = SimpleNamespace(conversation_id=uuid.uuid4())
+    service.conversation_service.create_conversation = AsyncMock(  # type: ignore[method-assign]
+        return_value=conversation
+    )
+    service.conversation_service.append_message = AsyncMock()  # type: ignore[method-assign]
+
+    async def _fake_stream(**kwargs: object) -> object:
+        yield "Hel"
+        yield "lo"
+        yield LLMResponse(
+            content="Hello",
+            model="llama3",
+            provider="ollama",
+            tokens_used=5,
+        )
+
+    monkeypatch.setattr(service.llm_router, "route_stream", _fake_stream)
+    service.claim_extractor.extract = AsyncMock(return_value=[])  # type: ignore[method-assign]
+
+    events = [
+        event
+        async for event in service.process_turn_stream(
+            user_id="user-1", payload=TurnRequest(text="hello")
+        )
+    ]
+    assert [event["event"] for event in events] == ["delta", "delta", "result"]
+    assert events[0]["data"] == {"text": "Hel"}
+    assert events[1]["data"] == {"text": "lo"}
+    result_data = events[2]["data"]
+    assert result_data["response_text"] == "Hello"
+    assert result_data["provider"] == "ollama"
+    assert result_data["conversation_id"] == str(conversation.conversation_id)
+    append_calls = service.conversation_service.append_message.await_args_list
+    assert [call.kwargs["role"] for call in append_calls] == ["user", "assistant"]
+
+
+@pytest.mark.asyncio
+async def test_process_turn_stream_yields_error_event_on_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = TurnService(cast(AsyncSession, FakeAsyncSession()))
+    _prepare_service(service)
+    service.circuit_breaker.check = (  # type: ignore[method-assign]
+        AsyncMock(side_effect=CircuitBreakerTrippedError("blocked"))
+    )
+
+    events = [
+        event
+        async for event in service.process_turn_stream(
+            user_id="user-1", payload=TurnRequest(text="hello")
+        )
+    ]
+    assert len(events) == 1
+    assert events[0]["event"] == "error"
+    assert events[0]["data"]["code"] == "circuit_breaker_tripped"
+    assert service.audit.log.await_count >= 1  # type: ignore[attr-defined]
+
+
+@pytest.mark.asyncio
+async def test_process_turn_stream_maps_local_provider_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = TurnService(cast(AsyncSession, FakeAsyncSession()))
+    _prepare_service(service)
+    _patch_context_assembler(monkeypatch)
+
+    async def _failing_stream(**kwargs: object) -> object:
+        raise LocalProviderUnavailableError(
+            provider="ollama",
+            sensitivity="S3",
+            fallback_allowed=True,
+            detail="connection refused",
+        )
+        yield ""  # pragma: no cover - makes this an async generator
+
+    monkeypatch.setattr(service.llm_router, "route_stream", _failing_stream)
+    monkeypatch.setattr(
+        "app.services.turn_service.classify_sensitivity",
+        AsyncMock(
+            return_value=SensitivityClassification(
+                sensitivity=Sensitivity.S3,
+                source="keyword",
+                local_classifier_available=True,
+            )
+        ),
+    )
+
+    events = [
+        event
+        async for event in service.process_turn_stream(
+            user_id="user-1", payload=TurnRequest(text="mein gehalt ist privat")
+        )
+    ]
+    assert events[-1]["event"] == "error"
+    assert events[-1]["data"]["code"] == "local_provider_unavailable"
+    assert events[-1]["data"]["fallback_allowed"] is True
+
+
+@pytest.mark.asyncio
 async def test_process_turn_injects_empty_context_when_memory_is_empty(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
