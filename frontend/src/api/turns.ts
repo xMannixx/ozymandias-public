@@ -1,27 +1,30 @@
 import { request } from "@/api/client";
 import type { TurnRequest, TurnResult } from "@/api/types";
 
-export async function postTurn(
-  text: string,
-  channel = "web",
-  claims: TurnRequest["claims"] = undefined,
-  provider: TurnRequest["provider"] = undefined,
-  model: TurnRequest["model"] = undefined,
-  allowS3CloudFallback: TurnRequest["allow_s3_cloud_fallback"] = undefined,
-  useLiveWeb: TurnRequest["use_live_web"] = undefined,
-  allowS3LiveWeb: TurnRequest["allow_s3_live_web"] = undefined,
-): Promise<TurnResult> {
+export type PostTurnOptions = {
+  channel?: string;
+  claims?: TurnRequest["claims"];
+  provider?: TurnRequest["provider"];
+  model?: TurnRequest["model"];
+  allowS3CloudFallback?: boolean;
+  useLiveWeb?: boolean;
+  allowS3LiveWeb?: boolean;
+  conversationId?: string;
+};
+
+export async function postTurn(text: string, options: PostTurnOptions = {}): Promise<TurnResult> {
   return request<TurnResult>("/turns", {
     method: "POST",
     body: {
       text,
-      channel,
-      claims,
-      provider,
-      model,
-      allow_s3_cloud_fallback: allowS3CloudFallback,
-      use_live_web: useLiveWeb,
-      allow_s3_live_web: allowS3LiveWeb,
+      channel: options.channel ?? "web",
+      claims: options.claims,
+      provider: options.provider,
+      model: options.model,
+      allow_s3_cloud_fallback: options.allowS3CloudFallback,
+      use_live_web: options.useLiveWeb,
+      allow_s3_live_web: options.allowS3LiveWeb,
+      conversation_id: options.conversationId,
     },
   });
 }

@@ -14,6 +14,7 @@ export default defineConfig({
     proxy: {
       "/auth": "http://localhost:8000",
       "/turns": "http://localhost:8000",
+      "/conversations": "http://localhost:8000",
       "/claims": "http://localhost:8000",
       "/proposals": "http://localhost:8000",
       "/projects": "http://localhost:8000",

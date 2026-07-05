@@ -9,7 +9,7 @@ function MessageList({ messages }: MessageListProps): JSX.Element {
   if (messages.length === 0) {
     return (
       <div className="glass-card flex min-h-[320px] items-center justify-center p-4 text-sm text-gray-400">
-        Noch keine Nachrichten.
+        No messages yet. Ask Ozy anything to get started.
       </div>
     );
   }

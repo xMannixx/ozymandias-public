@@ -11,6 +11,7 @@ from app.api.auth import router as auth_router
 from app.api.calendar import router as calendar_router
 from app.api.claims import router as claims_router
 from app.api.contacts import router as contacts_router
+from app.api.conversations import router as conversations_router
 from app.api.files import router as files_router
 from app.api.health import router as health_router
 from app.api.llm import router as llm_router
@@ -54,6 +55,7 @@ def create_app() -> FastAPI:
     app.include_router(calendar_router, prefix="/calendar")
     app.include_router(claims_router, prefix="/claims")
     app.include_router(contacts_router, prefix="/contacts")
+    app.include_router(conversations_router, prefix="/conversations")
     app.include_router(proposals_router, prefix="/proposals")
     app.include_router(projects_router, prefix="/projects")
     app.include_router(mail_router, prefix="/mail")

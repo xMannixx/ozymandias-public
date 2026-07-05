@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.claim import Claim
 from app.models.conflict import ConflictGroup, ConflictGroupClaim
+from app.models.conversation import Conversation
 from app.schemas import (
     ApprovalClass,
     ApprovalRequest,
@@ -35,6 +36,7 @@ from app.services import rust_bridge
 from app.services.audit_service import AuditService
 from app.services.circuit_breaker_service import CircuitBreakerService
 from app.services.claim_service import ClaimService
+from app.services.conversation_service import ConversationService
 from app.services.errors import LiveWebPermissionRequiredError, ServiceError
 from app.services.live_web_service import (
     LiveWebContext,
@@ -64,6 +66,7 @@ class TurnService:
         self.claim_service = ClaimService(db)
         self.proposal_service = ProposalService(db)
         self.circuit_breaker = CircuitBreakerService(db)
+        self.conversation_service = ConversationService(db)
         self.llm_router = get_llm_router()
         self.claim_extractor = ClaimExtractor(self.llm_router)
         self.live_web_service = LiveWebService(router=self.llm_router)
@@ -122,6 +125,15 @@ class TurnService:
                 "anthropic": getattr(settings, "anthropic_api_key", None),
             }
 
+            # Chat turns (no claim override) run against a persisted conversation.
+            is_chat_turn = payload.claims is None
+            conversation = None
+            if is_chat_turn and payload.conversation_id:
+                conversation = await self.conversation_service.get_conversation(
+                    conversation_id=payload.conversation_id,
+                    user_id=user_id,
+                )
+
             live_web_requested = payload.use_live_web
             if live_web_requested is None:
                 live_web_requested = bool(getattr(settings, "live_web_enabled", False))
@@ -176,6 +188,7 @@ class TurnService:
                 sensitivity=payload_sensitivity,
                 enforce_local=enforce_local,
                 turn_id=turn_id,
+                conversation=conversation,
                 live_web_context_block=(
                     format_live_web_context_block(live_web_result) if live_web_result else None
                 ),
@@ -363,6 +376,37 @@ class TurnService:
                         )
                     )
 
+            if is_chat_turn:
+                if conversation is None:
+                    conversation = await self.conversation_service.create_conversation(
+                        user_id=user_id,
+                        title=payload.text,
+                    )
+                await self.conversation_service.append_message(
+                    conversation=conversation,
+                    user_id=user_id,
+                    role="user",
+                    content=payload.text,
+                    sensitivity=payload_sensitivity,
+                    turn_id=turn_id,
+                )
+                if response_text:
+                    await self.conversation_service.append_message(
+                        conversation=conversation,
+                        user_id=user_id,
+                        role="assistant",
+                        content=response_text,
+                        sensitivity=payload_sensitivity,
+                        provider=provider_used,
+                        model=model_used,
+                        turn_id=turn_id,
+                    )
+            conversation_id = (
+                str(conversation.conversation_id)
+                if conversation is not None and conversation.conversation_id is not None
+                else None
+            )
+
             result_payload = TurnResult(
                 turn_id=turn_id,
                 response_text=response_text,
@@ -373,6 +417,7 @@ class TurnService:
                 filtered_count=sensitivity_output.filtered_count,
                 results=results,
                 taint_summary=taint_summary,
+                conversation_id=conversation_id,
             )
 
             await self.circuit_breaker.increment(user_id=user_id, action_type=action_type)
@@ -428,6 +473,7 @@ class TurnService:
         sensitivity: Sensitivity,
         enforce_local: bool,
         turn_id: str,
+        conversation: Conversation | None = None,
         live_web_context_block: str | None = None,
         preferred_provider: str | None = None,
         preferred_model: str | None = None,
@@ -446,6 +492,19 @@ class TurnService:
                 sensitivity=sensitivity,
                 provider_is_local=provider_is_local,
             )
+            history: list[LLMMessage] = []
+            if conversation is not None:
+                recent = await self.conversation_service.recent_history(
+                    conversation=conversation,
+                    provider_is_local=provider_is_local,
+                )
+                history = [
+                    {
+                        "role": "user" if item.role == "user" else "assistant",
+                        "content": item.content,
+                    }
+                    for item in recent
+                ]
             messages: list[LLMMessage] = [
                 {
                     "role": "system",
@@ -455,6 +514,7 @@ class TurnService:
                     "role": "system",
                     "content": context_block,
                 },
+                *history,
                 {"role": "user", "content": payload.text},
             ]
             if live_web_context_block:

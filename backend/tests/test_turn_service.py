@@ -947,6 +947,99 @@ async def test_process_turn_injects_context_block_as_second_system_message(
 
 
 @pytest.mark.asyncio
+async def test_process_turn_persists_chat_messages_to_conversation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = TurnService(cast(AsyncSession, FakeAsyncSession()))
+    _prepare_service(service)
+    _patch_context_assembler(monkeypatch)
+    _patch_default_rust(monkeypatch, claims=[])
+    conversation = SimpleNamespace(conversation_id=uuid.uuid4())
+    service.conversation_service.create_conversation = AsyncMock(  # type: ignore[method-assign]
+        return_value=conversation
+    )
+    service.conversation_service.append_message = AsyncMock()  # type: ignore[method-assign]
+    service.llm_router.route = AsyncMock(  # type: ignore[method-assign]
+        return_value=LLMResponse(
+            content="answer",
+            model="llama3",
+            provider="ollama",
+            tokens_used=5,
+        )
+    )
+    service.claim_extractor.extract = AsyncMock(return_value=[])  # type: ignore[method-assign]
+
+    result = await service.process_turn(user_id="user-1", payload=TurnRequest(text="hello"))
+    assert result.conversation_id == str(conversation.conversation_id)
+    assert service.conversation_service.create_conversation.await_count == 1
+    append_calls = service.conversation_service.append_message.await_args_list
+    assert [call.kwargs["role"] for call in append_calls] == ["user", "assistant"]
+    assert append_calls[0].kwargs["content"] == "hello"
+    assert append_calls[1].kwargs["content"] == "answer"
+    assert append_calls[1].kwargs["provider"] == "ollama"
+
+
+@pytest.mark.asyncio
+async def test_process_turn_injects_conversation_history_into_llm_messages(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = TurnService(cast(AsyncSession, FakeAsyncSession()))
+    _prepare_service(service)
+    _patch_context_assembler(monkeypatch)
+    _patch_default_rust(monkeypatch, claims=[])
+    conversation = SimpleNamespace(conversation_id=uuid.uuid4())
+    service.conversation_service.get_conversation = AsyncMock(  # type: ignore[method-assign]
+        return_value=conversation
+    )
+    service.conversation_service.append_message = AsyncMock()  # type: ignore[method-assign]
+    service.conversation_service.recent_history = AsyncMock(  # type: ignore[method-assign]
+        return_value=[
+            SimpleNamespace(role="user", content="earlier question"),
+            SimpleNamespace(role="assistant", content="earlier answer"),
+        ]
+    )
+    service.llm_router.route = AsyncMock(  # type: ignore[method-assign]
+        return_value=LLMResponse(
+            content="answer",
+            model="llama3",
+            provider="ollama",
+            tokens_used=5,
+        )
+    )
+    service.claim_extractor.extract = AsyncMock(return_value=[])  # type: ignore[method-assign]
+
+    await service.process_turn(
+        user_id="user-1",
+        payload=TurnRequest(text="follow-up", conversation_id=str(conversation.conversation_id)),
+    )
+    route_call = service.llm_router.route.await_args
+    assert route_call is not None
+    messages = route_call.kwargs["messages"]
+    contents = [message["content"] for message in messages]
+    assert "earlier question" in contents
+    assert "earlier answer" in contents
+    assert contents.index("earlier question") < contents.index("follow-up")
+
+
+@pytest.mark.asyncio
+async def test_process_turn_with_claims_override_skips_conversation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = TurnService(cast(AsyncSession, FakeAsyncSession()))
+    _prepare_service(service)
+    _patch_default_rust(monkeypatch, claims=[])
+    service.conversation_service.create_conversation = AsyncMock()  # type: ignore[method-assign]
+    service.conversation_service.append_message = AsyncMock()  # type: ignore[method-assign]
+
+    result = await service.process_turn(
+        user_id="user-1", payload=TurnRequest(text="hello", claims=[])
+    )
+    assert result.conversation_id is None
+    assert service.conversation_service.create_conversation.await_count == 0
+    assert service.conversation_service.append_message.await_count == 0
+
+
+@pytest.mark.asyncio
 async def test_process_turn_injects_empty_context_when_memory_is_empty(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

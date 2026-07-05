@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import ChatInput from "@/components/chat/ChatInput";
+import ConversationList from "@/components/chat/ConversationList";
 import Modal from "@/components/common/Modal";
 import MessageList from "@/components/chat/MessageList";
 import { useChat } from "@/hooks/useChat";
@@ -19,6 +20,9 @@ function ChatView(): JSX.Element {
   const {
     messages,
     isLoading,
+    conversations,
+    activeConversationId,
+    isHistoryLoading,
     selectedProvider,
     selectedModel,
     s3FallbackPrompt,
@@ -26,6 +30,10 @@ function ChatView(): JSX.Element {
     setSelectedProvider,
     setSelectedModel,
     sendMessage,
+    selectConversation,
+    startNewConversation,
+    removeConversation,
+    renameConversationTitle,
     confirmS3Fallback,
     cancelS3Fallback,
     confirmS3LiveWeb,
@@ -93,7 +101,24 @@ function ChatView(): JSX.Element {
   }, [isVoiceEnabled, startRecording, stopRecording, voiceMode]);
 
   return (
-    <section>
+    <section className="flex items-start gap-3">
+      <div className="hidden w-60 shrink-0 md:block">
+        <ConversationList
+          conversations={conversations}
+          activeConversationId={activeConversationId}
+          onSelect={(conversationId) => {
+            void selectConversation(conversationId);
+          }}
+          onNew={startNewConversation}
+          onRename={(conversationId, title) => {
+            void renameConversationTitle(conversationId, title);
+          }}
+          onDelete={(conversationId) => {
+            void removeConversation(conversationId);
+          }}
+        />
+      </div>
+      <div className="min-w-0 flex-1">
       <div className="glass-card mb-3 grid gap-2 p-3 md:grid-cols-3">
         <label className="flex flex-col gap-1 text-xs text-gray-400">
           Provider
@@ -151,7 +176,13 @@ function ChatView(): JSX.Element {
           </label>
         </div>
       </div>
-      <MessageList messages={messages} />
+      {isHistoryLoading ? (
+        <div className="glass-card flex min-h-[320px] items-center justify-center p-4 text-sm text-gray-400">
+          Loading conversation...
+        </div>
+      ) : (
+        <MessageList messages={messages} />
+      )}
       {isLoading ? <p className="mt-2 text-sm text-gray-400">Ozy is typing...</p> : null}
       <Modal open={Boolean(s3LiveWebPrompt)} onClose={cancelS3LiveWeb} title="Confirm S3 live web access">
         <p className="mb-3 text-sm text-gray-200">
@@ -218,6 +249,7 @@ function ChatView(): JSX.Element {
           void toggleVoice();
         }}
       />
+      </div>
     </section>
   );
 }

@@ -1,8 +1,14 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { ApiError } from "@/api/client";
+import {
+  deleteConversation,
+  getConversationMessages,
+  listConversations,
+  renameConversation,
+} from "@/api/conversations";
 import { getSettings } from "@/api/settings";
 import { postTurn } from "@/api/turns";
-import type { ClaimProcessResult, LLMProviderName } from "@/api/types";
+import type { ClaimProcessResult, ConversationResponse, LLMProviderName } from "@/api/types";
 
 const CHAT_PROVIDER_KEY = "ozy-chat-provider";
 const CHAT_MODEL_KEY = "ozy-chat-model";
@@ -22,6 +28,9 @@ export type ChatMessage = {
 type UseChatResult = {
   messages: ChatMessage[];
   isLoading: boolean;
+  conversations: ConversationResponse[];
+  activeConversationId: string | null;
+  isHistoryLoading: boolean;
   selectedProvider: LLMProviderName | null;
   selectedModel: string;
   s3FallbackPrompt: { text: string; message: string } | null;
@@ -29,6 +38,10 @@ type UseChatResult = {
   setSelectedProvider: (provider: LLMProviderName | null) => void;
   setSelectedModel: (model: string) => void;
   sendMessage: (text: string) => Promise<void>;
+  selectConversation: (conversationId: string) => Promise<void>;
+  startNewConversation: () => void;
+  removeConversation: (conversationId: string) => Promise<void>;
+  renameConversationTitle: (conversationId: string, title: string) => Promise<void>;
   confirmS3Fallback: () => Promise<void>;
   cancelS3Fallback: () => void;
   confirmS3LiveWeb: () => Promise<void>;
@@ -42,6 +55,9 @@ function randomId(): string {
 export function useChat(): UseChatResult {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [conversations, setConversations] = useState<ConversationResponse[]>([]);
+  const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
+  const [isHistoryLoading, setIsHistoryLoading] = useState(false);
   const [selectedProvider, setSelectedProvider] = useState<LLMProviderName | null>(null);
   const [selectedModel, setSelectedModel] = useState("");
   const [s3FallbackPrompt, setS3FallbackPrompt] = useState<{ text: string; message: string } | null>(
@@ -54,6 +70,15 @@ export function useChat(): UseChatResult {
   const [liveWebMode, setLiveWebMode] = useState<"provider_native_first" | "connector_only" | "off">(
     "provider_native_first",
   );
+
+  const refreshConversations = useCallback(async (): Promise<void> => {
+    try {
+      const items = await listConversations();
+      setConversations(items);
+    } catch {
+      // Conversation list is non-critical; chat still works without it.
+    }
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -89,10 +114,11 @@ export function useChat(): UseChatResult {
         setLiveWebMode("off");
       }
     })();
+    void refreshConversations();
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [refreshConversations]);
 
   function handleSetProvider(provider: LLMProviderName | null): void {
     setSelectedProvider(provider);
@@ -110,6 +136,61 @@ export function useChat(): UseChatResult {
     } else {
       localStorage.removeItem(CHAT_MODEL_KEY);
     }
+  }
+
+  async function selectConversation(conversationId: string): Promise<void> {
+    setActiveConversationId(conversationId);
+    setS3FallbackPrompt(null);
+    setS3LiveWebPrompt(null);
+    setIsHistoryLoading(true);
+    try {
+      const history = await getConversationMessages(conversationId);
+      setMessages(
+        history.map((item) => ({
+          id: item.message_id,
+          role: item.role,
+          text: item.content,
+          provider: item.provider ?? undefined,
+          model: item.model ?? undefined,
+        })),
+      );
+    } catch {
+      setMessages([]);
+    } finally {
+      setIsHistoryLoading(false);
+    }
+  }
+
+  function startNewConversation(): void {
+    setActiveConversationId(null);
+    setMessages([]);
+    setS3FallbackPrompt(null);
+    setS3LiveWebPrompt(null);
+  }
+
+  async function removeConversation(conversationId: string): Promise<void> {
+    try {
+      await deleteConversation(conversationId);
+    } catch {
+      return;
+    }
+    if (conversationId === activeConversationId) {
+      startNewConversation();
+    }
+    await refreshConversations();
+  }
+
+  async function renameConversationTitle(conversationId: string, title: string): Promise<void> {
+    const trimmed = title.trim();
+    if (!trimmed) {
+      return;
+    }
+    try {
+      await renameConversation(conversationId, trimmed);
+    } catch {
+      return;
+    }
+    await refreshConversations();
   }
 
   function appendAssistantMessage(text: string): void {
@@ -171,16 +252,14 @@ export function useChat(): UseChatResult {
     allowS3LiveWeb: boolean,
   ): Promise<void> {
     const requestedModel = selectedModel.trim() || undefined;
-    const result = await postTurn(
-      text,
-      "web",
-      undefined,
-      selectedProvider ?? undefined,
-      requestedModel,
+    const result = await postTurn(text, {
+      provider: selectedProvider ?? undefined,
+      model: requestedModel,
       allowS3CloudFallback,
-      liveWebEnabled && liveWebMode !== "off",
+      useLiveWeb: liveWebEnabled && liveWebMode !== "off",
       allowS3LiveWeb,
-    );
+      conversationId: activeConversationId ?? undefined,
+    });
     const assistantText = result.response_text ?? result.response ?? "No response.";
     const assistantMessage: ChatMessage = {
       id: result.turn_id || randomId(),
@@ -192,6 +271,10 @@ export function useChat(): UseChatResult {
       reasoning_content: result.reasoning_content,
     };
     setMessages((prev) => [...prev, assistantMessage]);
+    if (result.conversation_id) {
+      setActiveConversationId(result.conversation_id);
+      void refreshConversations();
+    }
   }
 
   async function sendMessage(text: string): Promise<void> {
@@ -306,6 +389,9 @@ export function useChat(): UseChatResult {
   return {
     messages,
     isLoading,
+    conversations,
+    activeConversationId,
+    isHistoryLoading,
     selectedProvider,
     selectedModel,
     s3FallbackPrompt,
@@ -313,6 +399,10 @@ export function useChat(): UseChatResult {
     setSelectedProvider: handleSetProvider,
     setSelectedModel: handleSetModel,
     sendMessage,
+    selectConversation,
+    startNewConversation,
+    removeConversation,
+    renameConversationTitle,
     confirmS3Fallback,
     cancelS3Fallback,
     confirmS3LiveWeb,

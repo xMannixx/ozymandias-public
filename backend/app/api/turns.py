@@ -10,6 +10,7 @@ from app.services.errors import (
     CircuitBreakerTrippedError,
     LiveWebPermissionRequiredError,
     LocalProviderUnavailableError,
+    NotFoundError,
     ServiceError,
 )
 from app.services.turn_service import TurnService
@@ -48,5 +49,7 @@ async def process_turn(
         ) from exc
     except CircuitBreakerTrippedError as exc:
         raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=str(exc)) from exc
+    except NotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     except ServiceError as exc:
         raise HTTPException(status_code=status.HTTP_423_LOCKED, detail=str(exc)) from exc

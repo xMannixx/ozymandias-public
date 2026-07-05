@@ -220,6 +220,7 @@ export type TurnRequest = {
   allow_s3_cloud_fallback?: boolean;
   use_live_web?: boolean;
   allow_s3_live_web?: boolean;
+  conversation_id?: string;
 };
 
 export type ClaimProcessResult = {
@@ -238,6 +239,25 @@ export type TurnResult = {
   provider?: string;
   model?: string;
   results?: ClaimProcessResult[];
+  conversation_id?: string | null;
+};
+
+export type ConversationResponse = {
+  conversation_id: string;
+  title: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ConversationMessageResponse = {
+  message_id: string;
+  conversation_id: string;
+  role: "user" | "assistant";
+  content: string;
+  provider: string | null;
+  model: string | null;
+  turn_id: string | null;
+  created_at: string;
 };
 
 export type VoiceTranscriptionResponse = {
