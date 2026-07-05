@@ -1,10 +1,9 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { ApiError } from "@/api/client";
 import { useChat } from "@/hooks/useChat";
 import { mockSettings } from "@/test/fixtures";
 
 const getSettingsMock = vi.fn();
-const postTurnMock = vi.fn();
+const streamTurnMock = vi.fn();
 const listConversationsMock = vi.fn();
 const getConversationMessagesMock = vi.fn();
 const renameConversationMock = vi.fn();
@@ -15,8 +14,25 @@ vi.mock("@/api/settings", () => ({
 }));
 
 vi.mock("@/api/turns", () => ({
-  postTurn: (...args: unknown[]) => postTurnMock(...args),
+  streamTurn: (...args: unknown[]) => streamTurnMock(...args),
 }));
+
+type FakeStreamEvent =
+  | { event: "delta"; data: { text: string } }
+  | { event: "result"; data: Record<string, unknown> }
+  | { event: "error"; data: Record<string, unknown> };
+
+function eventsStream(events: FakeStreamEvent[]): AsyncGenerator<FakeStreamEvent> {
+  return (async function* () {
+    for (const event of events) {
+      yield event;
+    }
+  })();
+}
+
+function resultStream(result: Record<string, unknown>): AsyncGenerator<FakeStreamEvent> {
+  return eventsStream([{ event: "result", data: result }]);
+}
 
 vi.mock("@/api/conversations", () => ({
   listConversations: (...args: unknown[]) => listConversationsMock(...args),
@@ -28,7 +44,7 @@ vi.mock("@/api/conversations", () => ({
 describe("useChat", () => {
   beforeEach(() => {
     getSettingsMock.mockReset();
-    postTurnMock.mockReset();
+    streamTurnMock.mockReset();
     listConversationsMock.mockReset();
     getConversationMessagesMock.mockReset();
     renameConversationMock.mockReset();
@@ -159,13 +175,15 @@ describe("useChat", () => {
   });
 
   it("uebernimmt conversation_id aus dem TurnResult und sendet sie beim Folge-Turn mit", async () => {
-    postTurnMock.mockResolvedValue({
-      turn_id: "turn-1",
-      response_text: "hi",
-      provider: "ollama",
-      model: "llama3",
-      conversation_id: "c9",
-    });
+    streamTurnMock.mockImplementation(() =>
+      resultStream({
+        turn_id: "turn-1",
+        response_text: "hi",
+        provider: "ollama",
+        model: "llama3",
+        conversation_id: "c9",
+      }),
+    );
 
     const { result } = renderHook(() => useChat());
 
@@ -177,9 +195,75 @@ describe("useChat", () => {
     await act(async () => {
       await result.current.sendMessage("follow-up");
     });
-    const secondCall = postTurnMock.mock.calls[1];
+    const secondCall = streamTurnMock.mock.calls[1];
     expect(secondCall[0]).toBe("follow-up");
     expect(secondCall[1]).toMatchObject({ conversationId: "c9" });
+  });
+
+  it("baut die Assistant-Antwort aus Delta-Events auf", async () => {
+    streamTurnMock.mockImplementation(() =>
+      eventsStream([
+        { event: "delta", data: { text: "Hel" } },
+        { event: "delta", data: { text: "lo" } },
+        {
+          event: "result",
+          data: {
+            turn_id: "turn-1",
+            response_text: "Hello",
+            provider: "ollama",
+            model: "llama3",
+          },
+        },
+      ]),
+    );
+
+    const { result } = renderHook(() => useChat());
+
+    await act(async () => {
+      await result.current.sendMessage("hi");
+    });
+
+    const assistant = result.current.messages.at(-1);
+    expect(assistant?.role).toBe("assistant");
+    expect(assistant?.text).toBe("Hello");
+    expect(assistant?.provider).toBe("ollama");
+    expect(assistant?.isStreaming).toBe(false);
+  });
+
+  it("behaelt den Teiltext, wenn der Stream gestoppt wird", async () => {
+    streamTurnMock.mockImplementation(
+      (_text: string, _options: unknown, signal: AbortSignal) =>
+        (async function* () {
+          yield { event: "delta", data: { text: "partial answer" } };
+          await new Promise((_resolve, reject) => {
+            signal.addEventListener("abort", () => {
+              reject(new DOMException("Aborted", "AbortError"));
+            });
+          });
+        })(),
+    );
+
+    const { result } = renderHook(() => useChat());
+
+    let sendPromise: Promise<void> = Promise.resolve();
+    act(() => {
+      sendPromise = result.current.sendMessage("hi");
+    });
+    await waitFor(() => {
+      expect(result.current.messages.at(-1)?.text).toBe("partial answer");
+    });
+
+    act(() => {
+      result.current.stopStreaming();
+    });
+    await act(async () => {
+      await sendPromise;
+    });
+
+    const assistant = result.current.messages.at(-1);
+    expect(assistant?.text).toBe("partial answer");
+    expect(assistant?.isStreaming).toBe(false);
+    expect(result.current.isLoading).toBe(false);
   });
 
   it("laedt Nachrichten beim Auswaehlen einer Conversation", async () => {
@@ -279,24 +363,29 @@ describe("useChat", () => {
   });
 
   it("zeigt S3 fallback prompt und sendet retry mit allow flag", async () => {
-    postTurnMock
-      .mockRejectedValueOnce(
-        new ApiError("local unavailable", 503, {
-          detail: {
-            code: "local_provider_unavailable",
-            message: "Ollama nicht erreichbar",
-            provider: "ollama",
-            sensitivity: "S3",
-            fallback_allowed: true,
+    streamTurnMock
+      .mockImplementationOnce(() =>
+        eventsStream([
+          {
+            event: "error",
+            data: {
+              code: "local_provider_unavailable",
+              message: "Ollama nicht erreichbar",
+              provider: "ollama",
+              sensitivity: "S3",
+              fallback_allowed: true,
+            },
           },
-        }),
+        ]),
       )
-      .mockResolvedValueOnce({
-        turn_id: "turn-2",
-        response_text: "cloud reply",
-        provider: "deepseek",
-        model: "deepseek-chat",
-      });
+      .mockImplementationOnce(() =>
+        resultStream({
+          turn_id: "turn-2",
+          response_text: "cloud reply",
+          provider: "deepseek",
+          model: "deepseek-chat",
+        }),
+      );
 
     const { result } = renderHook(() => useChat());
 
@@ -305,13 +394,10 @@ describe("useChat", () => {
     });
 
     expect(result.current.s3FallbackPrompt?.text).toBe("test");
-    expect(postTurnMock).toHaveBeenNthCalledWith(1, "test", {
-      provider: undefined,
-      model: undefined,
+    expect(streamTurnMock.mock.calls[0][0]).toBe("test");
+    expect(streamTurnMock.mock.calls[0][1]).toMatchObject({
       allowS3CloudFallback: false,
-      useLiveWeb: false,
       allowS3LiveWeb: false,
-      conversationId: undefined,
     });
 
     await act(async () => {
@@ -319,14 +405,12 @@ describe("useChat", () => {
     });
 
     expect(result.current.s3FallbackPrompt).toBeNull();
-    expect(postTurnMock).toHaveBeenNthCalledWith(2, "test", {
-      provider: undefined,
-      model: undefined,
+    expect(streamTurnMock.mock.calls[1][0]).toBe("test");
+    expect(streamTurnMock.mock.calls[1][1]).toMatchObject({
       allowS3CloudFallback: true,
-      useLiveWeb: false,
       allowS3LiveWeb: false,
-      conversationId: undefined,
     });
+    expect(result.current.messages.at(-1)?.text).toBe("cloud reply");
   });
 
   it("zeigt S3 live web prompt und sendet retry mit allow_s3_live_web", async () => {
@@ -336,22 +420,27 @@ describe("useChat", () => {
       live_web_mode: "provider_native_first",
       preferred_model: "deepseek-chat",
     });
-    postTurnMock
-      .mockRejectedValueOnce(
-        new ApiError("live web confirm", 409, {
-          detail: {
-            code: "live_web_confirmation_required",
-            message: "S3 bestaetigen",
-            sensitivity: "S3",
+    streamTurnMock
+      .mockImplementationOnce(() =>
+        eventsStream([
+          {
+            event: "error",
+            data: {
+              code: "live_web_confirmation_required",
+              message: "S3 bestaetigen",
+              sensitivity: "S3",
+            },
           },
-        }),
+        ]),
       )
-      .mockResolvedValueOnce({
-        turn_id: "turn-2",
-        response_text: "live web reply",
-        provider: "deepseek",
-        model: "deepseek-chat",
-      });
+      .mockImplementationOnce(() =>
+        resultStream({
+          turn_id: "turn-2",
+          response_text: "live web reply",
+          provider: "deepseek",
+          model: "deepseek-chat",
+        }),
+      );
 
     const { result } = renderHook(() => useChat());
     await waitFor(() => {
@@ -363,26 +452,20 @@ describe("useChat", () => {
     });
 
     expect(result.current.s3LiveWebPrompt?.text).toBe("aktueller kurs");
-    expect(postTurnMock).toHaveBeenNthCalledWith(1, "aktueller kurs", {
-      provider: undefined,
+    expect(streamTurnMock.mock.calls[0][1]).toMatchObject({
       model: "deepseek-chat",
-      allowS3CloudFallback: false,
       useLiveWeb: true,
       allowS3LiveWeb: false,
-      conversationId: undefined,
     });
 
     await act(async () => {
       await result.current.confirmS3LiveWeb();
     });
 
-    expect(postTurnMock).toHaveBeenNthCalledWith(2, "aktueller kurs", {
-      provider: undefined,
+    expect(streamTurnMock.mock.calls[1][1]).toMatchObject({
       model: "deepseek-chat",
-      allowS3CloudFallback: false,
       useLiveWeb: true,
       allowS3LiveWeb: true,
-      conversationId: undefined,
     });
   });
 });

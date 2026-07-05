@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError } from "@/api/client";
 import {
   deleteConversation,
@@ -7,7 +7,7 @@ import {
   renameConversation,
 } from "@/api/conversations";
 import { getSettings } from "@/api/settings";
-import { postTurn } from "@/api/turns";
+import { streamTurn } from "@/api/turns";
 import type { ClaimProcessResult, ConversationResponse, LLMProviderName } from "@/api/types";
 
 const CHAT_PROVIDER_KEY = "ozy-chat-provider";
@@ -26,6 +26,7 @@ export type ChatMessage = {
   provider?: string;
   model?: string;
   reasoning_content?: string | null;
+  isStreaming?: boolean;
 };
 
 type UseChatResult = {
@@ -41,6 +42,7 @@ type UseChatResult = {
   setSelectedProvider: (provider: LLMProviderName | null) => void;
   setSelectedModel: (model: string) => void;
   sendMessage: (text: string) => Promise<void>;
+  stopStreaming: () => void;
   selectConversation: (conversationId: string) => Promise<void>;
   startNewConversation: () => void;
   removeConversation: (conversationId: string) => Promise<void>;
@@ -73,6 +75,7 @@ export function useChat(): UseChatResult {
   const [liveWebMode, setLiveWebMode] = useState<"provider_native_first" | "connector_only" | "off">(
     "provider_native_first",
   );
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   const refreshConversations = useCallback(async (): Promise<void> => {
     try {
@@ -259,34 +262,89 @@ export function useChat(): UseChatResult {
     return detail;
   }
 
+  function stopStreaming(): void {
+    abortControllerRef.current?.abort();
+  }
+
   async function sendTurn(
     text: string,
     allowS3CloudFallback: boolean,
     allowS3LiveWeb: boolean,
   ): Promise<void> {
     const requestedModel = selectedModel.trim() || undefined;
-    const result = await postTurn(text, {
-      provider: selectedProvider ?? undefined,
-      model: requestedModel,
-      allowS3CloudFallback,
-      useLiveWeb: liveWebEnabled && liveWebMode !== "off",
-      allowS3LiveWeb,
-      conversationId: activeConversationId ?? undefined,
-    });
-    const assistantText = result.response_text ?? result.response ?? "No response.";
-    const assistantMessage: ChatMessage = {
-      id: result.turn_id || randomId(),
-      role: "assistant",
-      text: assistantText,
-      results: result.results ?? [],
-      provider: result.provider,
-      model: result.model,
-      reasoning_content: result.reasoning_content,
-    };
-    setMessages((prev) => [...prev, assistantMessage]);
-    if (result.conversation_id) {
-      setActiveConversationId(result.conversation_id);
-      void refreshConversations();
+    const assistantId = randomId();
+    let placeholderVisible = false;
+    let streamedText = "";
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
+    function upsertAssistantMessage(update: Partial<ChatMessage>): void {
+      if (!placeholderVisible) {
+        placeholderVisible = true;
+        setMessages((prev) => [
+          ...prev,
+          { id: assistantId, role: "assistant", text: "", isStreaming: true, ...update },
+        ]);
+        return;
+      }
+      setMessages((prev) =>
+        prev.map((message) => (message.id === assistantId ? { ...message, ...update } : message)),
+      );
+    }
+
+    try {
+      const stream = streamTurn(
+        text,
+        {
+          provider: selectedProvider ?? undefined,
+          model: requestedModel,
+          allowS3CloudFallback,
+          useLiveWeb: liveWebEnabled && liveWebMode !== "off",
+          allowS3LiveWeb,
+          conversationId: activeConversationId ?? undefined,
+        },
+        controller.signal,
+      );
+      for await (const event of stream) {
+        if (event.event === "delta") {
+          streamedText += event.data.text;
+          upsertAssistantMessage({ text: streamedText });
+        } else if (event.event === "result") {
+          const result = event.data;
+          const assistantText = result.response_text ?? result.response ?? streamedText;
+          upsertAssistantMessage({
+            text: assistantText || "No response.",
+            results: result.results ?? [],
+            provider: result.provider,
+            model: result.model,
+            reasoning_content: result.reasoning_content,
+            isStreaming: false,
+          });
+          if (result.conversation_id) {
+            setActiveConversationId(result.conversation_id);
+            void refreshConversations();
+          }
+        } else {
+          if (placeholderVisible && !streamedText.trim()) {
+            setMessages((prev) => prev.filter((message) => message.id !== assistantId));
+          } else if (placeholderVisible) {
+            upsertAssistantMessage({ isStreaming: false });
+          }
+          // Reuse the non-streaming error paths (S3 prompts etc.) in sendMessage.
+          throw new ApiError(event.data.message, 0, { detail: event.data });
+        }
+      }
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") {
+        // User pressed stop: keep the partial answer, no error message.
+        if (placeholderVisible) {
+          upsertAssistantMessage({ isStreaming: false });
+        }
+        return;
+      }
+      throw error;
+    } finally {
+      abortControllerRef.current = null;
     }
   }
 
@@ -412,6 +470,7 @@ export function useChat(): UseChatResult {
     setSelectedProvider: handleSetProvider,
     setSelectedModel: handleSetModel,
     sendMessage,
+    stopStreaming,
     selectConversation,
     startNewConversation,
     removeConversation,

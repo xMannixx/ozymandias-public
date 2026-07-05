@@ -21,7 +21,36 @@ describe("MessageBubble", () => {
   it("renders assistant message with glass style", () => {
     const message: ChatMessage = { id: "2", role: "assistant", text: "hi" };
     renderWithRouter(message);
-    expect(screen.getByText("hi").closest("div")).toHaveClass("glass-card");
+    expect(screen.getByText("hi").closest(".glass-card")).not.toBeNull();
+  });
+
+  it("renders assistant markdown as formatted content", () => {
+    const message: ChatMessage = {
+      id: "2b",
+      role: "assistant",
+      text: "**bold** and\n\n- item one\n- item two",
+    };
+    renderWithRouter(message);
+    expect(screen.getByText("bold").tagName).toBe("STRONG");
+    expect(screen.getByText("item one").tagName).toBe("LI");
+  });
+
+  it("shows a copy button for finished assistant messages", () => {
+    const message: ChatMessage = { id: "2c", role: "assistant", text: "copy me" };
+    renderWithRouter(message);
+    expect(screen.getByRole("button", { name: "Copy message" })).toBeInTheDocument();
+  });
+
+  it("hides copy button and shows cursor while streaming", () => {
+    const message: ChatMessage = {
+      id: "2d",
+      role: "assistant",
+      text: "partial",
+      isStreaming: true,
+    };
+    renderWithRouter(message);
+    expect(screen.queryByRole("button", { name: "Copy message" })).not.toBeInTheDocument();
+    expect(screen.getByLabelText("streaming")).toBeInTheDocument();
   });
 
   it("shows a review notice with a link to Proposals when a proposal was created", () => {

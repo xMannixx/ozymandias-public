@@ -7,6 +7,8 @@ import type { VoiceState } from "@/hooks/useVoice";
 type ChatInputProps = {
   onSend: (text: string) => void | Promise<void>;
   disabled?: boolean;
+  isStreaming?: boolean;
+  onStop?: () => void;
   voiceState: VoiceState;
   voiceMode: VoiceMode;
   isVoiceEnabled: boolean;
@@ -19,6 +21,8 @@ type ChatInputProps = {
 function ChatInput({
   onSend,
   disabled = false,
+  isStreaming = false,
+  onStop,
   voiceState,
   voiceMode,
   isVoiceEnabled,
@@ -72,9 +76,15 @@ function ChatInput({
         onToggleVoice={onToggleVoice}
         error={voiceError}
       />
-      <Button type="submit" disabled={isBlocked}>
-        Send
-      </Button>
+      {isStreaming && onStop ? (
+        <Button type="button" onClick={onStop}>
+          Stop
+        </Button>
+      ) : (
+        <Button type="submit" disabled={isBlocked}>
+          Send
+        </Button>
+      )}
     </form>
   );
 }

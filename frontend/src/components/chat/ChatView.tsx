@@ -32,6 +32,7 @@ function ChatView(): JSX.Element {
     setSelectedProvider,
     setSelectedModel,
     sendMessage,
+    stopStreaming,
     selectConversation,
     startNewConversation,
     removeConversation,
@@ -60,7 +61,11 @@ function ChatView(): JSX.Element {
     }
     const assistantMessages = messages.filter((message) => message.role === "assistant");
     const latestAssistant = assistantMessages.at(-1);
-    if (!latestAssistant || latestAssistant.id === lastPlayedAssistantIdRef.current) {
+    if (
+      !latestAssistant
+      || latestAssistant.isStreaming
+      || latestAssistant.id === lastPlayedAssistantIdRef.current
+    ) {
       return;
     }
     lastPlayedAssistantIdRef.current = latestAssistant.id;
@@ -228,6 +233,8 @@ function ChatView(): JSX.Element {
       <ChatInput
         onSend={sendMessage}
         disabled={isLoading}
+        isStreaming={isLoading}
+        onStop={stopStreaming}
         voiceState={voiceState}
         voiceMode={voiceMode}
         isVoiceEnabled={isVoiceEnabled}

@@ -23,7 +23,7 @@ export const authRedirect = {
   },
 };
 
-function buildUrl(path: string): string {
+export function buildUrl(path: string): string {
   if (!baseUrl) {
     return path;
   }
@@ -64,7 +64,7 @@ function formatValidationDetail(detail: unknown): string | null {
   return formattedMessages.join(" | ");
 }
 
-function getErrorMessage(payload: unknown, defaultMessage: string): string {
+export function getErrorMessage(payload: unknown, defaultMessage: string): string {
   if (typeof payload !== "object" || payload === null || !("detail" in payload)) {
     return defaultMessage;
   }
