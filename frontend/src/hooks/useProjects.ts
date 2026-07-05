@@ -62,7 +62,7 @@ export function useProjects(): UseProjectsResult {
         } else {
           setProjects((current) => [created, ...current]);
         }
-        setToast({ type: "success", message: "Projekt erstellt." });
+        setToast({ type: "success", message: "Project created." });
         if (statusFilter && created.status !== statusFilter) {
           await refetch();
         }
@@ -86,7 +86,7 @@ export function useProjects(): UseProjectsResult {
     try {
       await deleteProjectApi(id);
       setProjects((current) => current.filter((item) => item.project_id !== id));
-      setToast({ type: "success", message: "Projekt geloescht." });
+      setToast({ type: "success", message: "Project deleted." });
     } catch (err) {
       const message = normalizeError(err);
       setError(message);

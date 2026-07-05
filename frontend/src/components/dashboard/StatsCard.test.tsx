@@ -14,9 +14,9 @@ vi.mock("react-router-dom", async () => {
 
 describe("StatsCard", () => {
   it("renders number and label", () => {
-    render(<StatsCard value={42} label="Claims Gesamt" to="/memory" />);
+    render(<StatsCard value={42} label="Total claims" to="/memory" />);
     expect(screen.getByText("42")).toBeInTheDocument();
-    expect(screen.getByText("Claims Gesamt")).toBeInTheDocument();
+    expect(screen.getByText("Total claims")).toBeInTheDocument();
   });
 
   it("click navigates to target url", async () => {

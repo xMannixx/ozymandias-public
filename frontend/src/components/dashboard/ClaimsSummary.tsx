@@ -22,8 +22,8 @@ const palette: Record<string, string> = {
 const stateLabels: Record<string, string> = {
   tentative: "Tentative",
   confirmed: "Confirmed",
-  superseded: "Ersetzt",
-  retracted: "Widerrufen",
+  superseded: "Superseded",
+  retracted: "Retracted",
 };
 
 function ClaimsSummary({ claimsTotal, verification, sensitivity }: ClaimsSummaryProps): JSX.Element {
@@ -56,7 +56,7 @@ function ClaimsSummary({ claimsTotal, verification, sensitivity }: ClaimsSummary
             <span className="text-4xl font-extrabold bg-gradient-to-r from-blue-400 to-cyan-300 bg-clip-text text-transparent">
               {claimsTotal}
             </span>
-            <span className="text-sm font-semibold text-gray-300">Claims Gesamt</span>
+            <span className="text-sm font-semibold text-gray-300">Total claims</span>
           </div>
         </div>
         <div className="flex gap-2">
@@ -72,7 +72,7 @@ function ClaimsSummary({ claimsTotal, verification, sensitivity }: ClaimsSummary
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2 items-center">
         {/* Left Side: Verification bars */}
         <div className="space-y-3">
-          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Verifizierung</p>
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Verification</p>
           <div className="space-y-2.5">
             {states.map((state) => {
               const value = verification[state] ?? 0;

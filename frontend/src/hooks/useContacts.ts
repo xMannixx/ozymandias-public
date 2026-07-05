@@ -128,7 +128,7 @@ export function useContacts(): UseContactsResult {
       try {
         const created = await createContactApi(data);
         setContacts((current) => [created, ...current]);
-        setToast({ type: "success", message: "Kontakt erstellt." });
+        setToast({ type: "success", message: "Contact created." });
         await refreshTagIndex();
         await selectContact(created.contact_id);
       } catch (err) {
@@ -162,7 +162,7 @@ export function useContacts(): UseContactsResult {
             ...(data.birthday !== undefined ? { birthday: data.birthday } : {}),
           };
         });
-        setToast({ type: "success", message: "Kontakt aktualisiert." });
+        setToast({ type: "success", message: "Contact updated." });
         await refreshTagIndex();
       } catch (err) {
         const message = normalizeError(err);
@@ -186,7 +186,7 @@ export function useContacts(): UseContactsResult {
         await deleteContactApi(contactId);
         setContacts((current) => current.filter((c) => c.contact_id !== contactId));
         setSelectedContact((current) => (current?.contact_id === contactId ? null : current));
-        setToast({ type: "success", message: "Kontakt geloescht." });
+        setToast({ type: "success", message: "Contact deleted." });
         await refreshTagIndex();
       } catch (err) {
         const message = normalizeError(err);
@@ -211,7 +211,7 @@ export function useContacts(): UseContactsResult {
         }
         return { ...current, ...updated, linked_projects: current.linked_projects };
       });
-      setToast({ type: "success", message: "Avatar hochgeladen." });
+      setToast({ type: "success", message: "Avatar uploaded." });
     } catch (err) {
       const message = normalizeError(err);
       setError(message);
@@ -232,7 +232,7 @@ export function useContacts(): UseContactsResult {
       setSelectedContact((current) =>
         current && current.contact_id === contactId ? { ...current, has_avatar: false } : current,
       );
-      setToast({ type: "success", message: "Avatar entfernt." });
+      setToast({ type: "success", message: "Avatar removed." });
     } catch (err) {
       const message = normalizeError(err);
       setError(message);
@@ -267,7 +267,7 @@ export function useContacts(): UseContactsResult {
       setError(null);
       try {
         await unlinkProjectApi(contactId, projectId);
-        setToast({ type: "success", message: "Verknuepfung entfernt." });
+        setToast({ type: "success", message: "Link removed." });
         await selectContact(contactId);
       } catch (err) {
         const message = normalizeError(err);

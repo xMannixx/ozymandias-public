@@ -78,7 +78,7 @@ function normalizeError(error: unknown): string {
 
 function getActiveProjectId(projectId: string | null): string {
   if (!projectId) {
-    throw new Error("Kein Projekt ausgewaehlt");
+    throw new Error("No project selected");
   }
   return projectId;
 }
@@ -133,7 +133,7 @@ export function useProjectDetail(projectId: string | null): UseProjectDetailResu
         async (activeProjectId) => {
           await updateProjectApi(activeProjectId, data);
         },
-        "Projekt aktualisiert.",
+        "Project updated.",
       );
     },
     [runMutation],
@@ -253,7 +253,7 @@ export function useProjectDetail(projectId: string | null): UseProjectDetailResu
         async (activeProjectId) => {
           await createNote(activeProjectId, data);
         },
-        "Notiz erstellt.",
+        "Note created.",
       );
     },
     [runMutation],
@@ -265,7 +265,7 @@ export function useProjectDetail(projectId: string | null): UseProjectDetailResu
         async (activeProjectId) => {
           await deleteNote(activeProjectId, noteId);
         },
-        "Notiz geloescht.",
+        "Note deleted.",
       );
     },
     [runMutation],
@@ -277,7 +277,7 @@ export function useProjectDetail(projectId: string | null): UseProjectDetailResu
         async (activeProjectId) => {
           await createLink(activeProjectId, data);
         },
-        "Link erstellt.",
+        "Link created.",
       );
     },
     [runMutation],
@@ -289,7 +289,7 @@ export function useProjectDetail(projectId: string | null): UseProjectDetailResu
         async (activeProjectId) => {
           await deleteLink(activeProjectId, linkId);
         },
-        "Link geloescht.",
+        "Link deleted.",
       );
     },
     [runMutation],
