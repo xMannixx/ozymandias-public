@@ -103,6 +103,19 @@ function MessageBubble({ message }: MessageBubbleProps): JSX.Element {
             </pre>
           </details>
         ) : null}
+        {isUser && message.attachments && message.attachments.length > 0 ? (
+          <div className="mb-1 flex flex-wrap gap-1">
+            {message.attachments.map((attachment, index) => (
+              <span
+                key={`${attachment.filename}-${index}`}
+                className="inline-flex items-center gap-1 rounded-full bg-blue-900/60 px-2 py-0.5 text-[11px] text-blue-100"
+              >
+                <span aria-hidden>📄</span>
+                <span className="max-w-[160px] truncate">{attachment.filename}</span>
+              </span>
+            ))}
+          </div>
+        ) : null}
         {isUser ? (
           <p className="whitespace-pre-wrap">{message.text}</p>
         ) : (

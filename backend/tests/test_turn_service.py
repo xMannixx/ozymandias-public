@@ -24,7 +24,7 @@ from app.schemas import (
     TrustLevel,
     VerificationState,
 )
-from app.schemas.api_models import TurnRequest
+from app.schemas.api_models import TurnAttachment, TurnRequest
 from app.schemas.contracts import (
     ConflictResultConflictGroupPayload,
     ConflictResultConflictGroupVariant,
@@ -1037,6 +1037,62 @@ async def test_process_turn_with_claims_override_skips_conversation(
     assert result.conversation_id is None
     assert service.conversation_service.create_conversation.await_count == 0
     assert service.conversation_service.append_message.await_count == 0
+
+
+@pytest.mark.asyncio
+async def test_process_turn_includes_attachments_in_user_message_and_history(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = TurnService(cast(AsyncSession, FakeAsyncSession()))
+    _prepare_service(service)
+    _patch_context_assembler(monkeypatch)
+    _patch_default_rust(monkeypatch, claims=[])
+    conversation = SimpleNamespace(conversation_id=uuid.uuid4())
+    service.conversation_service.create_conversation = AsyncMock(  # type: ignore[method-assign]
+        return_value=conversation
+    )
+    service.conversation_service.append_message = AsyncMock()  # type: ignore[method-assign]
+
+    classify_mock = AsyncMock(
+        return_value=SensitivityClassification(
+            sensitivity=Sensitivity.S1,
+            source="keyword",
+            local_classifier_available=True,
+        )
+    )
+    monkeypatch.setattr("app.services.turn_service.classify_sensitivity", classify_mock)
+    service.llm_router.route = AsyncMock(  # type: ignore[method-assign]
+        return_value=LLMResponse(
+            content="summary",
+            model="llama3",
+            provider="ollama",
+            tokens_used=5,
+        )
+    )
+    service.claim_extractor.extract = AsyncMock(return_value=[])  # type: ignore[method-assign]
+
+    payload = TurnRequest(
+        text="Summarize this file",
+        attachments=[TurnAttachment(filename="notes.txt", content="meeting agenda content")],
+    )
+    await service.process_turn(user_id="user-1", payload=payload)
+
+    # Classification saw the attachment content.
+    classify_args = classify_mock.await_args
+    assert classify_args is not None
+    assert "meeting agenda content" in classify_args.args[0]
+
+    # LLM user message contains the attachment block.
+    route_call = service.llm_router.route.await_args
+    assert route_call is not None
+    user_message = route_call.kwargs["messages"][-1]
+    assert user_message["role"] == "user"
+    assert "[Attachment: notes.txt]" in user_message["content"]
+    assert "meeting agenda content" in user_message["content"]
+
+    # Persisted user message keeps the attachment content for future context.
+    append_calls = service.conversation_service.append_message.await_args_list
+    assert "[Attachment: notes.txt]" in append_calls[0].kwargs["content"]
 
 
 @pytest.mark.asyncio

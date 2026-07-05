@@ -1,6 +1,6 @@
 import { ApiError, buildUrl, getErrorMessage, request } from "@/api/client";
 import { getToken } from "@/store/auth";
-import type { TurnRequest, TurnResult } from "@/api/types";
+import type { AttachmentExtractResponse, TurnRequest, TurnResult } from "@/api/types";
 
 export type PostTurnOptions = {
   channel?: string;
@@ -11,6 +11,7 @@ export type PostTurnOptions = {
   useLiveWeb?: boolean;
   allowS3LiveWeb?: boolean;
   conversationId?: string;
+  attachments?: TurnRequest["attachments"];
 };
 
 function buildTurnBody(text: string, options: PostTurnOptions): Record<string, unknown> {
@@ -24,7 +25,17 @@ function buildTurnBody(text: string, options: PostTurnOptions): Record<string, u
     use_live_web: options.useLiveWeb,
     allow_s3_live_web: options.allowS3LiveWeb,
     conversation_id: options.conversationId,
+    attachments: options.attachments,
   };
+}
+
+export async function extractAttachment(file: File): Promise<AttachmentExtractResponse> {
+  const form = new FormData();
+  form.append("file", file);
+  return request<AttachmentExtractResponse>("/turns/attachments/extract", {
+    method: "POST",
+    body: form,
+  });
 }
 
 export async function postTurn(text: string, options: PostTurnOptions = {}): Promise<TurnResult> {

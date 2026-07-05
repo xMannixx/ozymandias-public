@@ -71,6 +71,7 @@ class _TurnPreparation:
 
     settings: Any
     classification: Any
+    user_text: str
     payload_sensitivity: Sensitivity
     enforce_local: bool
     preferred_provider: str | None
@@ -190,8 +191,10 @@ class TurnService:
 
         await self.circuit_breaker.check(user_id=user_id, action_type="turn_process")
 
+        # Attachments count towards sensitivity: classify the full user text.
+        user_text = _compose_user_text(payload)
         classification = normalize_classification(
-            await classify_sensitivity(payload.text, payload.channel)
+            await classify_sensitivity(user_text, payload.channel)
         )
         payload_sensitivity = classification.sensitivity
         enforce_local = payload_sensitivity is Sensitivity.S4 or (
@@ -251,6 +254,7 @@ class TurnService:
         prep = _TurnPreparation(
             settings=settings,
             classification=classification,
+            user_text=user_text,
             payload_sensitivity=payload_sensitivity,
             enforce_local=enforce_local,
             preferred_provider=preferred_provider,
@@ -504,7 +508,7 @@ class TurnService:
                 conversation=conversation,
                 user_id=user_id,
                 role="user",
-                content=payload.text,
+                content=prep.user_text,
                 sensitivity=payload_sensitivity,
                 turn_id=turn_id,
             )
@@ -630,7 +634,7 @@ class TurnService:
                 "content": context_block,
             },
             *history,
-            {"role": "user", "content": payload.text},
+            {"role": "user", "content": prep.user_text},
         ]
         if prep.live_web_result is not None:
             messages.insert(
@@ -679,6 +683,16 @@ class TurnService:
                 llm_response.reasoning_content,
             )
         return payload.claims, "override", payload.model or "override", None, None
+
+
+def _compose_user_text(payload: TurnRequest) -> str:
+    """Combine the typed message with any attachment text blocks."""
+    if not payload.attachments:
+        return payload.text
+    blocks = [payload.text]
+    for attachment in payload.attachments:
+        blocks.append(f"[Attachment: {attachment.filename}]\n{attachment.content}")
+    return "\n\n".join(blocks)
 
 
 def _error_event_payload(exc: Exception) -> dict[str, Any]:

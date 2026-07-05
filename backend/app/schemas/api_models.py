@@ -21,6 +21,13 @@ ProviderLiteral = Literal[
 LocalProviderLiteral = Literal["ollama", "lmstudio"]
 
 
+class TurnAttachment(BaseModel):
+    """Extracted text attachment sent along with a chat turn."""
+
+    filename: str = Field(min_length=1, max_length=255)
+    content: str = Field(min_length=1, max_length=50_000)
+
+
 class TurnRequest(BaseModel):
     """Incoming request for turn processing."""
 
@@ -33,6 +40,17 @@ class TurnRequest(BaseModel):
     use_live_web: bool | None = None
     allow_s3_live_web: bool = False
     conversation_id: str | None = None
+    attachments: list[TurnAttachment] | None = Field(default=None, max_length=5)
+
+
+class AttachmentExtractResponse(BaseModel):
+    """Extracted text and sensitivity classification for an uploaded file."""
+
+    filename: str
+    content: str
+    truncated: bool
+    char_count: int
+    sensitivity: str
 
 
 class GoogleAuthUrlResponse(BaseModel):

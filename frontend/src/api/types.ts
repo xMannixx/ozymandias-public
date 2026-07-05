@@ -211,6 +211,19 @@ export type UpdateSettingsRequest = {
   anthropic_api_key?: string | null;
 };
 
+export type TurnAttachment = {
+  filename: string;
+  content: string;
+};
+
+export type AttachmentExtractResponse = {
+  filename: string;
+  content: string;
+  truncated: boolean;
+  char_count: number;
+  sensitivity: string;
+};
+
 export type TurnRequest = {
   text: string;
   channel?: string;
@@ -221,6 +234,7 @@ export type TurnRequest = {
   use_live_web?: boolean;
   allow_s3_live_web?: boolean;
   conversation_id?: string;
+  attachments?: TurnAttachment[];
 };
 
 export type ClaimProcessResult = {

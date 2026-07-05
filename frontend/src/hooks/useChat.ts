@@ -8,7 +8,12 @@ import {
 } from "@/api/conversations";
 import { getSettings } from "@/api/settings";
 import { streamTurn } from "@/api/turns";
-import type { ClaimProcessResult, ConversationResponse, LLMProviderName } from "@/api/types";
+import type {
+  ClaimProcessResult,
+  ConversationResponse,
+  LLMProviderName,
+  TurnAttachment,
+} from "@/api/types";
 
 const CHAT_PROVIDER_KEY = "ozy-chat-provider";
 const CHAT_MODEL_KEY = "ozy-chat-model";
@@ -27,6 +32,13 @@ export type ChatMessage = {
   model?: string;
   reasoning_content?: string | null;
   isStreaming?: boolean;
+  attachments?: Array<{ filename: string }>;
+};
+
+type PendingPrompt = {
+  text: string;
+  message: string;
+  attachments?: TurnAttachment[];
 };
 
 type UseChatResult = {
@@ -37,11 +49,11 @@ type UseChatResult = {
   isHistoryLoading: boolean;
   selectedProvider: LLMProviderName | null;
   selectedModel: string;
-  s3FallbackPrompt: { text: string; message: string } | null;
-  s3LiveWebPrompt: { text: string; message: string } | null;
+  s3FallbackPrompt: PendingPrompt | null;
+  s3LiveWebPrompt: PendingPrompt | null;
   setSelectedProvider: (provider: LLMProviderName | null) => void;
   setSelectedModel: (model: string) => void;
-  sendMessage: (text: string) => Promise<void>;
+  sendMessage: (text: string, attachments?: TurnAttachment[]) => Promise<void>;
   stopStreaming: () => void;
   selectConversation: (conversationId: string) => Promise<void>;
   startNewConversation: () => void;
@@ -65,12 +77,8 @@ export function useChat(): UseChatResult {
   const [isHistoryLoading, setIsHistoryLoading] = useState(false);
   const [selectedProvider, setSelectedProvider] = useState<LLMProviderName | null>(null);
   const [selectedModel, setSelectedModel] = useState("");
-  const [s3FallbackPrompt, setS3FallbackPrompt] = useState<{ text: string; message: string } | null>(
-    null,
-  );
-  const [s3LiveWebPrompt, setS3LiveWebPrompt] = useState<{ text: string; message: string } | null>(
-    null,
-  );
+  const [s3FallbackPrompt, setS3FallbackPrompt] = useState<PendingPrompt | null>(null);
+  const [s3LiveWebPrompt, setS3LiveWebPrompt] = useState<PendingPrompt | null>(null);
   const [liveWebEnabled, setLiveWebEnabled] = useState(false);
   const [liveWebMode, setLiveWebMode] = useState<"provider_native_first" | "connector_only" | "off">(
     "provider_native_first",
@@ -270,6 +278,7 @@ export function useChat(): UseChatResult {
     text: string,
     allowS3CloudFallback: boolean,
     allowS3LiveWeb: boolean,
+    attachments?: TurnAttachment[],
   ): Promise<void> {
     const requestedModel = selectedModel.trim() || undefined;
     const assistantId = randomId();
@@ -302,6 +311,7 @@ export function useChat(): UseChatResult {
           useLiveWeb: liveWebEnabled && liveWebMode !== "off",
           allowS3LiveWeb,
           conversationId: activeConversationId ?? undefined,
+          attachments: attachments && attachments.length > 0 ? attachments : undefined,
         },
         controller.signal,
       );
@@ -348,7 +358,7 @@ export function useChat(): UseChatResult {
     }
   }
 
-  async function sendMessage(text: string): Promise<void> {
+  async function sendMessage(text: string, attachments?: TurnAttachment[]): Promise<void> {
     const trimmed = text.trim();
     if (!trimmed) {
       return;
@@ -358,6 +368,7 @@ export function useChat(): UseChatResult {
       id: randomId(),
       role: "user",
       text: trimmed,
+      attachments: attachments?.map((item) => ({ filename: item.filename })),
     };
     setMessages((prev) => [...prev, userMessage]);
     setS3FallbackPrompt(null);
@@ -365,12 +376,13 @@ export function useChat(): UseChatResult {
     setIsLoading(true);
 
     try {
-      await sendTurn(trimmed, false, false);
+      await sendTurn(trimmed, false, false, attachments);
     } catch (error) {
       const liveWebConfirmation = parseLiveWebConfirmationError(error);
       if (liveWebConfirmation?.sensitivity === "S3") {
         setS3LiveWebPrompt({
           text: trimmed,
+          attachments,
           message:
             liveWebConfirmation.message
             ?? "S3 content detected. Should I use live web access once for this message?",
@@ -384,6 +396,7 @@ export function useChat(): UseChatResult {
       ) {
         setS3FallbackPrompt({
           text: trimmed,
+          attachments,
           message:
             localUnavailable.message
             ?? "Local provider unavailable. Should I process this S3 message via cloud, just this once?",
@@ -412,10 +425,11 @@ export function useChat(): UseChatResult {
       return;
     }
     const retryText = s3FallbackPrompt.text;
+    const retryAttachments = s3FallbackPrompt.attachments;
     setS3FallbackPrompt(null);
     setIsLoading(true);
     try {
-      await sendTurn(retryText, true, false);
+      await sendTurn(retryText, true, false, retryAttachments);
     } catch (error) {
       if (error instanceof ApiError && typeof error.message === "string" && error.message.trim()) {
         appendAssistantMessage(`Error: ${error.message}`);
@@ -437,10 +451,11 @@ export function useChat(): UseChatResult {
       return;
     }
     const retryText = s3LiveWebPrompt.text;
+    const retryAttachments = s3LiveWebPrompt.attachments;
     setS3LiveWebPrompt(null);
     setIsLoading(true);
     try {
-      await sendTurn(retryText, false, true);
+      await sendTurn(retryText, false, true, retryAttachments);
     } catch (error) {
       if (error instanceof ApiError && typeof error.message === "string" && error.message.trim()) {
         appendAssistantMessage(`Error: ${error.message}`);
