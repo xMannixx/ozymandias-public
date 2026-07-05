@@ -9,9 +9,13 @@ import RecentActionsCard from "@/components/dashboard/RecentActionsCard";
 import SystemHealth from "@/components/dashboard/SystemHealth";
 import Spinner from "@/components/common/Spinner";
 import { useDashboard } from "@/hooks/useDashboard";
+import { useHealth } from "@/hooks/useHealth";
 
 function DashboardView(): JSX.Element {
   const { stats, loading, error, autoRefresh, setAutoRefresh } = useDashboard();
+  const { health } = useHealth();
+  const systemHealthy = health !== null && health.status === "ok";
+  const healthLabel = health === null ? "..." : systemHealthy ? "Healthy" : "Degraded";
 
   if (loading && !stats) {
     return (
@@ -47,12 +51,18 @@ function DashboardView(): JSX.Element {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="glass-card p-4 flex items-center justify-between">
           <div>
-            <p className="text-[10px] uppercase tracking-wider text-gray-400 font-semibold">Governance Health</p>
-            <p className="text-xl font-extrabold text-emerald-400 mt-1">98%</p>
+            <p className="text-[10px] uppercase tracking-wider text-gray-400 font-semibold">System Health</p>
+            <p className={`text-xl font-extrabold mt-1 ${systemHealthy ? "text-emerald-400" : "text-amber-400"}`}>{healthLabel}</p>
           </div>
           <span className="relative flex h-3 w-3">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500 shadow-[0_0_8px_#10b981]"></span>
+            {systemHealthy ? (
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+            ) : null}
+            <span
+              className={`relative inline-flex rounded-full h-3 w-3 ${
+                systemHealthy ? "bg-emerald-500 shadow-[0_0_8px_#10b981]" : "bg-amber-500 shadow-[0_0_8px_#f59e0b]"
+              }`}
+            ></span>
           </span>
         </div>
         <div className="glass-card p-4 flex items-center justify-between">
@@ -67,7 +77,7 @@ function DashboardView(): JSX.Element {
             <p className="text-[10px] uppercase tracking-wider text-gray-400 font-semibold">Pending Proposals</p>
             <p className="text-xl font-extrabold text-purple-400 mt-1">{stats.proposals_pending}</p>
           </div>
-          <span className="text-[10px] font-bold text-purple-300 bg-purple-950/40 border border-purple-500/20 px-2 py-0.5 rounded-full uppercase tracking-wider">{stats.proposals_pending} neu</span>
+          <span className="text-[10px] font-bold text-purple-300 bg-purple-950/40 border border-purple-500/20 px-2 py-0.5 rounded-full uppercase tracking-wider">{stats.proposals_pending} new</span>
         </div>
       </div>
 

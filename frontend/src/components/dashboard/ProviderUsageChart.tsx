@@ -1,5 +1,5 @@
 import GlassCard from "@/components/common/GlassCard";
-import { Bar, BarChart, CartesianGrid, Cell, Tooltip, XAxis, YAxis } from "recharts";
+import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 type ProviderUsageChartProps = {
   usage: Record<string, number>;
@@ -21,17 +21,19 @@ function ProviderUsageChart({ usage }: ProviderUsageChartProps): JSX.Element {
       {entries.length === 0 ? (
         <p className="text-sm text-gray-400">No data</p>
       ) : (
-        <BarChart width={320} height={220} data={entries}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#30363d" />
-          <XAxis dataKey="provider" stroke="#8b949e" />
-          <YAxis stroke="#8b949e" />
-          <Tooltip />
-          <Bar dataKey="value">
-            {entries.map((entry) => (
-              <Cell key={entry.provider} fill={providerColors[entry.provider] ?? "#58a6ff"} />
-            ))}
-          </Bar>
-        </BarChart>
+        <ResponsiveContainer width="100%" height={220} initialDimension={{ width: 320, height: 220 }}>
+          <BarChart data={entries}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#30363d" />
+            <XAxis dataKey="provider" stroke="#8b949e" />
+            <YAxis stroke="#8b949e" />
+            <Tooltip />
+            <Bar dataKey="value">
+              {entries.map((entry) => (
+                <Cell key={entry.provider} fill={providerColors[entry.provider] ?? "#58a6ff"} />
+              ))}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
       )}
     </GlassCard>
   );

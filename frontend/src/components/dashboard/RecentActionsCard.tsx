@@ -40,7 +40,7 @@ function RecentActionsCard({ entries }: RecentActionsCardProps): JSX.Element {
         break;
       case "action_blocked":
         colors = "border-rose-500/30 text-rose-400 bg-rose-950/20 animate-pulse";
-        label = "Aktion blockiert";
+        label = "Action blocked";
         break;
     }
 
@@ -54,9 +54,9 @@ function RecentActionsCard({ entries }: RecentActionsCardProps): JSX.Element {
   return (
     <GlassCard className="space-y-4 md:col-span-2 xl:col-span-3 border border-slate-800/80 bg-slate-950/30 backdrop-blur-md">
       <div className="flex items-center justify-between border-b border-slate-800/60 pb-2">
-        <p className="text-xs uppercase tracking-wider text-gray-400 font-semibold">Governance-Protokoll (Audit Log)</p>
+        <p className="text-xs uppercase tracking-wider text-gray-400 font-semibold">Audit log</p>
         <Link to="/audit" className="text-xs text-blue-300 hover:text-blue-200 hover:underline transition-all font-semibold">
-          Alle anzeigen
+          View all
         </Link>
       </div>
 
@@ -69,9 +69,6 @@ function RecentActionsCard({ entries }: RecentActionsCardProps): JSX.Element {
               
               <div className="flex items-center gap-3">
                 {getEventBadge(entry.event_type)}
-                <span className="text-[10px] text-gray-500 max-w-[200px] sm:max-w-[400px] truncate group-hover:text-gray-300 transition-colors">
-                  ID: {entry.audit_id.slice(0, 8)}... | {entry.user_id}
-                </span>
               </div>
               <span className="text-[10px] text-gray-500 group-hover:text-gray-400 font-medium">
                 {new Date(entry.created_at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}

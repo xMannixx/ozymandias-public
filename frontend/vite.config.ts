@@ -24,6 +24,11 @@ export default defineConfig({
       "/llm": "http://localhost:8000",
       "/voice": "http://localhost:8000",
       "/health": "http://localhost:8000",
+      "/settings": "http://localhost:8000",
+      "/stats": "http://localhost:8000",
+      "/audit": "http://localhost:8000",
+      "/contacts": "http://localhost:8000",
+      "/memory": "http://localhost:8000",
     },
   },
 });
