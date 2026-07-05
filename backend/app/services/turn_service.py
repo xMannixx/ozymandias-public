@@ -579,6 +579,10 @@ class TurnService:
         turn_id: str,
         exc: Exception,
     ) -> None:
+        # A prior flush/commit in this turn may have failed and left the
+        # session unusable; roll back first so the failure audit entry can
+        # still be written instead of masking the real error.
+        await self.db.rollback()
         await self.audit.log(
             event_type=AuditEventType.turn_processed,
             result=AuditResult.failed,
