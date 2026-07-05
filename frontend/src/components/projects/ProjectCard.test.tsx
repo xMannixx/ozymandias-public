@@ -8,14 +8,14 @@ describe("ProjectCard", () => {
     render(<ProjectCard project={mockProject} onOpen={vi.fn()} onDelete={vi.fn()} />);
 
     expect(screen.getByText("Projekt Alpha")).toBeInTheDocument();
-    expect(screen.getByText("Aktiv")).toBeInTheDocument();
+    expect(screen.getByText("Active")).toBeInTheDocument();
     expect(screen.getByText("high")).toBeInTheDocument();
   });
 
   it("zeigt progress korrekt", () => {
     render(<ProjectCard project={mockProject} onOpen={vi.fn()} onDelete={vi.fn()} />);
 
-    expect(screen.getByText("1/3 Aufgaben erledigt")).toBeInTheDocument();
+    expect(screen.getByText("1/3 tasks done")).toBeInTheDocument();
     expect(screen.getByLabelText("progress-project-1")).toHaveStyle({ width: "33%" });
   });
 

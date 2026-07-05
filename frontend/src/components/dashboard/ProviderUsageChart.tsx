@@ -19,7 +19,7 @@ function ProviderUsageChart({ usage }: ProviderUsageChartProps): JSX.Element {
     <GlassCard className="space-y-2">
       <p className="text-sm font-medium text-gray-200">Provider Usage</p>
       {entries.length === 0 ? (
-        <p className="text-sm text-gray-400">Keine Daten</p>
+        <p className="text-sm text-gray-400">No data</p>
       ) : (
         <BarChart width={320} height={220} data={entries}>
           <CartesianGrid strokeDasharray="3 3" stroke="#30363d" />

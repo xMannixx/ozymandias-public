@@ -28,7 +28,7 @@ function normalizeError(error: unknown): string {
   if (error instanceof Error) {
     return error.message;
   }
-  return "Projektaktion fehlgeschlagen";
+  return "Project action failed";
 }
 
 export function useProjects(): UseProjectsResult {
@@ -78,7 +78,7 @@ export function useProjects(): UseProjectsResult {
   );
 
   const deleteProject = useCallback(async (id: string) => {
-    if (!window.confirm("Projekt wirklich loeschen?")) {
+    if (!window.confirm("Delete this project?")) {
       return;
     }
     setLoading(true);

@@ -50,7 +50,7 @@ describe("TasksTab", () => {
     );
 
     await user.type(screen.getByLabelText("new-task-input"), "Neue Aufgabe");
-    await user.click(screen.getByText("Hinzufuegen"));
+    await user.click(screen.getByText("Add"));
 
     expect(onCreateTask).toHaveBeenCalledWith(
       expect.objectContaining({ name: "Neue Aufgabe", status: "open" }),

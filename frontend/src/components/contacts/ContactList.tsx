@@ -39,11 +39,11 @@ function ContactList({
           aria-label="contacts-search"
           value={searchQuery}
           onChange={(event) => onSearchChange(event.target.value)}
-          placeholder="Suche Name, Firma..."
+          placeholder="Search name, company..."
           className="min-w-[12rem] flex-1 rounded border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-gray-100"
         />
         <Button type="button" variant="primary" onClick={onOpenCreate} disabled={creatingOpen}>
-          Neuer Kontakt
+          New contact
         </Button>
       </div>
 
@@ -80,7 +80,7 @@ function ContactList({
       ) : null}
 
       {!loading && contacts.length === 0 ? (
-        <p className="glass-card p-4 text-sm text-gray-400">Keine Kontakte gefunden.</p>
+        <p className="glass-card p-4 text-sm text-gray-400">No contacts found.</p>
       ) : (
         <div className="grid auto-rows-min gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {contacts.map((contact) => (

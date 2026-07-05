@@ -27,15 +27,15 @@ describe("KillSwitch", () => {
 
   it("opens confirmation dialog on click", async () => {
     render(<KillSwitch />);
-    await userEvent.click(screen.getByRole("button", { name: "Kill-Switch aktivieren" }));
+    await userEvent.click(screen.getByRole("button", { name: "Enable kill switch" }));
     expect(screen.getByRole("dialog", { name: "kill-switch-confirm" })).toBeInTheDocument();
   });
 
   it("confirm button stays disabled until magic text is entered", async () => {
     render(<KillSwitch />);
-    await userEvent.click(screen.getByRole("button", { name: "Kill-Switch aktivieren" }));
+    await userEvent.click(screen.getByRole("button", { name: "Enable kill switch" }));
 
-    const confirmButton = screen.getByRole("button", { name: "Aktivieren" });
+    const confirmButton = screen.getByRole("button", { name: "Enable" });
     expect(confirmButton).toBeDisabled();
 
     await userEvent.type(screen.getByLabelText("kill-switch-confirm-input"), "wrong");
@@ -53,9 +53,9 @@ describe("KillSwitch", () => {
     });
     render(<KillSwitch />);
 
-    await userEvent.click(screen.getByRole("button", { name: "Kill-Switch aktivieren" }));
+    await userEvent.click(screen.getByRole("button", { name: "Enable kill switch" }));
     await userEvent.type(screen.getByLabelText("kill-switch-confirm-input"), "KILL SWITCH");
-    await userEvent.click(screen.getByRole("button", { name: "Aktivieren" }));
+    await userEvent.click(screen.getByRole("button", { name: "Enable" }));
 
     expect(toggleKillSwitch).toHaveBeenCalledWith(true);
   });
@@ -71,9 +71,9 @@ describe("KillSwitch", () => {
     });
     render(<KillSwitch />);
 
-    await userEvent.click(screen.getByRole("button", { name: "Kill-Switch deaktivieren" }));
+    await userEvent.click(screen.getByRole("button", { name: "Disable kill switch" }));
     await userEvent.type(screen.getByLabelText("kill-switch-confirm-input"), "KILL SWITCH");
-    await userEvent.click(screen.getByRole("button", { name: "Deaktivieren" }));
+    await userEvent.click(screen.getByRole("button", { name: "Disable" }));
 
     expect(toggleKillSwitch).toHaveBeenCalledWith(false);
   });

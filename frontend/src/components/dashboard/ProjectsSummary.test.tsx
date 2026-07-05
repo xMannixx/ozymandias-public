@@ -23,8 +23,8 @@ describe("ProjectsSummary", () => {
       />,
     );
 
-    expect(screen.getByText("3 aktive Projekte")).toBeInTheDocument();
-    expect(screen.getByText("7 offene Aufgaben")).toBeInTheDocument();
+    expect(screen.getByText("3 active projects")).toBeInTheDocument();
+    expect(screen.getByText("7 open tasks")).toBeInTheDocument();
     expect(screen.getByText("2 kritische Risiken")).toBeInTheDocument();
   });
 

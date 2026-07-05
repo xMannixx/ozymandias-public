@@ -48,7 +48,7 @@ function RisksTab({ project, loading, onCreateRisk, onUpdateRisk, onDeleteRisk }
         if (severityDiff !== 0) {
           return severityDiff;
         }
-        return left.name.localeCompare(right.name, "de-DE");
+        return left.name.localeCompare(right.name, "en-GB");
       }),
     [project.risks],
   );
@@ -74,7 +74,7 @@ function RisksTab({ project, loading, onCreateRisk, onUpdateRisk, onDeleteRisk }
     <div className="space-y-3">
       <div className="flex justify-end">
         <Button type="button" variant="ghost" onClick={() => setCreateOpen((open) => !open)}>
-          {createOpen ? "Formular schliessen" : "Neues Risiko"}
+          {createOpen ? "Close form" : "New risk"}
         </Button>
       </div>
 
@@ -91,7 +91,7 @@ function RisksTab({ project, loading, onCreateRisk, onUpdateRisk, onDeleteRisk }
             aria-label="new-risk-description"
             value={description}
             onChange={(event) => setDescription(event.target.value)}
-            placeholder="Beschreibung..."
+            placeholder="Description..."
             className="h-20 w-full rounded border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-gray-100"
           />
           <div className="flex items-center gap-2">
@@ -115,7 +115,7 @@ function RisksTab({ project, loading, onCreateRisk, onUpdateRisk, onDeleteRisk }
       ) : null}
 
       {sortedRisks.length === 0 ? (
-        <p className="text-sm text-gray-400">Keine Risiken vorhanden.</p>
+        <p className="text-sm text-gray-400">No risks yet.</p>
       ) : (
         <div className="space-y-2">
           {sortedRisks.map((risk) => (

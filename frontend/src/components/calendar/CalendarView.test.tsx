@@ -77,15 +77,15 @@ describe("CalendarView", () => {
 
   it("Vor/Zurueck aendert Woche", async () => {
     renderView();
-    await userEvent.click(screen.getByRole("button", { name: "Vorherige Woche" }));
-    await userEvent.click(screen.getByRole("button", { name: "Naechste Woche" }));
+    await userEvent.click(screen.getByRole("button", { name: "Previous week" }));
+    await userEvent.click(screen.getByRole("button", { name: "Next week" }));
     expect(hookState.prevWeek).toHaveBeenCalledTimes(1);
     expect(hookState.nextWeek).toHaveBeenCalledTimes(1);
   });
 
   it('"Heute" springt zur aktuellen Woche', async () => {
     renderView();
-    await userEvent.click(screen.getByRole("button", { name: "Heute" }));
+    await userEvent.click(screen.getByRole("button", { name: "Today" }));
     expect(hookState.goToday).toHaveBeenCalledTimes(1);
   });
 

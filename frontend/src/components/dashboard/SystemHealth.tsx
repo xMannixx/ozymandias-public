@@ -116,7 +116,7 @@ function SystemHealth(): JSX.Element {
                     {providerNameLabel(provider.name)} {modelLabel}
                   </p>
                   <p className="text-[10px] text-gray-500 max-w-[280px] truncate">
-                    {provider.detail || (provider.status === "ok" ? "Verbindung hergestellt" : "Nicht verbunden")}
+                    {provider.detail || (provider.status === "ok" ? "Connected" : "Not connected")}
                   </p>
                 </div>
                 <div className="flex items-center gap-2">

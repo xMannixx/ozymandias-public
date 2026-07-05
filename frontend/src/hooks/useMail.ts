@@ -31,7 +31,7 @@ function normalizeError(error: unknown): string {
   if (error instanceof Error) {
     return error.message;
   }
-  return "Mail konnte nicht geladen werden";
+  return "Failed to load mail";
 }
 
 export function useMail(): UseMailResult {
@@ -125,7 +125,7 @@ export function useMail(): UseMailResult {
           return;
         }
         await sendMail({ to, subject, body });
-        setToast({ type: "success", message: "Mail gesendet." });
+        setToast({ type: "success", message: "Email sent." });
         await loadMessages(query);
       } catch (err) {
         const message = normalizeError(err);

@@ -76,8 +76,8 @@ function MilestonesTab({
                     <p className={`${milestone.completed ? "line-through" : ""}`}>{milestone.name}</p>
                     <p className="text-xs">
                       {milestone.due_date
-                        ? new Date(milestone.due_date).toLocaleDateString("de-DE")
-                        : "Kein Datum"}
+                        ? new Date(milestone.due_date).toLocaleDateString("en-GB")
+                        : "No date"}
                     </p>
                   </div>
                 </div>
@@ -101,7 +101,7 @@ function MilestonesTab({
           aria-label="new-milestone-name"
           value={name}
           onChange={(event) => setName(event.target.value)}
-          placeholder="Neuer Meilenstein..."
+          placeholder="New milestone..."
           className="rounded border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-gray-100"
         />
         <input
@@ -112,7 +112,7 @@ function MilestonesTab({
           className="rounded border border-gray-700 bg-gray-900 px-2 py-2 text-sm text-gray-100"
         />
         <Button type="submit" disabled={loading}>
-          Hinzufuegen
+          Add
         </Button>
       </form>
     </div>

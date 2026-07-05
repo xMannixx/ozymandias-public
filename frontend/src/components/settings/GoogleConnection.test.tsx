@@ -32,7 +32,7 @@ describe("GoogleConnection", () => {
   it('zeigt "Nicht verbunden" wenn disconnected', () => {
     render(<GoogleConnection />);
     expect(screen.getByText("Status:")).toBeInTheDocument();
-    expect(screen.getByText("Nicht verbunden")).toBeInTheDocument();
+    expect(screen.getByText("Not connected")).toBeInTheDocument();
   });
 
   it("zeigt E-Mail wenn connected", () => {

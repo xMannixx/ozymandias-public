@@ -42,7 +42,7 @@ function TasksTab({ project, loading, onCreateTask, onUpdateTask, onDeleteTask }
         if (left.sort_order !== right.sort_order) {
           return left.sort_order - right.sort_order;
         }
-        return left.name.localeCompare(right.name, "de-DE");
+        return left.name.localeCompare(right.name, "en-GB");
       }),
     [project.tasks],
   );
@@ -91,7 +91,7 @@ function TasksTab({ project, loading, onCreateTask, onUpdateTask, onDeleteTask }
                 {task.description ? <p className="text-xs text-gray-400">{task.description}</p> : null}
                 {task.due_date ? (
                   <p className="text-xs text-gray-500">
-                    Faellig: {new Date(task.due_date).toLocaleDateString("de-DE")}
+                    Due: {new Date(task.due_date).toLocaleDateString("en-GB")}
                   </p>
                 ) : null}
               </div>
@@ -138,7 +138,7 @@ function TasksTab({ project, loading, onCreateTask, onUpdateTask, onDeleteTask }
           aria-label="new-task-input"
           value={newTaskName}
           onChange={(event) => setNewTaskName(event.target.value)}
-          placeholder="Neue Aufgabe..."
+          placeholder="New task..."
           className="rounded border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-gray-100"
         />
         <select
@@ -154,7 +154,7 @@ function TasksTab({ project, loading, onCreateTask, onUpdateTask, onDeleteTask }
           ))}
         </select>
         <Button type="submit" disabled={loading}>
-          Hinzufuegen
+          Add
         </Button>
       </form>
     </div>

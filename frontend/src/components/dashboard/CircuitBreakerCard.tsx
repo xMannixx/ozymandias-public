@@ -42,7 +42,7 @@ function CircuitBreakerCard({ status }: CircuitBreakerCardProps): JSX.Element {
   return (
     <GlassCard className="space-y-4 border border-slate-800/80 bg-slate-950/30 backdrop-blur-md">
       <div className="flex items-center justify-between border-b border-slate-800/60 pb-2">
-        <p className="text-xs uppercase tracking-wider text-gray-400 font-semibold">Anfragenbegrenzung</p>
+        <p className="text-xs uppercase tracking-wider text-gray-400 font-semibold">Request limiting</p>
         <span className={`rounded-full px-3 py-0.5 text-[10px] font-bold tracking-wider ${badgeClass}`}>
           {status.is_tripped ? "TRIPPED" : "OK"}
         </span>
@@ -92,7 +92,7 @@ function CircuitBreakerCard({ status }: CircuitBreakerCardProps): JSX.Element {
 
         {/* Current Traffic Info */}
         <div className="text-center mt-2 space-y-0.5">
-          <p className="text-[10px] text-gray-400 font-medium uppercase tracking-wider">Auslastung (Aktivitäts-Limit)</p>
+          <p className="text-[10px] text-gray-400 font-medium uppercase tracking-wider">Usage (activity limit)</p>
           <p className="text-sm font-extrabold text-blue-300">
             {status.current_count} <span className="text-gray-500 font-semibold">/ {status.max_actions}</span>
           </p>
@@ -101,7 +101,7 @@ function CircuitBreakerCard({ status }: CircuitBreakerCardProps): JSX.Element {
 
       <div className="flex items-center justify-between text-[10px] text-gray-400 pt-1 border-t border-slate-800/40">
         <span>Zeitfenster: <strong className="text-gray-300">{status.window_seconds}s</strong></span>
-        <span>Abkühlzeit: <strong className="text-gray-300">{status.cooldown_seconds}s</strong></span>
+        <span>Cooldown: <strong className="text-gray-300">{status.cooldown_seconds}s</strong></span>
       </div>
     </GlassCard>
   );

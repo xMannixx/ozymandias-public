@@ -54,10 +54,10 @@ function EventCreate({ onCreate, onCancel, creating = false }: EventCreateProps)
 
   return (
     <GlassCard className="space-y-3">
-      <h3 className="text-base font-semibold text-gray-100">Neuer Termin</h3>
+      <h3 className="text-base font-semibold text-gray-100">New event</h3>
       <form className="space-y-2" onSubmit={(event) => void handleSubmit(event)}>
         <label className="flex flex-col gap-1 text-xs text-gray-400">
-          Titel
+          Title
           <input
             aria-label="event-create-summary"
             className="rounded border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-gray-100"
@@ -88,7 +88,7 @@ function EventCreate({ onCreate, onCancel, creating = false }: EventCreateProps)
           </label>
         </div>
         <label className="flex flex-col gap-1 text-xs text-gray-400">
-          Beschreibung
+          Description
           <textarea
             aria-label="event-create-description"
             className="rounded border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-gray-100"
@@ -97,7 +97,7 @@ function EventCreate({ onCreate, onCancel, creating = false }: EventCreateProps)
           />
         </label>
         <label className="flex flex-col gap-1 text-xs text-gray-400">
-          Ort
+          Location
           <input
             aria-label="event-create-location"
             className="rounded border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-gray-100"
@@ -107,11 +107,11 @@ function EventCreate({ onCreate, onCancel, creating = false }: EventCreateProps)
         </label>
         <div className="flex gap-2">
           <Button type="submit" disabled={!canSubmit}>
-            Erstellen
+            Create
           </Button>
           {onCancel ? (
             <Button type="button" variant="ghost" onClick={onCancel}>
-              Abbrechen
+              Cancel
             </Button>
           ) : null}
         </div>

@@ -111,9 +111,9 @@ describe("ContactDetail", () => {
       expect(listProjectsMock).toHaveBeenCalled();
     });
 
-    await user.clear(screen.getByLabelText("Vorname"));
-    await user.type(screen.getByLabelText("Vorname"), "Charles");
-    await user.click(screen.getByText("Speichern"));
+    await user.clear(screen.getByLabelText("First name"));
+    await user.type(screen.getByLabelText("First name"), "Charles");
+    await user.click(screen.getByText("Save"));
 
     expect(onSave).toHaveBeenCalledWith(
       mockContactDetail.contact_id,
@@ -146,8 +146,8 @@ describe("ContactDetail", () => {
       expect(listProjectsMock).toHaveBeenCalled();
     });
 
-    await user.selectOptions(screen.getByLabelText("Projekt verknuepfen"), "project-2");
-    await user.click(screen.getByText("Verknuepfen"));
+    await user.selectOptions(screen.getByLabelText("Link project"), "project-2");
+    await user.click(screen.getByText("Link"));
 
     expect(onLinkProject).toHaveBeenCalledWith(mockContactDetail.contact_id, "project-2");
   });

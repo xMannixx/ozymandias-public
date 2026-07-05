@@ -35,7 +35,7 @@ function LoginPage(): JSX.Element {
       const response = await getGoogleAuthUrl();
       externalRedirect.to(response.url);
     } catch {
-      setError("Google Login konnte nicht gestartet werden.");
+      setError("Failed to start Google login.");
     }
   }
 
@@ -53,7 +53,7 @@ function LoginPage(): JSX.Element {
       login(response.access_token || trimmed);
       navigate("/", { replace: true });
     } catch {
-      setError("Token Login fehlgeschlagen.");
+      setError("Token login failed.");
     } finally {
       setIsBusy(false);
     }
@@ -63,10 +63,10 @@ function LoginPage(): JSX.Element {
     <main className="flex min-h-screen items-center justify-center p-4">
       <GlassCard className="w-full max-w-md">
         <h1 className="mb-3 text-xl font-semibold text-blue-300">Ozymandias Login</h1>
-        <p className="mb-4 text-sm text-gray-300">Mit Google oder Dev-Token anmelden.</p>
+        <p className="mb-4 text-sm text-gray-300">Sign in with Google or a dev token.</p>
 
         <Button type="button" className="mb-4 w-full" onClick={() => void onGoogleLogin()}>
-          Mit Google anmelden
+          Sign in with Google
         </Button>
 
         <form onSubmit={onTokenSubmit} className="flex flex-col gap-2">

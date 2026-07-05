@@ -11,10 +11,10 @@ describe("CreateProjectDialog", () => {
       <CreateProjectDialog open creating={false} onClose={vi.fn()} onCreate={onCreate} />,
     );
 
-    await user.click(screen.getByText("Erstellen"));
+    await user.click(screen.getByText("Create"));
 
     expect(onCreate).not.toHaveBeenCalled();
-    expect(screen.getByText("Name ist Pflicht.")).toBeInTheDocument();
+    expect(screen.getByText("Name is required.")).toBeInTheDocument();
   });
 
   it("erstellen ruft createProject callback auf", async () => {
@@ -26,7 +26,7 @@ describe("CreateProjectDialog", () => {
     );
 
     await user.type(screen.getByLabelText("Name"), "Projekt Z");
-    await user.click(screen.getByText("Erstellen"));
+    await user.click(screen.getByText("Create"));
 
     expect(onCreate).toHaveBeenCalledWith(expect.objectContaining({ name: "Projekt Z" }));
   });
@@ -41,7 +41,7 @@ describe("CreateProjectDialog", () => {
     );
 
     await user.type(screen.getByLabelText("Name"), "Projekt Z");
-    await user.click(screen.getByText("Erstellen"));
+    await user.click(screen.getByText("Create"));
 
     expect(onClose).toHaveBeenCalled();
   });

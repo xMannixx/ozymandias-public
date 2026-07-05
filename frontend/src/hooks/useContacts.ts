@@ -37,7 +37,7 @@ function normalizeError(error: unknown): string {
   if (error instanceof Error) {
     return error.message;
   }
-  return "Kontaktaktion fehlgeschlagen";
+  return "Contact action failed";
 }
 
 export type UseContactsResult = {
@@ -177,7 +177,7 @@ export function useContacts(): UseContactsResult {
 
   const deleteContact = useCallback(
     async (contactId: string) => {
-      if (!window.confirm("Kontakt wirklich loeschen?")) {
+      if (!window.confirm("Delete this contact?")) {
         return;
       }
       setLoading(true);
@@ -248,7 +248,7 @@ export function useContacts(): UseContactsResult {
       setError(null);
       try {
         await linkProjectApi(contactId, { project_id: projectId });
-        setToast({ type: "success", message: "Projekt verknuepft." });
+        setToast({ type: "success", message: "Project linked." });
         await selectContact(contactId);
       } catch (err) {
         const message = normalizeError(err);

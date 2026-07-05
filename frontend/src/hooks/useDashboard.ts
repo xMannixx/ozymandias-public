@@ -44,7 +44,7 @@ function normalizeError(error: unknown): string {
   if (error instanceof Error) {
     return error.message;
   }
-  return "Unbekannter Fehler";
+  return "Unknown error";
 }
 
 export function useDashboard(): UseDashboardResult {
@@ -59,7 +59,7 @@ export function useDashboard(): UseDashboardResult {
     try {
       const response = await getDashboardStats();
       if (!isDashboardStats(response)) {
-        throw new Error("Ungueltige Dashboard-Daten vom Server");
+        throw new Error("Invalid dashboard data from server");
       }
       setStats(response);
     } catch (err) {

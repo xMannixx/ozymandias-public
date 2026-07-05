@@ -36,7 +36,7 @@ function MailCompose({
 
   return (
     <GlassCard className="space-y-3">
-      <h3 className="text-base font-semibold text-gray-100">Neue Mail</h3>
+      <h3 className="text-base font-semibold text-gray-100">New email</h3>
       <form className="space-y-2" onSubmit={(event) => void handleSubmit(event)}>
         <label className="flex flex-col gap-1 text-xs text-gray-400">
           An
@@ -48,7 +48,7 @@ function MailCompose({
           />
         </label>
         <label className="flex flex-col gap-1 text-xs text-gray-400">
-          Betreff
+          Subject
           <input
             aria-label="mail-compose-subject"
             className="rounded border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-gray-100"
@@ -57,7 +57,7 @@ function MailCompose({
           />
         </label>
         <label className="flex flex-col gap-1 text-xs text-gray-400">
-          Nachricht
+          Message
           <textarea
             aria-label="mail-compose-body"
             className="min-h-36 rounded border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-gray-100"
@@ -67,11 +67,11 @@ function MailCompose({
         </label>
         <div className="flex gap-2">
           <Button type="submit" disabled={!canSend}>
-            Senden
+            Send
           </Button>
           {onCancel ? (
             <Button type="button" variant="ghost" onClick={onCancel}>
-              Abbrechen
+              Cancel
             </Button>
           ) : null}
         </div>

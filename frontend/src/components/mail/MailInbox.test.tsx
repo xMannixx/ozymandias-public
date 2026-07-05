@@ -80,7 +80,7 @@ describe("MailInbox", () => {
   it("Suchfeld filtert (query Parameter)", async () => {
     renderInbox();
     await userEvent.type(screen.getByLabelText("mail-search"), "alice");
-    await userEvent.click(screen.getByRole("button", { name: "Suchen" }));
+    await userEvent.click(screen.getByRole("button", { name: "Search" }));
     expect(hookState.search).toHaveBeenCalledWith("alice");
   });
 
@@ -98,6 +98,6 @@ describe("MailInbox", () => {
   it('Leere Liste zeigt "Keine Mails"', () => {
     hookState.messages = [];
     renderInbox();
-    expect(screen.getByText("Keine Mails")).toBeInTheDocument();
+    expect(screen.getByText("No emails")).toBeInTheDocument();
   });
 });

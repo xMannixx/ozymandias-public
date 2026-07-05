@@ -24,8 +24,8 @@ function ModeSwitch(): JSX.Element {
       <div className="space-y-3">
         <p className="text-[10px] text-gray-400 leading-relaxed min-h-[38px]">
           {mode === "autopilot" 
-            ? "Der Autopilot-Modus erlaubt dem System eigenständig Entscheidungen im Hintergrund zu treffen (schnelle Antworten, automatische Konsolidierung)."
-            : "Der Guardian-Modus sichert alle Aktionen durch manuelle Bestätigungen ab (maximale Transparenz und Governance)."}
+            ? "Autopilot mode lets the system make decisions in the background on its own (fast responses, automatic consolidation)."
+            : "Guardian mode secures every action behind manual confirmation (maximum transparency and governance)."}
         </p>
 
         {/* Sliding Pill Control */}
@@ -76,7 +76,7 @@ function ModeSwitch(): JSX.Element {
           aria-label="mode-confirm-dialog"
           className="space-y-3 rounded-lg border border-slate-800 bg-slate-950/80 p-3 shadow-2xl animate-fade-in"
         >
-          <p className="text-xs font-medium text-gray-200">System-Modus wirklich wechseln?</p>
+          <p className="text-xs font-medium text-gray-200">Really switch the system mode?</p>
           <div className="flex gap-2">
             <Button
               variant="primary"
@@ -86,14 +86,14 @@ function ModeSwitch(): JSX.Element {
               }}
               className="py-1 text-xs cursor-pointer"
             >
-              Bestaetigen
+              Confirm
             </Button>
             <Button
               variant="ghost"
               onClick={() => setConfirmOpen(false)}
               className="py-1 text-xs cursor-pointer"
             >
-              Abbrechen
+              Cancel
             </Button>
           </div>
         </div>

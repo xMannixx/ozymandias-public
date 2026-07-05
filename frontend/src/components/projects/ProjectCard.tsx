@@ -8,9 +8,9 @@ type ProjectCardProps = {
 };
 
 const statusLabel: Record<ProjectStatus, string> = {
-  active: "Aktiv",
+  active: "Active",
   paused: "Pausiert",
-  completed: "Fertig",
+  completed: "Completed",
   cancelled: "Abgebrochen",
 };
 
@@ -29,8 +29,8 @@ const priorityClass: Record<ProjectPriority, string> = {
 };
 
 function formatDateRange(startDate: string | null, targetDate: string | null): string {
-  const start = startDate ? new Date(startDate).toLocaleDateString("de-DE") : "-";
-  const target = targetDate ? new Date(targetDate).toLocaleDateString("de-DE") : "-";
+  const start = startDate ? new Date(startDate).toLocaleDateString("en-GB") : "-";
+  const target = targetDate ? new Date(targetDate).toLocaleDateString("en-GB") : "-";
   return `${start} - ${target}`;
 }
 
@@ -88,7 +88,7 @@ function ProjectCard({ project, onOpen, onDelete }: ProjectCardProps): JSX.Eleme
           />
         </div>
         <p className="text-xs text-gray-300">
-          {project.task_done_count}/{project.task_count} Aufgaben erledigt
+          {project.task_done_count}/{project.task_count} tasks done
         </p>
       </div>
 
@@ -97,7 +97,7 @@ function ProjectCard({ project, onOpen, onDelete }: ProjectCardProps): JSX.Eleme
       </p>
 
       <p className="text-xs text-gray-300">
-        Naechster Meilenstein: {project.next_milestone ? project.next_milestone : "Keiner"}
+        Next milestone: {project.next_milestone ? project.next_milestone : "None"}
       </p>
       <p className="text-xs text-gray-400">{formatDateRange(project.start_date, project.target_date)}</p>
     </article>

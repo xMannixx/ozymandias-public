@@ -9,10 +9,10 @@ describe("CreateContactDialog", () => {
 
     render(<CreateContactDialog open creating={false} onClose={vi.fn()} onCreate={onCreate} />);
 
-    await user.click(screen.getByText("Erstellen"));
+    await user.click(screen.getByText("Create"));
 
     expect(onCreate).not.toHaveBeenCalled();
-    expect(screen.getByText("Vorname ist Pflicht.")).toBeInTheDocument();
+    expect(screen.getByText("First name is required.")).toBeInTheDocument();
   });
 
   it("Erstellen ruft onCreate mit Tags auf", async () => {
@@ -21,9 +21,9 @@ describe("CreateContactDialog", () => {
 
     render(<CreateContactDialog open creating={false} onClose={vi.fn()} onCreate={onCreate} />);
 
-    await user.type(screen.getByLabelText("Vorname"), "Max");
+    await user.type(screen.getByLabelText("First name"), "Max");
     await user.type(screen.getByLabelText("Tags"), "A, B");
-    await user.click(screen.getByText("Erstellen"));
+    await user.click(screen.getByText("Create"));
 
     expect(onCreate).toHaveBeenCalledWith(
       expect.objectContaining({ first_name: "Max", tags: ["A", "B"] }),
@@ -37,8 +37,8 @@ describe("CreateContactDialog", () => {
 
     render(<CreateContactDialog open creating={false} onClose={onClose} onCreate={onCreate} />);
 
-    await user.type(screen.getByLabelText("Vorname"), "Max");
-    await user.click(screen.getByText("Erstellen"));
+    await user.type(screen.getByLabelText("First name"), "Max");
+    await user.click(screen.getByText("Create"));
 
     expect(onClose).toHaveBeenCalled();
   });

@@ -77,7 +77,7 @@ function VoiceSettings({
         }
       } catch {
         if (!cancelled) {
-          setError("Stimmen konnten nicht geladen werden");
+          setError("Failed to load voices");
         }
       } finally {
         if (!cancelled) {
@@ -118,7 +118,7 @@ function VoiceSettings({
       testAudioRef.current = audio;
       await audio.play();
     } catch {
-      setError("Stimmtest fehlgeschlagen");
+      setError("Voice test failed");
     } finally {
       setTestBusy(false);
     }
@@ -126,7 +126,7 @@ function VoiceSettings({
 
   return (
     <GlassCard className="space-y-3">
-      <p className="text-sm font-medium text-gray-200">Sprache / Voice</p>
+      <p className="text-sm font-medium text-gray-200">Speech / Voice</p>
 
       <label className="inline-flex items-center gap-2 text-sm text-gray-300">
         <input
@@ -135,7 +135,7 @@ function VoiceSettings({
           checked={enabled}
           onChange={(event) => setEnabled(event.target.checked)}
         />
-        Voice aktivieren
+        Enable voice
       </label>
 
       <fieldset className="space-y-2" disabled={!enabled}>
@@ -158,12 +158,12 @@ function VoiceSettings({
             checked={mode === "hands_free"}
             onChange={() => setMode("hands_free")}
           />
-          Freisprechen
+          Hands-free
         </label>
       </fieldset>
 
       <label className="flex flex-col gap-1 text-xs text-gray-400">
-        TTS-Stimme
+        TTS voice
         <select
           aria-label="settings-voice-select"
           className="rounded border border-gray-700 bg-gray-900 px-2 py-2 text-sm text-gray-100"
@@ -205,7 +205,7 @@ function VoiceSettings({
           onChange={(event) => setAutoplay(event.target.checked)}
           disabled={!enabled}
         />
-        Auto-Play Antwort
+        Auto-play response
       </label>
 
       <div className="flex items-center gap-2">
@@ -215,7 +215,7 @@ function VoiceSettings({
           onClick={() => void onTestVoice()}
           disabled={!enabled || testBusy || loadingVoices}
         >
-          Stimme testen
+          Test voice
         </button>
         <button
           type="button"
@@ -223,7 +223,7 @@ function VoiceSettings({
           onClick={() => void onSave(enabled, mode, voice, model, autoplay)}
           disabled={saving || loadingVoices}
         >
-          Voice speichern
+          Save voice
         </button>
         {loadingVoices ? <Spinner /> : null}
       </div>

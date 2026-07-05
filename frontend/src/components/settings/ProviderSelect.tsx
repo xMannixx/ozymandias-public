@@ -143,9 +143,9 @@ function ProviderSelect({
         setLocalModels(models);
         if (models.length === 0) {
           if (selectedLocalProvider === "lmstudio") {
-            setLocalModelsError("LM Studio nicht erreichbar oder kein Modell geladen.");
+            setLocalModelsError("LM Studio is unreachable or no model is loaded.");
           } else {
-            setLocalModelsError("Keine Ollama-Modelle gefunden.");
+            setLocalModelsError("No Ollama models found.");
           }
         }
       } catch {
@@ -154,9 +154,9 @@ function ProviderSelect({
         }
         setLocalModels([]);
         if (selectedLocalProvider === "lmstudio") {
-          setLocalModelsError("LM Studio nicht erreichbar.");
+          setLocalModelsError("LM Studio is unreachable.");
         } else {
-          setLocalModelsError("Ollama nicht erreichbar.");
+          setLocalModelsError("Ollama is unreachable.");
         }
       } finally {
         if (!cancelled) {
@@ -188,14 +188,14 @@ function ProviderSelect({
         }
         setDeepseekModels(models);
         if (models.length === 0) {
-          setDeepseekModelsError("Keine DeepSeek-Modelle erhalten.");
+          setDeepseekModelsError("No DeepSeek models received.");
         }
       } catch {
         if (cancelled) {
           return;
         }
         setDeepseekModels([]);
-        setDeepseekModelsError("DeepSeek-Modelle konnten nicht geladen werden.");
+        setDeepseekModelsError("Failed to load DeepSeek models.");
       } finally {
         if (!cancelled) {
           setDeepseekModelsLoading(false);
@@ -226,14 +226,14 @@ function ProviderSelect({
         }
         setMistralModels(models);
         if (models.length === 0) {
-          setMistralModelsError("Keine Mistral-Modelle erhalten.");
+          setMistralModelsError("No Mistral models received.");
         }
       } catch {
         if (cancelled) {
           return;
         }
         setMistralModels([]);
-        setMistralModelsError("Mistral-Modelle konnten nicht geladen werden.");
+        setMistralModelsError("Failed to load Mistral models.");
       } finally {
         if (!cancelled) {
           setMistralModelsLoading(false);
@@ -376,7 +376,7 @@ function ProviderSelect({
           <input
             aria-label="settings-model-input"
             className="rounded border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-gray-100"
-            placeholder="z.B. gpt-4o oder deepseek-chat"
+            placeholder="e.g. gpt-4o or deepseek-chat"
             value={modelInput}
             onChange={(event) => setModelInput(event.target.value)}
           />
@@ -442,7 +442,7 @@ function ProviderSelect({
       {localModelsError ? <p className="text-xs text-yellow-300">{localModelsError}</p> : null}
 
       <div className="space-y-2 rounded border border-gray-800 bg-gray-900/40 p-2">
-        <p className="text-xs font-medium text-gray-300">Live-Web Zugriff</p>
+        <p className="text-xs font-medium text-gray-300">Live web access</p>
         <label className="inline-flex items-center gap-2 text-xs text-gray-300">
           <input
             aria-label="settings-live-web-enabled"
@@ -450,7 +450,7 @@ function ProviderSelect({
             checked={isLiveWebEnabled}
             onChange={(event) => setIsLiveWebEnabled(event.target.checked)}
           />
-          Live-Web im Chat aktivieren
+          Enable live web in chat
         </label>
         <label className="flex flex-col gap-1 text-xs text-gray-400">
           Modus
@@ -465,7 +465,7 @@ function ProviderSelect({
             }
             disabled={!isLiveWebEnabled}
           >
-            <option value="provider_native_first">Provider-native first (mit Connector-Fallback)</option>
+            <option value="provider_native_first">Provider-native first (with connector fallback)</option>
             <option value="connector_only">Nur Connector</option>
             <option value="off">Aus</option>
           </select>
@@ -488,7 +488,7 @@ function ProviderSelect({
         onClick={() => void savePreference()}
         disabled={saving}
       >
-        Provider speichern
+        Save provider
       </button>
     </GlassCard>
   );

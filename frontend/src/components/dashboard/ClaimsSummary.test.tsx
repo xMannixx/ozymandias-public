@@ -17,7 +17,7 @@ describe("ClaimsSummary", () => {
 
   it("renders verification distribution bars", () => {
     render(<ClaimsSummary claimsTotal={12} verification={{ tentative: 4, confirmed: 6, superseded: 1, retracted: 1 }} sensitivity={{ S0: 2, S1: 2 }} />);
-    expect(screen.getByText("Vorläufig")).toBeInTheDocument();
-    expect(screen.getByText("Bestätigt")).toBeInTheDocument();
+    expect(screen.getByText("Tentative")).toBeInTheDocument();
+    expect(screen.getByText("Confirmed")).toBeInTheDocument();
   });
 });

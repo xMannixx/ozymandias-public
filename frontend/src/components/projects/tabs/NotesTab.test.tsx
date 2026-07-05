@@ -29,7 +29,7 @@ describe("NotesTab", () => {
     );
 
     await user.type(screen.getByLabelText("new-note-content"), "Neue Notiz");
-    await user.click(screen.getByText("Notiz speichern"));
+    await user.click(screen.getByText("Save note"));
 
     expect(onCreateNote).toHaveBeenCalledWith({ content: "Neue Notiz", source: "user" });
   });

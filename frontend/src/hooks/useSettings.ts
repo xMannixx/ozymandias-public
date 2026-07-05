@@ -42,7 +42,7 @@ function normalizeError(error: unknown): string {
   if (error instanceof Error) {
     return error.message;
   }
-  return "Einstellungen konnten nicht geladen werden";
+  return "Failed to load settings";
 }
 
 export function useSettings(): UseSettingsResult {

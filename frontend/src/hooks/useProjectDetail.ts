@@ -73,7 +73,7 @@ function normalizeError(error: unknown): string {
   if (error instanceof Error) {
     return error.message;
   }
-  return "Projektaktion fehlgeschlagen";
+  return "Project action failed";
 }
 
 function getActiveProjectId(projectId: string | null): string {
@@ -145,7 +145,7 @@ export function useProjectDetail(projectId: string | null): UseProjectDetailResu
         async (activeProjectId) => {
           await createMilestone(activeProjectId, data);
         },
-        "Meilenstein erstellt.",
+        "Milestone created.",
       );
     },
     [runMutation],
@@ -157,7 +157,7 @@ export function useProjectDetail(projectId: string | null): UseProjectDetailResu
         async (activeProjectId) => {
           await updateMilestone(activeProjectId, milestoneId, data);
         },
-        "Meilenstein aktualisiert.",
+        "Milestone updated.",
       );
     },
     [runMutation],
@@ -169,7 +169,7 @@ export function useProjectDetail(projectId: string | null): UseProjectDetailResu
         async (activeProjectId) => {
           await deleteMilestone(activeProjectId, milestoneId);
         },
-        "Meilenstein geloescht.",
+        "Milestone deleted.",
       );
     },
     [runMutation],
@@ -181,7 +181,7 @@ export function useProjectDetail(projectId: string | null): UseProjectDetailResu
         async (activeProjectId) => {
           await createTask(activeProjectId, data);
         },
-        "Aufgabe erstellt.",
+        "Task created.",
       );
     },
     [runMutation],
@@ -193,7 +193,7 @@ export function useProjectDetail(projectId: string | null): UseProjectDetailResu
         async (activeProjectId) => {
           await updateTask(activeProjectId, taskId, data);
         },
-        "Aufgabe aktualisiert.",
+        "Task updated.",
       );
     },
     [runMutation],
@@ -205,7 +205,7 @@ export function useProjectDetail(projectId: string | null): UseProjectDetailResu
         async (activeProjectId) => {
           await deleteTask(activeProjectId, taskId);
         },
-        "Aufgabe geloescht.",
+        "Task deleted.",
       );
     },
     [runMutation],
@@ -217,7 +217,7 @@ export function useProjectDetail(projectId: string | null): UseProjectDetailResu
         async (activeProjectId) => {
           await createRisk(activeProjectId, data);
         },
-        "Risiko erstellt.",
+        "Risk created.",
       );
     },
     [runMutation],
@@ -229,7 +229,7 @@ export function useProjectDetail(projectId: string | null): UseProjectDetailResu
         async (activeProjectId) => {
           await updateRisk(activeProjectId, riskId, data);
         },
-        "Risiko aktualisiert.",
+        "Risk updated.",
       );
     },
     [runMutation],
@@ -241,7 +241,7 @@ export function useProjectDetail(projectId: string | null): UseProjectDetailResu
         async (activeProjectId) => {
           await deleteRisk(activeProjectId, riskId);
         },
-        "Risiko geloescht.",
+        "Risk deleted.",
       );
     },
     [runMutation],
@@ -301,7 +301,7 @@ export function useProjectDetail(projectId: string | null): UseProjectDetailResu
         async (activeProjectId) => {
           await uploadFileApi(activeProjectId, file);
         },
-        "Datei hochgeladen.",
+        "File uploaded.",
       );
     },
     [runMutation],
@@ -313,7 +313,7 @@ export function useProjectDetail(projectId: string | null): UseProjectDetailResu
         async (activeProjectId) => {
           await deleteFileApi(activeProjectId, fileId);
         },
-        "Datei geloescht.",
+        "File deleted.",
       );
     },
     [runMutation],

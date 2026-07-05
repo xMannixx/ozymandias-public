@@ -22,7 +22,7 @@ function DashboardView(): JSX.Element {
   }
 
   if (!stats) {
-    return <p className="glass-card p-4 text-sm text-red-300">{error ?? "Dashboard nicht verfuegbar"}</p>;
+    return <p className="glass-card p-4 text-sm text-red-300">{error ?? "Dashboard unavailable"}</p>;
   }
 
   return (

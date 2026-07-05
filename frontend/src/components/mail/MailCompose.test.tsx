@@ -10,14 +10,14 @@ describe("MailCompose", () => {
     await userEvent.type(screen.getByLabelText("mail-compose-to"), "alice@example.com");
     await userEvent.type(screen.getByLabelText("mail-compose-subject"), "Test");
     await userEvent.type(screen.getByLabelText("mail-compose-body"), "Hallo");
-    await userEvent.click(screen.getByRole("button", { name: "Senden" }));
+    await userEvent.click(screen.getByRole("button", { name: "Send" }));
 
     expect(onSend).toHaveBeenCalledWith("alice@example.com", "Test", "Hallo");
   });
 
   it("Leere Felder: Button disabled", () => {
     render(<MailCompose onSend={vi.fn(async () => undefined)} />);
-    expect(screen.getByRole("button", { name: "Senden" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Send" })).toBeDisabled();
   });
 
   it("setzt initiale Felder fuer Antworten", () => {

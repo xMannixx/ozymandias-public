@@ -16,27 +16,27 @@ function RecentActionsCard({ entries }: RecentActionsCardProps): JSX.Element {
     switch (eventType) {
       case "turn_processed":
         colors = "border-blue-500/30 text-blue-400 bg-blue-950/20";
-        label = "Anfrage verarbeitet";
+        label = "Request processed";
         break;
       case "memory_confirmed":
         colors = "border-emerald-500/30 text-emerald-400 bg-emerald-950/20 shadow-[0_0_8px_rgba(16,185,129,0.1)]";
-        label = "Claim bestätigt";
+        label = "Claim confirmed";
         break;
       case "memory_rejected":
         colors = "border-rose-500/30 text-rose-400 bg-rose-950/20 shadow-[0_0_8px_rgba(244,63,94,0.1)]";
-        label = "Claim abgelehnt";
+        label = "Claim rejected";
         break;
       case "memory_superseded":
         colors = "border-amber-500/30 text-amber-400 bg-amber-950/20";
-        label = "Claim überschrieben";
+        label = "Claim overridden";
         break;
       case "memory_retracted":
         colors = "border-orange-500/30 text-orange-400 bg-orange-950/20";
-        label = "Claim zurückgezogen";
+        label = "Claim retracted";
         break;
       case "action_executed":
         colors = "border-purple-500/30 text-purple-400 bg-purple-950/20";
-        label = "Aktion ausgeführt";
+        label = "Action executed";
         break;
       case "action_blocked":
         colors = "border-rose-500/30 text-rose-400 bg-rose-950/20 animate-pulse";
@@ -74,12 +74,12 @@ function RecentActionsCard({ entries }: RecentActionsCardProps): JSX.Element {
                 </span>
               </div>
               <span className="text-[10px] text-gray-500 group-hover:text-gray-400 font-medium">
-                {new Date(entry.created_at).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+                {new Date(entry.created_at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
               </span>
             </li>
           ))
         ) : (
-          <li className="text-xs text-gray-500 py-2">Keine Protokolleinträge vorhanden.</li>
+          <li className="text-xs text-gray-500 py-2">No audit entries yet.</li>
         )}
       </ul>
     </GlassCard>

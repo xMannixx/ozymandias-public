@@ -40,7 +40,7 @@ function ProjectList({
       <div className="glass-card flex flex-col gap-2 p-3 md:flex-row md:items-center md:justify-between">
         <div className="flex items-center gap-2">
           <Button type="button" onClick={() => setDialogOpen(true)}>
-            Neues Projekt
+            New project
           </Button>
           <Button type="button" variant="ghost" onClick={() => void refetch()}>
             Neu laden
@@ -55,7 +55,7 @@ function ProjectList({
           <option value="">Alle</option>
           <option value="active">Aktiv</option>
           <option value="paused">Pausiert</option>
-          <option value="completed">Fertig</option>
+          <option value="completed">Completed</option>
           <option value="cancelled">Abgebrochen</option>
         </select>
       </div>
@@ -76,7 +76,7 @@ function ProjectList({
 
       {projects.length === 0 && !loading ? (
         <div className="glass-card p-6 text-sm text-gray-300">
-          Keine Projekte vorhanden. Erstelle dein erstes Projekt.
+          No projects yet. Create your first project.
         </div>
       ) : (
         <div

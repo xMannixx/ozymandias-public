@@ -13,7 +13,7 @@ const priorityOptions: ProjectPriority[] = ["low", "medium", "high", "critical"]
 
 function formatSummary(project: ProjectDetailResponse): string {
   const milestone = project.next_milestone ? project.next_milestone : "keiner";
-  return `${project.task_done_count} von ${project.task_count} Aufgaben erledigt, ${project.risk_open_count} offene Risiken, naechster Meilenstein: ${milestone}`;
+  return `${project.task_done_count} of ${project.task_count} tasks done, ${project.risk_open_count} open risks, next milestone: ${milestone}`;
 }
 
 function OverviewTab({ project, loading, onUpdateProject }: OverviewTabProps): JSX.Element {
@@ -84,7 +84,7 @@ function OverviewTab({ project, loading, onUpdateProject }: OverviewTabProps): J
 
       <div>
         <label className="mb-1 block text-xs text-gray-400" htmlFor="overview-description">
-          Beschreibung
+          Description
         </label>
         <textarea
           id="overview-description"
@@ -176,7 +176,7 @@ function OverviewTab({ project, loading, onUpdateProject }: OverviewTabProps): J
 
       <div className="flex justify-end">
         <Button type="submit" disabled={loading}>
-          Speichern
+          Save
         </Button>
       </div>
     </form>

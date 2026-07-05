@@ -23,7 +23,7 @@ function GoogleConnection(): JSX.Element {
       const response = await getGoogleAuthUrl();
       googleRedirect.to(response.url);
     } catch {
-      setActionError("Google-Verbindung konnte nicht gestartet werden.");
+      setActionError("Failed to start the Google connection.");
     } finally {
       setBusy(false);
     }
@@ -36,7 +36,7 @@ function GoogleConnection(): JSX.Element {
       await disconnectGoogle();
       await refetch();
     } catch {
-      setActionError("Google-Verbindung konnte nicht getrennt werden.");
+      setActionError("Failed to disconnect the Google account.");
     } finally {
       setBusy(false);
     }
@@ -52,7 +52,7 @@ function GoogleConnection(): JSX.Element {
       <p className="text-sm text-gray-300">
         Status:{" "}
         <span className={connected ? "text-green-300" : "text-orange-300"}>
-          {connected ? "Verbunden" : "Nicht verbunden"}
+          {connected ? "Connected" : "Not connected"}
         </span>
       </p>
 
@@ -66,7 +66,7 @@ function GoogleConnection(): JSX.Element {
               ))}
             </ul>
           ) : (
-            <p className="text-xs text-gray-500">Keine Scopes uebermittelt.</p>
+            <p className="text-xs text-gray-500">No scopes granted.</p>
           )}
           <Button type="button" variant="danger" onClick={() => void onDisconnect()} disabled={busy}>
             Verbindung trennen
