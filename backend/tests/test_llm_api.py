@@ -139,6 +139,24 @@ async def test_list_deepseek_models_returns_static_list(client: AsyncClient) -> 
 
 
 @pytest.mark.asyncio
+async def test_list_openai_models_returns_static_list(client: AsyncClient) -> None:
+    response = await client.get("/llm/openai/models")
+    assert response.status_code == 200
+    body = response.json()
+    assert "gpt-4o" in body
+    assert len(body) >= 3
+
+
+@pytest.mark.asyncio
+async def test_list_gemini_models_returns_static_list(client: AsyncClient) -> None:
+    response = await client.get("/llm/gemini/models")
+    assert response.status_code == 200
+    body = response.json()
+    assert any(model.startswith("gemini-") for model in body)
+    assert len(body) >= 2
+
+
+@pytest.mark.asyncio
 async def test_list_providers_without_auth_returns_401(app: FastAPI) -> None:
     app.dependency_overrides.pop(get_current_user, None)
     transport = ASGITransport(app=app)

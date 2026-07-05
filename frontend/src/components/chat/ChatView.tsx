@@ -3,15 +3,17 @@ import ChatInput from "@/components/chat/ChatInput";
 import ConversationList from "@/components/chat/ConversationList";
 import Modal from "@/components/common/Modal";
 import MessageList from "@/components/chat/MessageList";
+import ModelSelect from "@/components/chat/ModelSelect";
 import { useChat } from "@/hooks/useChat";
 import { useSettings } from "@/hooks/useSettings";
 import { useVoice } from "@/hooks/useVoice";
 import type { LLMProviderName } from "@/api/types";
 
 const PROVIDER_OPTIONS: Array<{ value: LLMProviderName; label: string }> = [
+  { value: "ollama", label: "Ollama (local)" },
+  { value: "lmstudio", label: "LM Studio (local)" },
   { value: "deepseek", label: "DeepSeek" },
   { value: "openai", label: "OpenAI" },
-  { value: "ollama", label: "Ollama" },
   { value: "gemini", label: "Gemini" },
   { value: "mistral", label: "Mistral" },
 ];
@@ -139,16 +141,7 @@ function ChatView(): JSX.Element {
           </select>
         </label>
 
-        <label className="flex flex-col gap-1 text-xs text-gray-400">
-          Model (optional)
-          <input
-            aria-label="chat-model-input"
-            className="rounded border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-gray-100"
-            placeholder="e.g. deepseek-chat"
-            value={selectedModel}
-            onChange={(event) => setSelectedModel(event.target.value)}
-          />
-        </label>
+        <ModelSelect provider={selectedProvider} model={selectedModel} onChange={setSelectedModel} />
         <div className="flex flex-col gap-2 text-xs text-gray-400">
           <label className="inline-flex items-center gap-2">
             <input

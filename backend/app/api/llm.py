@@ -98,3 +98,25 @@ async def list_mistral_models(_user_id: str = Depends(get_current_user)) -> list
         "mistral-small-latest",
         "codestral-latest",
     ]
+
+
+@router.get("/openai/models", response_model=list[str])
+async def list_openai_models(_user_id: str = Depends(get_current_user)) -> list[str]:
+    """Return selectable OpenAI API model ids (static list)."""
+    return [
+        "gpt-4o",
+        "gpt-4o-mini",
+        "gpt-4.1",
+        "gpt-4.1-mini",
+        "o3-mini",
+    ]
+
+
+@router.get("/gemini/models", response_model=list[str])
+async def list_gemini_models(_user_id: str = Depends(get_current_user)) -> list[str]:
+    """Return selectable Gemini API model ids (static list)."""
+    return [
+        "gemini-2.5-pro",
+        "gemini-2.5-flash",
+        "gemini-2.0-flash",
+    ]

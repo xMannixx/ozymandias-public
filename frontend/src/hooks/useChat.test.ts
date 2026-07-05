@@ -83,6 +83,51 @@ describe("useChat", () => {
     });
   });
 
+  it("setzt das Modell zurueck, wenn der Provider gewechselt wird", async () => {
+    getSettingsMock.mockResolvedValueOnce({
+      ...mockSettings,
+      preferred_provider: "mistral",
+      preferred_model: "mistral-large-latest",
+    });
+    const { result } = renderHook(() => useChat());
+
+    await waitFor(() => {
+      expect(result.current.selectedModel).toBe("mistral-large-latest");
+    });
+
+    act(() => {
+      result.current.setSelectedProvider("ollama");
+    });
+
+    expect(result.current.selectedModel).toBe("");
+    expect(localStorage.getItem("ozy-chat-model")).toBeNull();
+  });
+
+  it("ignoriert gespeichertes Modell eines anderen Providers beim Laden", async () => {
+    localStorage.setItem("ozy-chat-provider", "ollama");
+    localStorage.setItem("ozy-chat-model", "mistral-large-latest");
+    localStorage.setItem("ozy-chat-model-provider", "mistral");
+
+    const { result } = renderHook(() => useChat());
+
+    await waitFor(() => {
+      expect(result.current.selectedProvider).toBe("ollama");
+    });
+    expect(result.current.selectedModel).toBe("");
+  });
+
+  it("stellt gespeichertes Modell wieder her, wenn es zum Provider passt", async () => {
+    localStorage.setItem("ozy-chat-provider", "ollama");
+    localStorage.setItem("ozy-chat-model", "llama3.2");
+    localStorage.setItem("ozy-chat-model-provider", "ollama");
+
+    const { result } = renderHook(() => useChat());
+
+    await waitFor(() => {
+      expect(result.current.selectedModel).toBe("llama3.2");
+    });
+  });
+
   it("nutzt preferred_local_provider wenn kein preferred_provider gesetzt ist", async () => {
     getSettingsMock.mockResolvedValueOnce({
       ...mockSettings,

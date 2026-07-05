@@ -12,6 +12,9 @@ import type { ClaimProcessResult, ConversationResponse, LLMProviderName } from "
 
 const CHAT_PROVIDER_KEY = "ozy-chat-provider";
 const CHAT_MODEL_KEY = "ozy-chat-model";
+// Records which provider a stored model belongs to, so a stale
+// provider/model combination is never restored after a provider switch.
+const CHAT_MODEL_PROVIDER_KEY = "ozy-chat-model-provider";
 
 export type ChatRole = "user" | "assistant";
 
@@ -89,18 +92,21 @@ export function useChat(): UseChatResult {
           return;
         }
         const savedProvider = localStorage.getItem(CHAT_PROVIDER_KEY);
-        if (savedProvider) {
-          setSelectedProvider(savedProvider as LLMProviderName);
-        } else {
-          const effectiveProvider = settings.preferred_provider ?? settings.preferred_local_provider ?? null;
-          setSelectedProvider(effectiveProvider as LLMProviderName | null);
-        }
+        const effectiveProvider = (savedProvider
+          ?? settings.preferred_provider
+          ?? settings.preferred_local_provider
+          ?? null) as LLMProviderName | null;
+        setSelectedProvider(effectiveProvider);
 
         const savedModel = localStorage.getItem(CHAT_MODEL_KEY);
-        if (savedModel) {
+        const savedModelProvider = localStorage.getItem(CHAT_MODEL_PROVIDER_KEY);
+        if (savedModel && savedModelProvider === (effectiveProvider ?? "")) {
           setSelectedModel(savedModel);
-        } else {
+        } else if (!savedProvider) {
+          // Settings keep provider and model as a consistent pair.
           setSelectedModel(settings.preferred_model ?? "");
+        } else {
+          setSelectedModel("");
         }
         setLiveWebEnabled(settings.live_web_enabled);
         setLiveWebMode(settings.live_web_mode);
@@ -127,14 +133,21 @@ export function useChat(): UseChatResult {
     } else {
       localStorage.removeItem(CHAT_PROVIDER_KEY);
     }
+    // A model belongs to one provider; switching providers resets the model
+    // so stale combinations (e.g. Ollama + mistral-large-latest) cannot occur.
+    setSelectedModel("");
+    localStorage.removeItem(CHAT_MODEL_KEY);
+    localStorage.removeItem(CHAT_MODEL_PROVIDER_KEY);
   }
 
   function handleSetModel(model: string): void {
     setSelectedModel(model);
     if (model.trim()) {
       localStorage.setItem(CHAT_MODEL_KEY, model);
+      localStorage.setItem(CHAT_MODEL_PROVIDER_KEY, selectedProvider ?? "");
     } else {
       localStorage.removeItem(CHAT_MODEL_KEY);
+      localStorage.removeItem(CHAT_MODEL_PROVIDER_KEY);
     }
   }
 
