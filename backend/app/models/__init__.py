@@ -11,6 +11,7 @@ from app.models.audit import AuditLog  # noqa: E402
 from app.models.claim import Claim, ClaimAccessLog, ClaimVersion  # noqa: E402
 from app.models.conflict import ConflictGroup, ConflictGroupClaim  # noqa: E402
 from app.models.contact import Contact, ContactProject  # noqa: E402
+from app.models.conversation import Conversation, ConversationMessage  # noqa: E402
 from app.models.google_tokens import GoogleToken  # noqa: E402
 from app.models.memory import (  # noqa: E402
     BehavioralRule,
@@ -44,6 +45,8 @@ __all__ = [
     "ConflictGroupClaim",
     "Contact",
     "ContactProject",
+    "Conversation",
+    "ConversationMessage",
     "Episode",
     "GoogleToken",
     "MemoryEntity",

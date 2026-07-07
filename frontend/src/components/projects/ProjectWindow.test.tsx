@@ -44,16 +44,16 @@ describe("ProjectWindow", () => {
 
   it("zeigt tabs an", () => {
     render(<ProjectWindow projectId="project-1" />);
-    expect(screen.getByText("Uebersicht")).toBeInTheDocument();
-    expect(screen.getByText("Aufgaben")).toBeInTheDocument();
-    expect(screen.getByText("Dateien")).toBeInTheDocument();
+    expect(screen.getByText("Overview")).toBeInTheDocument();
+    expect(screen.getByText("Tasks")).toBeInTheDocument();
+    expect(screen.getByText("Files")).toBeInTheDocument();
   });
 
   it("tab wechsel zeigt aufgaben", async () => {
     const user = userEvent.setup();
     render(<ProjectWindow projectId="project-1" />);
 
-    await user.click(screen.getByText("Aufgaben"));
+    await user.click(screen.getByText("Tasks"));
 
     expect(screen.getByText("Task offen")).toBeInTheDocument();
   });

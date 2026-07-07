@@ -37,7 +37,7 @@ function normalizeError(error: unknown): string {
   if (error instanceof Error) {
     return error.message;
   }
-  return "Kalender konnte nicht geladen werden";
+  return "Failed to load calendar";
 }
 
 function startOfWeek(date: Date): Date {
@@ -131,7 +131,7 @@ export function useCalendar(): UseCalendarResult {
           return;
         }
         await createEvent(data);
-        setToast({ type: "success", message: "Termin erstellt." });
+        setToast({ type: "success", message: "Event created." });
         await refetch();
       } catch (err) {
         const message = normalizeError(err);
@@ -154,7 +154,7 @@ export function useCalendar(): UseCalendarResult {
           return;
         }
         await deleteEvent(id);
-        setToast({ type: "success", message: "Termin geloescht." });
+        setToast({ type: "success", message: "Event deleted." });
         await refetch();
       } catch (err) {
         const message = normalizeError(err);

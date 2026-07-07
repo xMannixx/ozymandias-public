@@ -7,7 +7,7 @@ type ClaimVersionTimelineProps = {
 function renderSnapshot(snapshot: Record<string, unknown>): JSX.Element {
   const entries = Object.entries(snapshot);
   if (entries.length === 0) {
-    return <p className="text-xs text-gray-500">Kein Snapshot-Inhalt</p>;
+    return <p className="text-xs text-gray-500">No snapshot content</p>;
   }
   return (
     <ul className="space-y-1 text-xs text-gray-300">
@@ -25,9 +25,9 @@ function ClaimVersionTimeline({ versions }: ClaimVersionTimelineProps): JSX.Elem
 
   return (
     <section className="space-y-3">
-      <h3 className="text-sm font-semibold text-gray-100">Versionshistorie</h3>
+      <h3 className="text-sm font-semibold text-gray-100">Version history</h3>
       {sorted.length === 0 ? (
-        <p className="text-sm text-gray-400">Keine Versionen vorhanden.</p>
+        <p className="text-sm text-gray-400">No versions yet.</p>
       ) : (
         <ul className="space-y-2">
           {sorted.map((version) => (
@@ -39,7 +39,7 @@ function ClaimVersionTimeline({ versions }: ClaimVersionTimelineProps): JSX.Elem
               <p className="mb-1 text-xs text-gray-300">
                 {version.changed_by} · {new Date(version.created_at).toLocaleString()}
               </p>
-              <p className="mb-2 text-xs text-gray-300">{version.change_reason ?? "Keine Begruendung"}</p>
+              <p className="mb-2 text-xs text-gray-300">{version.change_reason ?? "No reason given"}</p>
               {renderSnapshot(version.content_snapshot)}
             </li>
           ))}

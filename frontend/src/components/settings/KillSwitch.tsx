@@ -30,17 +30,17 @@ function KillSwitch(): JSX.Element {
       </div>
 
       <p className="text-xs text-gray-300">
-        Stoppt alle Turn-Verarbeitungen serverseitig. Zur Sicherheit ist eine manuelle Bestaetigung erforderlich.
+        Stops all turn processing on the server. Manual confirmation is required for safety.
       </p>
 
       <Button variant={killSwitch ? "ghost" : "danger"} onClick={() => setConfirmOpen(true)}>
-        {killSwitch ? "Kill-Switch deaktivieren" : "Kill-Switch aktivieren"}
+        {killSwitch ? "Disable kill switch" : "Enable kill switch"}
       </Button>
 
       {confirmOpen ? (
         <div role="dialog" aria-label="kill-switch-confirm" className="space-y-2 rounded border border-gray-700 bg-black/30 p-3">
           <p className="text-sm text-gray-200">
-            Tippe <span className="font-semibold">{CONFIRMATION_TEXT}</span> ein, um fortzufahren.
+            Type <span className="font-semibold">{CONFIRMATION_TEXT}</span> to continue.
           </p>
           <input
             aria-label="kill-switch-confirm-input"
@@ -59,10 +59,10 @@ function KillSwitch(): JSX.Element {
                 reset();
               }}
             >
-              {target ? "Aktivieren" : "Deaktivieren"}
+              {target ? "Enable" : "Disable"}
             </Button>
             <Button variant="ghost" disabled={submitting} onClick={reset}>
-              Abbrechen
+              Cancel
             </Button>
           </div>
         </div>

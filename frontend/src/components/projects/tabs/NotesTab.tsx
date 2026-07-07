@@ -39,7 +39,7 @@ function NotesTab({ project, loading, onCreateNote, onDeleteNote }: NotesTabProp
   return (
     <div className="space-y-3">
       {sortedNotes.length === 0 ? (
-        <p className="text-sm text-gray-400">Noch keine Notizen vorhanden.</p>
+        <p className="text-sm text-gray-400">No notes yet.</p>
       ) : (
         <div className="space-y-2">
           {sortedNotes.map((note) => (
@@ -50,7 +50,7 @@ function NotesTab({ project, loading, onCreateNote, onDeleteNote }: NotesTabProp
                     {note.source}
                   </span>
                   <span className="text-xs text-gray-500">
-                    {new Date(note.created_at).toLocaleString("de-DE")}
+                    {new Date(note.created_at).toLocaleString("en-GB")}
                   </span>
                 </div>
                 <Button
@@ -74,7 +74,7 @@ function NotesTab({ project, loading, onCreateNote, onDeleteNote }: NotesTabProp
           aria-label="new-note-content"
           value={content}
           onChange={(event) => setContent(event.target.value)}
-          placeholder="Neue Notiz..."
+          placeholder="New note..."
           className="h-24 w-full rounded border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-gray-100"
         />
         <div className="flex items-center justify-between gap-2">
@@ -91,7 +91,7 @@ function NotesTab({ project, loading, onCreateNote, onDeleteNote }: NotesTabProp
             ))}
           </select>
           <Button type="submit" disabled={loading}>
-            Notiz speichern
+            Save note
           </Button>
         </div>
       </form>

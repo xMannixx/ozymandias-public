@@ -1,11 +1,25 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError } from "@/api/client";
+import {
+  deleteConversation,
+  getConversationMessages,
+  listConversations,
+  renameConversation,
+} from "@/api/conversations";
 import { getSettings } from "@/api/settings";
-import { postTurn } from "@/api/turns";
-import type { ClaimResponse, LLMProviderName } from "@/api/types";
+import { streamTurn } from "@/api/turns";
+import type {
+  ClaimProcessResult,
+  ConversationResponse,
+  LLMProviderName,
+  TurnAttachment,
+} from "@/api/types";
 
 const CHAT_PROVIDER_KEY = "ozy-chat-provider";
 const CHAT_MODEL_KEY = "ozy-chat-model";
+// Records which provider a stored model belongs to, so a stale
+// provider/model combination is never restored after a provider switch.
+const CHAT_MODEL_PROVIDER_KEY = "ozy-chat-model-provider";
 
 export type ChatRole = "user" | "assistant";
 
@@ -13,22 +27,38 @@ export type ChatMessage = {
   id: string;
   role: ChatRole;
   text: string;
-  claims?: ClaimResponse[];
+  results?: ClaimProcessResult[];
   provider?: string;
   model?: string;
   reasoning_content?: string | null;
+  isStreaming?: boolean;
+  attachments?: Array<{ filename: string }>;
+};
+
+type PendingPrompt = {
+  text: string;
+  message: string;
+  attachments?: TurnAttachment[];
 };
 
 type UseChatResult = {
   messages: ChatMessage[];
   isLoading: boolean;
+  conversations: ConversationResponse[];
+  activeConversationId: string | null;
+  isHistoryLoading: boolean;
   selectedProvider: LLMProviderName | null;
   selectedModel: string;
-  s3FallbackPrompt: { text: string; message: string } | null;
-  s3LiveWebPrompt: { text: string; message: string } | null;
+  s3FallbackPrompt: PendingPrompt | null;
+  s3LiveWebPrompt: PendingPrompt | null;
   setSelectedProvider: (provider: LLMProviderName | null) => void;
   setSelectedModel: (model: string) => void;
-  sendMessage: (text: string) => Promise<void>;
+  sendMessage: (text: string, attachments?: TurnAttachment[]) => Promise<void>;
+  stopStreaming: () => void;
+  selectConversation: (conversationId: string) => Promise<void>;
+  startNewConversation: () => void;
+  removeConversation: (conversationId: string) => Promise<void>;
+  renameConversationTitle: (conversationId: string, title: string) => Promise<void>;
   confirmS3Fallback: () => Promise<void>;
   cancelS3Fallback: () => void;
   confirmS3LiveWeb: () => Promise<void>;
@@ -42,18 +72,27 @@ function randomId(): string {
 export function useChat(): UseChatResult {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [conversations, setConversations] = useState<ConversationResponse[]>([]);
+  const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
+  const [isHistoryLoading, setIsHistoryLoading] = useState(false);
   const [selectedProvider, setSelectedProvider] = useState<LLMProviderName | null>(null);
   const [selectedModel, setSelectedModel] = useState("");
-  const [s3FallbackPrompt, setS3FallbackPrompt] = useState<{ text: string; message: string } | null>(
-    null,
-  );
-  const [s3LiveWebPrompt, setS3LiveWebPrompt] = useState<{ text: string; message: string } | null>(
-    null,
-  );
+  const [s3FallbackPrompt, setS3FallbackPrompt] = useState<PendingPrompt | null>(null);
+  const [s3LiveWebPrompt, setS3LiveWebPrompt] = useState<PendingPrompt | null>(null);
   const [liveWebEnabled, setLiveWebEnabled] = useState(false);
   const [liveWebMode, setLiveWebMode] = useState<"provider_native_first" | "connector_only" | "off">(
     "provider_native_first",
   );
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  const refreshConversations = useCallback(async (): Promise<void> => {
+    try {
+      const items = await listConversations();
+      setConversations(items);
+    } catch {
+      // Conversation list is non-critical; chat still works without it.
+    }
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -64,18 +103,21 @@ export function useChat(): UseChatResult {
           return;
         }
         const savedProvider = localStorage.getItem(CHAT_PROVIDER_KEY);
-        if (savedProvider) {
-          setSelectedProvider(savedProvider as LLMProviderName);
-        } else {
-          const effectiveProvider = settings.preferred_provider ?? settings.preferred_local_provider ?? null;
-          setSelectedProvider(effectiveProvider as LLMProviderName | null);
-        }
+        const effectiveProvider = (savedProvider
+          ?? settings.preferred_provider
+          ?? settings.preferred_local_provider
+          ?? null) as LLMProviderName | null;
+        setSelectedProvider(effectiveProvider);
 
         const savedModel = localStorage.getItem(CHAT_MODEL_KEY);
-        if (savedModel) {
+        const savedModelProvider = localStorage.getItem(CHAT_MODEL_PROVIDER_KEY);
+        if (savedModel && savedModelProvider === (effectiveProvider ?? "")) {
           setSelectedModel(savedModel);
-        } else {
+        } else if (!savedProvider) {
+          // Settings keep provider and model as a consistent pair.
           setSelectedModel(settings.preferred_model ?? "");
+        } else {
+          setSelectedModel("");
         }
         setLiveWebEnabled(settings.live_web_enabled);
         setLiveWebMode(settings.live_web_mode);
@@ -89,10 +131,11 @@ export function useChat(): UseChatResult {
         setLiveWebMode("off");
       }
     })();
+    void refreshConversations();
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [refreshConversations]);
 
   function handleSetProvider(provider: LLMProviderName | null): void {
     setSelectedProvider(provider);
@@ -101,15 +144,77 @@ export function useChat(): UseChatResult {
     } else {
       localStorage.removeItem(CHAT_PROVIDER_KEY);
     }
+    // A model belongs to one provider; switching providers resets the model
+    // so stale combinations (e.g. Ollama + mistral-large-latest) cannot occur.
+    setSelectedModel("");
+    localStorage.removeItem(CHAT_MODEL_KEY);
+    localStorage.removeItem(CHAT_MODEL_PROVIDER_KEY);
   }
 
   function handleSetModel(model: string): void {
     setSelectedModel(model);
     if (model.trim()) {
       localStorage.setItem(CHAT_MODEL_KEY, model);
+      localStorage.setItem(CHAT_MODEL_PROVIDER_KEY, selectedProvider ?? "");
     } else {
       localStorage.removeItem(CHAT_MODEL_KEY);
+      localStorage.removeItem(CHAT_MODEL_PROVIDER_KEY);
     }
+  }
+
+  async function selectConversation(conversationId: string): Promise<void> {
+    setActiveConversationId(conversationId);
+    setS3FallbackPrompt(null);
+    setS3LiveWebPrompt(null);
+    setIsHistoryLoading(true);
+    try {
+      const history = await getConversationMessages(conversationId);
+      setMessages(
+        history.map((item) => ({
+          id: item.message_id,
+          role: item.role,
+          text: item.content,
+          provider: item.provider ?? undefined,
+          model: item.model ?? undefined,
+        })),
+      );
+    } catch {
+      setMessages([]);
+    } finally {
+      setIsHistoryLoading(false);
+    }
+  }
+
+  function startNewConversation(): void {
+    setActiveConversationId(null);
+    setMessages([]);
+    setS3FallbackPrompt(null);
+    setS3LiveWebPrompt(null);
+  }
+
+  async function removeConversation(conversationId: string): Promise<void> {
+    try {
+      await deleteConversation(conversationId);
+    } catch {
+      return;
+    }
+    if (conversationId === activeConversationId) {
+      startNewConversation();
+    }
+    await refreshConversations();
+  }
+
+  async function renameConversationTitle(conversationId: string, title: string): Promise<void> {
+    const trimmed = title.trim();
+    if (!trimmed) {
+      return;
+    }
+    try {
+      await renameConversation(conversationId, trimmed);
+    } catch {
+      return;
+    }
+    await refreshConversations();
   }
 
   function appendAssistantMessage(text: string): void {
@@ -165,36 +270,95 @@ export function useChat(): UseChatResult {
     return detail;
   }
 
+  function stopStreaming(): void {
+    abortControllerRef.current?.abort();
+  }
+
   async function sendTurn(
     text: string,
     allowS3CloudFallback: boolean,
     allowS3LiveWeb: boolean,
+    attachments?: TurnAttachment[],
   ): Promise<void> {
     const requestedModel = selectedModel.trim() || undefined;
-    const result = await postTurn(
-      text,
-      "web",
-      undefined,
-      selectedProvider ?? undefined,
-      requestedModel,
-      allowS3CloudFallback,
-      liveWebEnabled && liveWebMode !== "off",
-      allowS3LiveWeb,
-    );
-    const assistantText = result.response_text ?? result.response ?? "Keine Antwort.";
-    const assistantMessage: ChatMessage = {
-      id: result.turn_id || randomId(),
-      role: "assistant",
-      text: assistantText,
-      claims: result.claims ?? [],
-      provider: result.provider,
-      model: result.model,
-      reasoning_content: result.reasoning_content,
-    };
-    setMessages((prev) => [...prev, assistantMessage]);
+    const assistantId = randomId();
+    let placeholderVisible = false;
+    let streamedText = "";
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
+    function upsertAssistantMessage(update: Partial<ChatMessage>): void {
+      if (!placeholderVisible) {
+        placeholderVisible = true;
+        setMessages((prev) => [
+          ...prev,
+          { id: assistantId, role: "assistant", text: "", isStreaming: true, ...update },
+        ]);
+        return;
+      }
+      setMessages((prev) =>
+        prev.map((message) => (message.id === assistantId ? { ...message, ...update } : message)),
+      );
+    }
+
+    try {
+      const stream = streamTurn(
+        text,
+        {
+          provider: selectedProvider ?? undefined,
+          model: requestedModel,
+          allowS3CloudFallback,
+          useLiveWeb: liveWebEnabled && liveWebMode !== "off",
+          allowS3LiveWeb,
+          conversationId: activeConversationId ?? undefined,
+          attachments: attachments && attachments.length > 0 ? attachments : undefined,
+        },
+        controller.signal,
+      );
+      for await (const event of stream) {
+        if (event.event === "delta") {
+          streamedText += event.data.text;
+          upsertAssistantMessage({ text: streamedText });
+        } else if (event.event === "result") {
+          const result = event.data;
+          const assistantText = result.response_text ?? result.response ?? streamedText;
+          upsertAssistantMessage({
+            text: assistantText || "No response.",
+            results: result.results ?? [],
+            provider: result.provider,
+            model: result.model,
+            reasoning_content: result.reasoning_content,
+            isStreaming: false,
+          });
+          if (result.conversation_id) {
+            setActiveConversationId(result.conversation_id);
+            void refreshConversations();
+          }
+        } else {
+          if (placeholderVisible && !streamedText.trim()) {
+            setMessages((prev) => prev.filter((message) => message.id !== assistantId));
+          } else if (placeholderVisible) {
+            upsertAssistantMessage({ isStreaming: false });
+          }
+          // Reuse the non-streaming error paths (S3 prompts etc.) in sendMessage.
+          throw new ApiError(event.data.message, 0, { detail: event.data });
+        }
+      }
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") {
+        // User pressed stop: keep the partial answer, no error message.
+        if (placeholderVisible) {
+          upsertAssistantMessage({ isStreaming: false });
+        }
+        return;
+      }
+      throw error;
+    } finally {
+      abortControllerRef.current = null;
+    }
   }
 
-  async function sendMessage(text: string): Promise<void> {
+  async function sendMessage(text: string, attachments?: TurnAttachment[]): Promise<void> {
     const trimmed = text.trim();
     if (!trimmed) {
       return;
@@ -204,6 +368,7 @@ export function useChat(): UseChatResult {
       id: randomId(),
       role: "user",
       text: trimmed,
+      attachments: attachments?.map((item) => ({ filename: item.filename })),
     };
     setMessages((prev) => [...prev, userMessage]);
     setS3FallbackPrompt(null);
@@ -211,15 +376,16 @@ export function useChat(): UseChatResult {
     setIsLoading(true);
 
     try {
-      await sendTurn(trimmed, false, false);
+      await sendTurn(trimmed, false, false, attachments);
     } catch (error) {
       const liveWebConfirmation = parseLiveWebConfirmationError(error);
       if (liveWebConfirmation?.sensitivity === "S3") {
         setS3LiveWebPrompt({
           text: trimmed,
+          attachments,
           message:
             liveWebConfirmation.message
-            ?? "S3-Inhalt erkannt. Soll ich fuer diese Nachricht einmalig Live-Web-Zugriff nutzen?",
+            ?? "S3 content detected. Should I use live web access once for this message?",
         });
         return;
       }
@@ -230,24 +396,25 @@ export function useChat(): UseChatResult {
       ) {
         setS3FallbackPrompt({
           text: trimmed,
+          attachments,
           message:
             localUnavailable.message
-            ?? "Lokaler Provider nicht verfuegbar. Soll ich diese S3-Nachricht einmalig ueber Cloud verarbeiten?",
+            ?? "Local provider unavailable. Should I process this S3 message via cloud, just this once?",
         });
         return;
       }
       if (localUnavailable?.sensitivity === "S4") {
         appendAssistantMessage(
           localUnavailable.message
-            ?? "S4-Inhalt bleibt lokal-only. Lokaler Provider ist nicht verfuegbar.",
+            ?? "S4 content stays local-only. The local provider is unavailable.",
         );
         return;
       }
       if (error instanceof ApiError && typeof error.message === "string" && error.message.trim()) {
-        appendAssistantMessage(`Fehler: ${error.message}`);
+        appendAssistantMessage(`Error: ${error.message}`);
         return;
       }
-      appendAssistantMessage("Fehler beim Senden der Nachricht.");
+      appendAssistantMessage("Failed to send the message.");
     } finally {
       setIsLoading(false);
     }
@@ -258,15 +425,16 @@ export function useChat(): UseChatResult {
       return;
     }
     const retryText = s3FallbackPrompt.text;
+    const retryAttachments = s3FallbackPrompt.attachments;
     setS3FallbackPrompt(null);
     setIsLoading(true);
     try {
-      await sendTurn(retryText, true, false);
+      await sendTurn(retryText, true, false, retryAttachments);
     } catch (error) {
       if (error instanceof ApiError && typeof error.message === "string" && error.message.trim()) {
-        appendAssistantMessage(`Fehler: ${error.message}`);
+        appendAssistantMessage(`Error: ${error.message}`);
       } else {
-        appendAssistantMessage("Fehler beim Senden der Nachricht.");
+        appendAssistantMessage("Failed to send the message.");
       }
     } finally {
       setIsLoading(false);
@@ -275,7 +443,7 @@ export function useChat(): UseChatResult {
 
   function cancelS3Fallback(): void {
     setS3FallbackPrompt(null);
-    appendAssistantMessage("Cloud-Fallback fuer diese S3-Nachricht abgebrochen.");
+    appendAssistantMessage("Cancelled the cloud fallback for this S3 message.");
   }
 
   async function confirmS3LiveWeb(): Promise<void> {
@@ -283,15 +451,16 @@ export function useChat(): UseChatResult {
       return;
     }
     const retryText = s3LiveWebPrompt.text;
+    const retryAttachments = s3LiveWebPrompt.attachments;
     setS3LiveWebPrompt(null);
     setIsLoading(true);
     try {
-      await sendTurn(retryText, false, true);
+      await sendTurn(retryText, false, true, retryAttachments);
     } catch (error) {
       if (error instanceof ApiError && typeof error.message === "string" && error.message.trim()) {
-        appendAssistantMessage(`Fehler: ${error.message}`);
+        appendAssistantMessage(`Error: ${error.message}`);
       } else {
-        appendAssistantMessage("Fehler beim Senden der Nachricht.");
+        appendAssistantMessage("Failed to send the message.");
       }
     } finally {
       setIsLoading(false);
@@ -300,12 +469,15 @@ export function useChat(): UseChatResult {
 
   function cancelS3LiveWeb(): void {
     setS3LiveWebPrompt(null);
-    appendAssistantMessage("Live-Web fuer diese S3-Nachricht abgebrochen.");
+    appendAssistantMessage("Cancelled live web access for this S3 message.");
   }
 
   return {
     messages,
     isLoading,
+    conversations,
+    activeConversationId,
+    isHistoryLoading,
     selectedProvider,
     selectedModel,
     s3FallbackPrompt,
@@ -313,6 +485,11 @@ export function useChat(): UseChatResult {
     setSelectedProvider: handleSetProvider,
     setSelectedModel: handleSetModel,
     sendMessage,
+    stopStreaming,
+    selectConversation,
+    startNewConversation,
+    removeConversation,
+    renameConversationTitle,
     confirmS3Fallback,
     cancelS3Fallback,
     confirmS3LiveWeb,

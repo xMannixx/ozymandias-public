@@ -286,6 +286,40 @@ CREATE INDEX IF NOT EXISTS idx_episodes_embedding
     WITH (lists = 100);
 
 
+-- === CONVERSATIONS (Chat-Verlauf) ===
+-- Benannte Chat-Sitzungen fuer die Web-UI. Nachrichten liegen in
+-- conversation_messages; episodes bleibt fuer die spaetere
+-- Memory-Extraktion (Batch-Job) reserviert.
+CREATE TABLE IF NOT EXISTS conversations (
+    conversation_id     UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id             UUID NOT NULL,
+    title               TEXT NOT NULL,
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at          TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_conversations_user
+    ON conversations(user_id, updated_at DESC);
+
+CREATE TABLE IF NOT EXISTS conversation_messages (
+    message_id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    conversation_id     UUID NOT NULL REFERENCES conversations(conversation_id) ON DELETE CASCADE,
+    user_id             UUID NOT NULL,
+    seq                 INT NOT NULL,
+    role                TEXT NOT NULL CHECK (role IN ('user', 'assistant')),
+    content             TEXT NOT NULL,
+    sensitivity         TEXT NOT NULL DEFAULT 'S0'
+                        CHECK (sensitivity IN ('S0', 'S1', 'S2', 'S3', 'S4')),
+    provider            TEXT,
+    model               TEXT,
+    turn_id             TEXT,
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_conversation_messages_conversation
+    ON conversation_messages(conversation_id, seq);
+
+
 -- === AUDIT LOG ===
 -- Lückenlose Protokollierung aller sicherheitsrelevanten Aktionen.
 -- Append-only. Nicht löschbar.

@@ -18,7 +18,7 @@ function formatDate(value: string): string {
 
 function EventDetail({ event, onClose, onDelete }: EventDetailProps): JSX.Element {
   async function handleDelete(): Promise<void> {
-    if (!window.confirm("Termin wirklich loeschen?")) {
+    if (!window.confirm("Delete this event?")) {
       return;
     }
     await onDelete(event.id);
@@ -37,10 +37,10 @@ function EventDetail({ event, onClose, onDelete }: EventDetailProps): JSX.Elemen
             <span className="text-gray-400">Ende:</span> {formatDate(event.end)}
           </p>
           <p>
-            <span className="text-gray-400">Ort:</span> {event.location ?? "-"}
+            <span className="text-gray-400">Location:</span> {event.location ?? "-"}
           </p>
           <p>
-            <span className="text-gray-400">Beschreibung:</span> {event.description ?? "-"}
+            <span className="text-gray-400">Description:</span> {event.description ?? "-"}
           </p>
           <p>
             <span className="text-gray-400">Teilnehmer:</span>{" "}
@@ -61,7 +61,7 @@ function EventDetail({ event, onClose, onDelete }: EventDetailProps): JSX.Elemen
 
         <div className="flex gap-2">
           <Button type="button" variant="danger" onClick={() => void handleDelete()}>
-            Loeschen
+            Delete
           </Button>
           <Button type="button" variant="ghost" onClick={onClose}>
             Schliessen

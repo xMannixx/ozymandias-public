@@ -12,6 +12,12 @@ const tabs: { id: ProposalTab; label: string }[] = [
   { id: "rejected", label: "Rejected" },
 ];
 
+const emptyStateByTab: Record<ProposalTab, string> = {
+  pending: "Nothing waiting for review. New proposals from Ozymandias will show up here first.",
+  confirmed: "No approved proposals yet.",
+  rejected: "No rejected proposals yet.",
+};
+
 function ProposalList(): JSX.Element {
   const {
     visibleProposals,
@@ -29,6 +35,14 @@ function ProposalList(): JSX.Element {
 
   return (
     <section className="space-y-4">
+      <header className="glass-card space-y-1 p-3">
+        <h2 className="text-lg font-semibold text-gray-100">Review Inbox</h2>
+        <p className="text-sm text-gray-400">
+          Proposals are things Ozymandias wants to remember about you. Nothing becomes a permanent memory until you
+          approve it here - approving stores it in Memory, rejecting discards it.
+        </p>
+      </header>
+
       <div className="glass-card flex flex-wrap items-center gap-2 p-2">
         {tabs.map((tab) => (
           <button
@@ -59,7 +73,7 @@ function ProposalList(): JSX.Element {
       {error ? <p className="text-sm text-red-300">{error}</p> : null}
 
       {!loading && visibleProposals.length === 0 ? (
-        <p className="glass-card p-4 text-sm text-gray-400">Keine Proposals in diesem Tab.</p>
+        <p className="glass-card p-4 text-sm text-gray-400">{emptyStateByTab[activeTab]}</p>
       ) : (
         <div className="grid gap-4 md:grid-cols-[3fr_2fr]">
           <div className="grid gap-3">
@@ -78,7 +92,7 @@ function ProposalList(): JSX.Element {
           {selectedProposal ? (
             <ProposalDetail proposal={selectedProposal} />
           ) : (
-            <div className="glass-card h-fit p-4 text-sm text-gray-400">Waehle ein Proposal fuer Details.</div>
+            <div className="glass-card h-fit p-4 text-sm text-gray-400">Select a proposal to see details.</div>
           )}
         </div>
       )}

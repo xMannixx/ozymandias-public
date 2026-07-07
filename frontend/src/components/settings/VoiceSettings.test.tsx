@@ -31,7 +31,7 @@ describe("VoiceSettings", () => {
       />,
     );
 
-    expect(screen.getByText("Sprache / Voice")).toBeInTheDocument();
+    expect(screen.getByText("Speech / Voice")).toBeInTheDocument();
     await waitFor(() => {
       expect(getVoicesMock).toHaveBeenCalled();
     });
@@ -52,11 +52,11 @@ describe("VoiceSettings", () => {
     );
 
     await userEvent.click(screen.getByLabelText("settings-voice-enabled"));
-    await userEvent.click(screen.getByRole("radio", { name: "Freisprechen" }));
+    await userEvent.click(screen.getByRole("radio", { name: "Hands-free" }));
     await userEvent.selectOptions(screen.getByLabelText("settings-voice-select"), "nova");
     await userEvent.click(screen.getByRole("radio", { name: "tts-1-hd" }));
     await userEvent.click(screen.getByLabelText("settings-voice-autoplay"));
-    await userEvent.click(screen.getByRole("button", { name: "Voice speichern" }));
+    await userEvent.click(screen.getByRole("button", { name: "Save voice" }));
 
     expect(onSave).toHaveBeenCalledWith(true, "hands_free", "nova", "tts-1-hd", false);
   });
@@ -85,7 +85,7 @@ describe("VoiceSettings", () => {
       />,
     );
 
-    await userEvent.click(screen.getByRole("button", { name: "Stimme testen" }));
+    await userEvent.click(screen.getByRole("button", { name: "Test voice" }));
     await waitFor(() => {
       expect(synthesizeSpeechMock).toHaveBeenCalled();
     });

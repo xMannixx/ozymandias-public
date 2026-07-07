@@ -16,7 +16,7 @@ describe("DecaySettings", () => {
     await userEvent.clear(screen.getByLabelText("decay-interval-hours"));
     await userEvent.type(screen.getByLabelText("decay-interval-hours"), "48");
     fireEvent.change(screen.getByLabelText("decay-confidence-threshold"), { target: { value: "0.75" } });
-    await userEvent.click(screen.getByRole("button", { name: "Speichern" }));
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
 
     expect(onSave).toHaveBeenCalledWith(48, 0.75);
   });
@@ -27,9 +27,9 @@ describe("DecaySettings", () => {
 
     await userEvent.clear(screen.getByLabelText("decay-interval-hours"));
     await userEvent.type(screen.getByLabelText("decay-interval-hours"), "0");
-    await userEvent.click(screen.getByRole("button", { name: "Speichern" }));
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
 
-    expect(screen.getByText(/Intervall muss zwischen 1 und 720 Stunden liegen/i)).toBeInTheDocument();
+    expect(screen.getByText(/Interval must be between 1 and 720 hours/i)).toBeInTheDocument();
     expect(onSave).not.toHaveBeenCalled();
   });
 
@@ -38,7 +38,7 @@ describe("DecaySettings", () => {
     render(<DecaySettings intervalHours={24} confidenceThreshold={0.6} onSave={onSave} />);
 
     fireEvent.change(screen.getByLabelText("decay-confidence-threshold"), { target: { value: "0.45" } });
-    await userEvent.click(screen.getByRole("button", { name: "Speichern" }));
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
 
     expect(onSave).toHaveBeenCalledWith(24, 0.45);
   });

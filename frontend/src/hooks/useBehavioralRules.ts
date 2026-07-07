@@ -32,7 +32,7 @@ function normalizeError(error: unknown): string {
   if (error instanceof ApiError || error instanceof Error) {
     return error.message;
   }
-  return "Unbekannter Fehler";
+  return "Unknown error";
 }
 
 export function useBehavioralRules(): UseBehavioralRulesResult {
@@ -67,7 +67,7 @@ export function useBehavioralRules(): UseBehavioralRulesResult {
     async (id: string, overrideSoft = false) => {
       try {
         await approveBehavioralRule(id, overrideSoft);
-        setToast({ type: "success", message: "Regel aktiviert." });
+        setToast({ type: "success", message: "Rule activated." });
         await refetch();
       } catch (err) {
         setToast({ type: "error", message: normalizeError(err) });
@@ -80,7 +80,7 @@ export function useBehavioralRules(): UseBehavioralRulesResult {
     async (id: string, reason?: string) => {
       try {
         await rejectBehavioralRule(id, reason);
-        setToast({ type: "success", message: "Regel abgelehnt." });
+        setToast({ type: "success", message: "Rule rejected." });
         await refetch();
       } catch (err) {
         setToast({ type: "error", message: normalizeError(err) });
@@ -93,7 +93,7 @@ export function useBehavioralRules(): UseBehavioralRulesResult {
     async (id: string, reason?: string) => {
       try {
         await retireBehavioralRule(id, reason);
-        setToast({ type: "success", message: "Regel stillgelegt." });
+        setToast({ type: "success", message: "Rule retired." });
         await refetch();
       } catch (err) {
         setToast({ type: "error", message: normalizeError(err) });

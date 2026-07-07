@@ -165,7 +165,7 @@ export function useVoice({ onTranscript, ttsVoice = "ash", ttsModel = "tts-1" }:
         };
         utterance.onerror = () => {
           speechUtteranceRef.current = null;
-          setError("TTS-Wiedergabe fehlgeschlagen");
+          setError("Text-to-speech playback failed");
           updateVoiceState("idle");
         };
         speechUtteranceRef.current = utterance;
@@ -251,7 +251,7 @@ export function useVoice({ onTranscript, ttsVoice = "ash", ttsModel = "tts-1" }:
       await ensureMicStream();
       setIsVoiceEnabled(true);
     } catch {
-      setError("Mikrofonzugriff verweigert");
+      setError("Microphone access denied");
       setIsVoiceEnabled(false);
     }
   }, [ensureMicStream, isVoiceEnabled, releaseStream, stopVadLoop, updateVoiceState]);
@@ -270,11 +270,11 @@ export function useVoice({ onTranscript, ttsVoice = "ash", ttsModel = "tts-1" }:
         try {
           await onTranscriptRef.current(text);
         } catch {
-          setError("Nachricht konnte nicht gesendet werden");
+          setError("Failed to send the message");
         }
       }
     } catch {
-      setError("Transkription fehlgeschlagen");
+      setError("Transcription failed");
     } finally {
       updateVoiceState("idle");
       processingRef.current = false;
@@ -306,7 +306,7 @@ export function useVoice({ onTranscript, ttsVoice = "ash", ttsModel = "tts-1" }:
       recorder.start();
       updateVoiceState("recording");
     } catch {
-      setError("Aufnahme konnte nicht gestartet werden");
+      setError("Failed to start recording");
       updateVoiceState("idle");
     }
   }, [ensureMicStream, isVoiceEnabled, updateVoiceState]);
@@ -377,7 +377,7 @@ export function useVoice({ onTranscript, ttsVoice = "ash", ttsModel = "tts-1" }:
         }, 120);
       } catch {
         if (!cancelled) {
-          setError("Freisprechen konnte nicht gestartet werden");
+          setError("Failed to start hands-free mode");
         }
       }
     })();
@@ -427,7 +427,7 @@ export function useVoice({ onTranscript, ttsVoice = "ash", ttsModel = "tts-1" }:
             }
             playbackBlockedRef.current = true;
             updateVoiceState("idle");
-            setError("Wiedergabe wartet auf Interaktion");
+            setError("Playback is waiting for interaction");
             return false;
           }
           throw error;
@@ -441,7 +441,7 @@ export function useVoice({ onTranscript, ttsVoice = "ash", ttsModel = "tts-1" }:
         }
         cancelPlayback();
         playbackBlockedRef.current = false;
-        setError("TTS-Wiedergabe fehlgeschlagen");
+        setError("Text-to-speech playback failed");
         updateVoiceState("idle");
         return false;
       }

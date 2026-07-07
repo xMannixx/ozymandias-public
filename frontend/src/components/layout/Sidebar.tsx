@@ -1,4 +1,5 @@
 import { NavLink } from "react-router-dom";
+import { usePendingProposalsCount } from "@/hooks/usePendingProposalsCount";
 
 const navItems = [
   { to: "/", label: "Chat" },
@@ -13,21 +14,36 @@ const navItems = [
   { to: "/settings", label: "Settings" },
 ];
 
-function Sidebar(): JSX.Element {
+type SidebarProps = {
+  onNavigate?: () => void;
+};
+
+function Sidebar({ onNavigate }: SidebarProps): JSX.Element {
+  const pendingProposals = usePendingProposalsCount();
+
   return (
-    <aside className="glass-card h-full min-h-[calc(100vh-2rem)] w-full p-4 md:w-64">
-      <nav className="flex flex-col gap-2">
+    <aside className="glass-card h-full w-full p-4 md:min-h-[calc(100vh-2rem)] md:w-64">
+      <nav className="flex flex-col gap-2" aria-label="Main navigation">
         {navItems.map((item) => (
           <NavLink
             key={item.to}
             to={item.to}
+            onClick={onNavigate}
             className={({ isActive }) =>
-              `rounded-md px-3 py-2 text-sm transition ${
+              `flex items-center justify-between rounded-md px-3 py-2 text-sm transition ${
                 isActive ? "bg-blue-700/50 text-blue-100" : "text-gray-200 hover:bg-gray-800/80"
               }`
             }
           >
-            {item.label}
+            <span>{item.label}</span>
+            {item.to === "/proposals" && pendingProposals > 0 ? (
+              <span
+                aria-label={`${pendingProposals} pending proposals`}
+                className="rounded-full bg-blue-600 px-2 py-0.5 text-xs font-semibold text-white"
+              >
+                {pendingProposals}
+              </span>
+            ) : null}
           </NavLink>
         ))}
       </nav>

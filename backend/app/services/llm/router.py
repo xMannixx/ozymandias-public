@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
 from functools import lru_cache
 from typing import Any
 
@@ -9,7 +10,7 @@ from app.config import get_settings
 from app.schemas import Sensitivity
 from app.services.errors import LocalProviderUnavailableError, ServiceError
 from app.services.llm.anthropic_provider import AnthropicProvider
-from app.services.llm.base import LLMMessage, LLMProvider, LLMResponse
+from app.services.llm.base import LLMMessage, LLMProvider, LLMResponse, LLMStreamItem
 from app.services.llm.deepseek import DeepSeekProvider
 from app.services.llm.gemini import GeminiProvider
 from app.services.llm.lmstudio import LMStudioProvider
@@ -137,6 +138,103 @@ class LLMRouter:
 
                 last_exc = exc
                 # Try next provider in the chain.
+
+        raise last_exc
+
+    async def route_stream(
+        self,
+        *,
+        intent: str,
+        sensitivity: Sensitivity,
+        enforce_local: bool = True,
+        messages: list[LLMMessage],
+        tools: list[dict[str, Any]] | None = None,
+        preferred_provider: str | None = None,
+        preferred_model: str | None = None,
+        preferred_local_provider: str | None = None,
+        preferred_local_model: str | None = None,
+        api_keys: dict[str, str | None] | None = None,
+    ) -> AsyncIterator[LLMStreamItem]:
+        """Stream text deltas with the same routing and fallback rules as route().
+
+        Fallback to the next provider only happens before the first delta;
+        once tokens flow, errors terminate the stream.
+        """
+        self._register_runtime_keys(api_keys)
+
+        chain = self._build_fallback_chain(
+            intent=intent,
+            sensitivity=sensitivity,
+            enforce_local=enforce_local,
+            preferred_provider=preferred_provider,
+            preferred_local_provider=preferred_local_provider,
+        )
+
+        tracker = get_token_usage_tracker()
+        last_exc: Exception = ServiceError("No providers available")
+        for provider_name in chain:
+            provider = self._providers.get(provider_name)
+            if provider is None:
+                continue
+
+            if provider_name not in {"ollama", "lmstudio"} and tracker.is_limit_exceeded(
+                provider_name
+            ):
+                last_exc = ServiceError(f"Daily token limit reached for '{provider_name}'")
+                continue
+
+            model_override = preferred_model
+            if provider_name in {"ollama", "lmstudio"}:
+                if preferred_local_model:
+                    model_override = preferred_local_model
+                elif enforce_local and sensitivity in {Sensitivity.S3, Sensitivity.S4}:
+                    model_override = None
+
+            api_key = api_keys.get(provider_name) if api_keys else None
+            chat_kwargs: dict[str, Any] = {}
+            if api_key is not None:
+                chat_kwargs["api_key"] = api_key
+
+            emitted = False
+            try:
+                final: LLMResponse | None = None
+                async for item in provider.chat_stream(
+                    messages,
+                    tools=tools,
+                    model=model_override,
+                    **chat_kwargs,
+                ):
+                    if isinstance(item, LLMResponse):
+                        final = item
+                    else:
+                        emitted = True
+                        yield item
+                if final is None:
+                    raise ServiceError(
+                        f"Provider '{provider_name}' stream ended without final response"
+                    )
+                if final.tokens_used:
+                    tracker.record(provider_name, final.tokens_used)
+                yield final
+                return
+            except Exception as exc:
+                if (
+                    provider_name in {"ollama", "lmstudio"}
+                    and enforce_local
+                    and sensitivity in {Sensitivity.S3, Sensitivity.S4}
+                    and _is_connection_error(exc)
+                ):
+                    raise LocalProviderUnavailableError(
+                        provider=provider_name,
+                        sensitivity=sensitivity.value,
+                        fallback_allowed=sensitivity is Sensitivity.S3,
+                        detail=str(exc),
+                    ) from exc
+                if _is_auth_error(exc) or emitted:
+                    # Auth errors are hard failures; after the first delta there
+                    # is no clean way to switch providers mid-stream.
+                    raise
+                last_exc = exc
 
         raise last_exc
 

@@ -28,13 +28,13 @@ function S4AuditGuard({ enabled, onEnable, onDisable }: S4AuditGuardProps): JSX.
           onChange={toggle}
           className="h-4 w-4 accent-purple-500"
         />
-        S4-Audit anzeigen
+        Show S4 audit entries
       </label>
 
       {confirmOpen ? (
         <div role="dialog" aria-label="s4-confirm-dialog" className="glass-card space-y-2 p-3">
           <p className="text-sm text-purple-100">
-            S4-Audit enthaelt sensitive Aktionen. Anzeigen?
+            S4 audit entries contain sensitive actions. Show them?
           </p>
           <div className="flex gap-2">
             <Button
@@ -44,10 +44,10 @@ function S4AuditGuard({ enabled, onEnable, onDisable }: S4AuditGuardProps): JSX.
                 setConfirmOpen(false);
               }}
             >
-              Anzeigen
+              Show
             </Button>
             <Button variant="ghost" onClick={() => setConfirmOpen(false)}>
-              Abbrechen
+              Cancel
             </Button>
           </div>
         </div>

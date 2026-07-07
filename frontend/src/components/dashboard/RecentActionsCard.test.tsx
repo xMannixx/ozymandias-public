@@ -27,6 +27,6 @@ describe("RecentActionsCard", () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByRole("link", { name: "Alle anzeigen" })).toHaveAttribute("href", "/audit");
+    expect(screen.getByRole("link", { name: "View all" })).toHaveAttribute("href", "/audit");
   });
 });

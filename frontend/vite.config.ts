@@ -14,6 +14,7 @@ export default defineConfig({
     proxy: {
       "/auth": "http://localhost:8000",
       "/turns": "http://localhost:8000",
+      "/conversations": "http://localhost:8000",
       "/claims": "http://localhost:8000",
       "/proposals": "http://localhost:8000",
       "/projects": "http://localhost:8000",
@@ -23,6 +24,11 @@ export default defineConfig({
       "/llm": "http://localhost:8000",
       "/voice": "http://localhost:8000",
       "/health": "http://localhost:8000",
+      "/settings": "http://localhost:8000",
+      "/stats": "http://localhost:8000",
+      "/audit": "http://localhost:8000",
+      "/contacts": "http://localhost:8000",
+      "/memory": "http://localhost:8000",
     },
   },
 });

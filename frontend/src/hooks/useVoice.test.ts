@@ -122,7 +122,7 @@ describe("useVoice", () => {
     });
 
     await waitFor(() => {
-      expect(result.current.error).toBe("Wiedergabe wartet auf Interaktion");
+      expect(result.current.error).toBe("Playback is waiting for interaction");
     });
     expect(playMock).toHaveBeenCalledTimes(1);
 
@@ -308,9 +308,9 @@ describe("useVoice", () => {
     });
 
     await waitFor(() => {
-      expect(result.current.error).toBe("Nachricht konnte nicht gesendet werden");
+      expect(result.current.error).toBe("Failed to send the message");
     });
-    expect(result.current.error).not.toBe("Transkription fehlgeschlagen");
+    expect(result.current.error).not.toBe("Transcription failed");
   });
 
   it("hands-free VAD interval reads current voice state so silence can stop recording", async () => {

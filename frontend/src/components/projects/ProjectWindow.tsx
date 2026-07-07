@@ -17,12 +17,12 @@ type ProjectWindowProps = {
 type WindowTabId = "overview" | "tasks" | "milestones" | "risks" | "notes" | "files" | "links";
 
 const tabs: Array<{ id: WindowTabId; label: string }> = [
-  { id: "overview", label: "Uebersicht" },
-  { id: "tasks", label: "Aufgaben" },
-  { id: "milestones", label: "Meilensteine" },
-  { id: "risks", label: "Risiken" },
-  { id: "notes", label: "Notizen" },
-  { id: "files", label: "Dateien" },
+  { id: "overview", label: "Overview" },
+  { id: "tasks", label: "Tasks" },
+  { id: "milestones", label: "Milestones" },
+  { id: "risks", label: "Risks" },
+  { id: "notes", label: "Notes" },
+  { id: "files", label: "Files" },
   { id: "links", label: "Links" },
 ];
 
@@ -157,7 +157,7 @@ function ProjectWindow({ projectId }: ProjectWindowProps): JSX.Element {
   if (!selectedProject) {
     return (
       <div className="rounded-md border border-red-700/40 bg-red-900/20 p-3 text-sm text-red-100">
-        {error ?? "Projekt konnte nicht geladen werden."}
+        {error ?? "Failed to load project."}
       </div>
     );
   }

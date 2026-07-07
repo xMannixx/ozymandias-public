@@ -1,14 +1,21 @@
+import { Link } from "react-router-dom";
 import ClaimActions from "@/components/memory/ClaimActions";
 import ClaimVersionTimeline from "@/components/memory/ClaimVersionTimeline";
 import ConflictGroup from "@/components/memory/ConflictGroup";
 import S4Guard from "@/components/memory/S4Guard";
+import InfoHint from "@/components/common/InfoHint";
+import SensitivityChip from "@/components/common/SensitivityChip";
 import { MEMORY_TYPE_LABELS } from "@/constants/memoryTypes";
+import { claimSentence } from "@/lib/claimText";
+import { claimStatusSentence, labelFor, SOURCE_TYPE_LABELS, TRUST_DESCRIPTIONS, TRUST_LABELS } from "@/lib/labels";
+import { toRelativeTime } from "@/lib/relativeTime";
 import type { ClaimResponse, ClaimVersionResponse, Sensitivity } from "@/api/types";
 
 type ClaimDetailProps = {
   claim: ClaimResponse;
   versions: ClaimVersionResponse[];
   conflictGroupId?: string | null;
+  conflictRelatedCount?: number;
   onConfirm: (id: string) => Promise<void>;
   onRetract: (id: string) => Promise<void>;
   onArchive: (id: string) => Promise<void>;
@@ -45,10 +52,23 @@ function FieldGroup({ title, fields }: { title: string; fields: Field[] }): JSX.
   );
 }
 
+function TimestampLine({ label, value }: { label: string; value: string | null }): JSX.Element | null {
+  if (!value) {
+    return null;
+  }
+  return (
+    <p className="text-xs text-gray-400">
+      {label}: <span className="text-gray-200">{toRelativeTime(value)}</span>{" "}
+      <span className="text-gray-500">({new Date(value).toLocaleString()})</span>
+    </p>
+  );
+}
+
 function ClaimDetail({
   claim,
   versions,
   conflictGroupId,
+  conflictRelatedCount,
   onConfirm,
   onRetract,
   onArchive,
@@ -56,13 +76,17 @@ function ClaimDetail({
   onUnlock,
   onSensitivityChange,
 }: ClaimDetailProps): JSX.Element {
+  const sentence = claimSentence(claim);
+  const laneLabel = MEMORY_TYPE_LABELS[claim.memory_type.toLowerCase()] ?? claim.memory_type;
+  const isS4 = claim.sensitivity === "S4";
+
   const coreFields: Field[] = [
     { label: "claim_id", value: claim.claim_id },
     { label: "subject", value: claim.subject },
     { label: "attribute", value: toText(claim.attribute) },
     { label: "value", value: claim.value },
     { label: "content", value: claim.content },
-    { label: "memory_type", value: MEMORY_TYPE_LABELS[claim.memory_type] ?? claim.memory_type },
+    { label: "memory_type", value: claim.memory_type },
   ];
 
   const classificationFields: Field[] = [
@@ -94,6 +118,26 @@ function ClaimDetail({
 
   return (
     <article className="glass-card space-y-4 p-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <SensitivityChip sensitivity={claim.sensitivity} />
+        <span className="flex items-center gap-1 rounded bg-gray-800 px-2 py-0.5 text-xs text-gray-300">
+          {labelFor(TRUST_LABELS, claim.trust_level)}
+          <InfoHint
+            text={TRUST_DESCRIPTIONS[claim.trust_level] ?? "Trust level of this memory's source."}
+            label="What does this trust level mean?"
+          />
+        </span>
+        <span className="rounded bg-gray-800 px-2 py-0.5 text-xs text-gray-300">{laneLabel}</span>
+      </div>
+
+      <p className="flex flex-wrap items-center gap-1 text-sm text-gray-300">
+        {claimStatusSentence(claim)}
+        <InfoHint
+          text="Verification state, how long this memory is kept, and where it may be processed."
+          label="What does this status mean?"
+        />
+      </p>
+
       <ClaimActions
         claim={claim}
         onConfirm={onConfirm}
@@ -104,13 +148,41 @@ function ClaimDetail({
         onSensitivityChange={onSensitivityChange}
       />
 
-      <ConflictGroup conflictGroupId={conflictGroupId} />
+      <ConflictGroup conflictGroupId={conflictGroupId} relatedCount={conflictRelatedCount} />
 
-      <S4Guard isS4={claim.sensitivity === "S4"}>
-        <FieldGroup title="Kern" fields={coreFields} />
-        <FieldGroup title="Klassifikation" fields={classificationFields} />
-        <FieldGroup title="Status" fields={statusFields} />
-        <FieldGroup title="Zeitstempel" fields={timestampFields} />
+      <S4Guard isS4={isS4}>
+        <div className="space-y-3">
+          <p className="text-base font-semibold text-gray-100">{sentence}</p>
+          <p className="text-xs text-gray-500">
+            Source: {labelFor(SOURCE_TYPE_LABELS, claim.source_type)}
+            {claim.source_ref ? (
+              <>
+                {" - "}
+                <Link
+                  to={`/audit?source_ref=${encodeURIComponent(claim.source_ref)}`}
+                  className="text-blue-300 underline hover:text-blue-200"
+                >
+                  View related audit entries
+                </Link>
+              </>
+            ) : null}
+          </p>
+          <div className="space-y-0.5">
+            <TimestampLine label="Created" value={claim.created_at} />
+            <TimestampLine label="Last updated" value={claim.updated_at} />
+            <TimestampLine label="Last reviewed" value={claim.last_reviewed} />
+          </div>
+
+          <details>
+            <summary className="cursor-pointer select-none text-xs text-gray-300">Technical details</summary>
+            <div className="mt-2 space-y-3">
+              <FieldGroup title="Core" fields={coreFields} />
+              <FieldGroup title="Classification" fields={classificationFields} />
+              <FieldGroup title="Status" fields={statusFields} />
+              <FieldGroup title="Timestamps" fields={timestampFields} />
+            </div>
+          </details>
+        </div>
       </S4Guard>
 
       <ClaimVersionTimeline versions={versions} />

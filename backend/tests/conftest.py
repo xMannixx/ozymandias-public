@@ -52,6 +52,7 @@ class FakeAsyncSession:
         self.deleted: list[object] = []
         self.commits = 0
         self.refreshes = 0
+        self.rollbacks = 0
 
     def queue_execute_result(self, result: FakeQueryResult) -> None:
         self._execute_results.append(result)
@@ -66,6 +67,9 @@ class FakeAsyncSession:
 
     async def commit(self) -> None:
         self.commits += 1
+
+    async def rollback(self) -> None:
+        self.rollbacks += 1
 
     async def refresh(self, _obj: object) -> None:
         self.refreshes += 1

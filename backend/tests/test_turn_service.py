@@ -24,7 +24,7 @@ from app.schemas import (
     TrustLevel,
     VerificationState,
 )
-from app.schemas.api_models import TurnRequest
+from app.schemas.api_models import TurnAttachment, TurnRequest
 from app.schemas.contracts import (
     ConflictResultConflictGroupPayload,
     ConflictResultConflictGroupVariant,
@@ -944,6 +944,261 @@ async def test_process_turn_injects_context_block_as_second_system_message(
     assemble_args = assemble_mock.await_args
     assert assemble_args is not None
     assert assemble_args.kwargs["user_id"] == "user-1"
+
+
+@pytest.mark.asyncio
+async def test_process_turn_persists_chat_messages_to_conversation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = TurnService(cast(AsyncSession, FakeAsyncSession()))
+    _prepare_service(service)
+    _patch_context_assembler(monkeypatch)
+    _patch_default_rust(monkeypatch, claims=[])
+    conversation = SimpleNamespace(conversation_id=uuid.uuid4())
+    service.conversation_service.create_conversation = AsyncMock(  # type: ignore[method-assign]
+        return_value=conversation
+    )
+    service.conversation_service.append_message = AsyncMock()  # type: ignore[method-assign]
+    service.llm_router.route = AsyncMock(  # type: ignore[method-assign]
+        return_value=LLMResponse(
+            content="answer",
+            model="llama3",
+            provider="ollama",
+            tokens_used=5,
+        )
+    )
+    service.claim_extractor.extract = AsyncMock(return_value=[])  # type: ignore[method-assign]
+
+    result = await service.process_turn(user_id="user-1", payload=TurnRequest(text="hello"))
+    assert result.conversation_id == str(conversation.conversation_id)
+    assert service.conversation_service.create_conversation.await_count == 1
+    append_calls = service.conversation_service.append_message.await_args_list
+    assert [call.kwargs["role"] for call in append_calls] == ["user", "assistant"]
+    assert append_calls[0].kwargs["content"] == "hello"
+    assert append_calls[1].kwargs["content"] == "answer"
+    assert append_calls[1].kwargs["provider"] == "ollama"
+
+
+@pytest.mark.asyncio
+async def test_process_turn_injects_conversation_history_into_llm_messages(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = TurnService(cast(AsyncSession, FakeAsyncSession()))
+    _prepare_service(service)
+    _patch_context_assembler(monkeypatch)
+    _patch_default_rust(monkeypatch, claims=[])
+    conversation = SimpleNamespace(conversation_id=uuid.uuid4())
+    service.conversation_service.get_conversation = AsyncMock(  # type: ignore[method-assign]
+        return_value=conversation
+    )
+    service.conversation_service.append_message = AsyncMock()  # type: ignore[method-assign]
+    service.conversation_service.recent_history = AsyncMock(  # type: ignore[method-assign]
+        return_value=[
+            SimpleNamespace(role="user", content="earlier question"),
+            SimpleNamespace(role="assistant", content="earlier answer"),
+        ]
+    )
+    service.llm_router.route = AsyncMock(  # type: ignore[method-assign]
+        return_value=LLMResponse(
+            content="answer",
+            model="llama3",
+            provider="ollama",
+            tokens_used=5,
+        )
+    )
+    service.claim_extractor.extract = AsyncMock(return_value=[])  # type: ignore[method-assign]
+
+    await service.process_turn(
+        user_id="user-1",
+        payload=TurnRequest(text="follow-up", conversation_id=str(conversation.conversation_id)),
+    )
+    route_call = service.llm_router.route.await_args
+    assert route_call is not None
+    messages = route_call.kwargs["messages"]
+    contents = [message["content"] for message in messages]
+    assert "earlier question" in contents
+    assert "earlier answer" in contents
+    assert contents.index("earlier question") < contents.index("follow-up")
+
+
+@pytest.mark.asyncio
+async def test_process_turn_with_claims_override_skips_conversation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = TurnService(cast(AsyncSession, FakeAsyncSession()))
+    _prepare_service(service)
+    _patch_default_rust(monkeypatch, claims=[])
+    service.conversation_service.create_conversation = AsyncMock()  # type: ignore[method-assign]
+    service.conversation_service.append_message = AsyncMock()  # type: ignore[method-assign]
+
+    result = await service.process_turn(
+        user_id="user-1", payload=TurnRequest(text="hello", claims=[])
+    )
+    assert result.conversation_id is None
+    assert service.conversation_service.create_conversation.await_count == 0
+    assert service.conversation_service.append_message.await_count == 0
+
+
+@pytest.mark.asyncio
+async def test_process_turn_includes_attachments_in_user_message_and_history(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = TurnService(cast(AsyncSession, FakeAsyncSession()))
+    _prepare_service(service)
+    _patch_context_assembler(monkeypatch)
+    _patch_default_rust(monkeypatch, claims=[])
+    conversation = SimpleNamespace(conversation_id=uuid.uuid4())
+    service.conversation_service.create_conversation = AsyncMock(  # type: ignore[method-assign]
+        return_value=conversation
+    )
+    service.conversation_service.append_message = AsyncMock()  # type: ignore[method-assign]
+
+    classify_mock = AsyncMock(
+        return_value=SensitivityClassification(
+            sensitivity=Sensitivity.S1,
+            source="keyword",
+            local_classifier_available=True,
+        )
+    )
+    monkeypatch.setattr("app.services.turn_service.classify_sensitivity", classify_mock)
+    service.llm_router.route = AsyncMock(  # type: ignore[method-assign]
+        return_value=LLMResponse(
+            content="summary",
+            model="llama3",
+            provider="ollama",
+            tokens_used=5,
+        )
+    )
+    service.claim_extractor.extract = AsyncMock(return_value=[])  # type: ignore[method-assign]
+
+    payload = TurnRequest(
+        text="Summarize this file",
+        attachments=[TurnAttachment(filename="notes.txt", content="meeting agenda content")],
+    )
+    await service.process_turn(user_id="user-1", payload=payload)
+
+    # Classification saw the attachment content.
+    classify_args = classify_mock.await_args
+    assert classify_args is not None
+    assert "meeting agenda content" in classify_args.args[0]
+
+    # LLM user message contains the attachment block.
+    route_call = service.llm_router.route.await_args
+    assert route_call is not None
+    user_message = route_call.kwargs["messages"][-1]
+    assert user_message["role"] == "user"
+    assert "[Attachment: notes.txt]" in user_message["content"]
+    assert "meeting agenda content" in user_message["content"]
+
+    # Persisted user message keeps the attachment content for future context.
+    append_calls = service.conversation_service.append_message.await_args_list
+    assert "[Attachment: notes.txt]" in append_calls[0].kwargs["content"]
+
+
+@pytest.mark.asyncio
+async def test_process_turn_stream_yields_deltas_and_result(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = TurnService(cast(AsyncSession, FakeAsyncSession()))
+    _prepare_service(service)
+    _patch_context_assembler(monkeypatch)
+    _patch_default_rust(monkeypatch, claims=[])
+    conversation = SimpleNamespace(conversation_id=uuid.uuid4())
+    service.conversation_service.create_conversation = AsyncMock(  # type: ignore[method-assign]
+        return_value=conversation
+    )
+    service.conversation_service.append_message = AsyncMock()  # type: ignore[method-assign]
+
+    async def _fake_stream(**kwargs: object) -> object:
+        yield "Hel"
+        yield "lo"
+        yield LLMResponse(
+            content="Hello",
+            model="llama3",
+            provider="ollama",
+            tokens_used=5,
+        )
+
+    monkeypatch.setattr(service.llm_router, "route_stream", _fake_stream)
+    service.claim_extractor.extract = AsyncMock(return_value=[])  # type: ignore[method-assign]
+
+    events = [
+        event
+        async for event in service.process_turn_stream(
+            user_id="user-1", payload=TurnRequest(text="hello")
+        )
+    ]
+    assert [event["event"] for event in events] == ["delta", "delta", "result"]
+    assert events[0]["data"] == {"text": "Hel"}
+    assert events[1]["data"] == {"text": "lo"}
+    result_data = events[2]["data"]
+    assert result_data["response_text"] == "Hello"
+    assert result_data["provider"] == "ollama"
+    assert result_data["conversation_id"] == str(conversation.conversation_id)
+    append_calls = service.conversation_service.append_message.await_args_list
+    assert [call.kwargs["role"] for call in append_calls] == ["user", "assistant"]
+
+
+@pytest.mark.asyncio
+async def test_process_turn_stream_yields_error_event_on_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = TurnService(cast(AsyncSession, FakeAsyncSession()))
+    _prepare_service(service)
+    service.circuit_breaker.check = (  # type: ignore[method-assign]
+        AsyncMock(side_effect=CircuitBreakerTrippedError("blocked"))
+    )
+
+    events = [
+        event
+        async for event in service.process_turn_stream(
+            user_id="user-1", payload=TurnRequest(text="hello")
+        )
+    ]
+    assert len(events) == 1
+    assert events[0]["event"] == "error"
+    assert events[0]["data"]["code"] == "circuit_breaker_tripped"
+    assert service.audit.log.await_count >= 1  # type: ignore[attr-defined]
+
+
+@pytest.mark.asyncio
+async def test_process_turn_stream_maps_local_provider_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = TurnService(cast(AsyncSession, FakeAsyncSession()))
+    _prepare_service(service)
+    _patch_context_assembler(monkeypatch)
+
+    async def _failing_stream(**kwargs: object) -> object:
+        raise LocalProviderUnavailableError(
+            provider="ollama",
+            sensitivity="S3",
+            fallback_allowed=True,
+            detail="connection refused",
+        )
+        yield ""  # pragma: no cover - makes this an async generator
+
+    monkeypatch.setattr(service.llm_router, "route_stream", _failing_stream)
+    monkeypatch.setattr(
+        "app.services.turn_service.classify_sensitivity",
+        AsyncMock(
+            return_value=SensitivityClassification(
+                sensitivity=Sensitivity.S3,
+                source="keyword",
+                local_classifier_available=True,
+            )
+        ),
+    )
+
+    events = [
+        event
+        async for event in service.process_turn_stream(
+            user_id="user-1", payload=TurnRequest(text="mein gehalt ist privat")
+        )
+    ]
+    assert events[-1]["event"] == "error"
+    assert events[-1]["data"]["code"] == "local_provider_unavailable"
+    assert events[-1]["data"]["fallback_allowed"] is True
 
 
 @pytest.mark.asyncio

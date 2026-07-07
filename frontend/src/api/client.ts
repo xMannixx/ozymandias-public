@@ -23,7 +23,7 @@ export const authRedirect = {
   },
 };
 
-function buildUrl(path: string): string {
+export function buildUrl(path: string): string {
   if (!baseUrl) {
     return path;
   }
@@ -64,7 +64,7 @@ function formatValidationDetail(detail: unknown): string | null {
   return formattedMessages.join(" | ");
 }
 
-function getErrorMessage(payload: unknown, defaultMessage: string): string {
+export function getErrorMessage(payload: unknown, defaultMessage: string): string {
   if (typeof payload !== "object" || payload === null || !("detail" in payload)) {
     return defaultMessage;
   }
@@ -132,13 +132,13 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
 
     if (response.status === 413) {
       throw new ApiError(
-        "Datei zu gross fuer den Upload (Server-Limit). Bitte kleinere Datei waehlen.",
+        "File too large for upload (server limit). Please choose a smaller file.",
         413,
         payload,
       );
     }
 
-    const defaultMessage = response.status >= 500 ? "Server-Fehler" : "Request failed";
+    const defaultMessage = response.status >= 500 ? "Server error" : "Request failed";
     const message = getErrorMessage(payload, defaultMessage);
     throw new ApiError(message, response.status, payload);
   }

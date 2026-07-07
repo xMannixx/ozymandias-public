@@ -19,7 +19,7 @@ function normalizeError(error: unknown): string {
   if (error instanceof Error) {
     return error.message;
   }
-  return "Google-Status konnte nicht geladen werden";
+  return "Failed to load Google status";
 }
 
 export function useGoogleStatus(): UseGoogleStatusResult {

@@ -95,7 +95,7 @@ function ApiKeysSettings({ settings, saving, onSave }: ApiKeysSettingsProps): JS
               type="button"
               onClick={toggleShow}
               className="p-1 hover:text-gray-100 text-gray-400 focus:outline-none transition-colors cursor-pointer"
-              title={show ? "Verbergen" : "Anzeigen"}
+              title={show ? "Hide" : "Show"}
             >
               {show ? (
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -113,7 +113,7 @@ function ApiKeysSettings({ settings, saving, onSave }: ApiKeysSettingsProps): JS
                 type="button"
                 onClick={() => onChange("")}
                 className="p-1 hover:text-red-400 text-gray-400 focus:outline-none transition-colors cursor-pointer"
-                title="Löschen"
+                title="Delete"
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-4v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -130,9 +130,9 @@ function ApiKeysSettings({ settings, saving, onSave }: ApiKeysSettingsProps): JS
     <GlassCard className="space-y-4">
       <div className="flex items-center justify-between border-b border-gray-800 pb-2">
         <div>
-          <h3 className="text-sm font-semibold text-gray-200">Cloud API-Schlüssel</h3>
+          <h3 className="text-sm font-semibold text-gray-200">Cloud API keys</h3>
           <p className="text-xs text-gray-400 mt-0.5">
-            Konfiguriere deine individuellen API-Schlüssel für externe Model-Anbieter.
+            Configure your own API keys for external model providers.
           </p>
         </div>
         {saving && <Spinner />}
@@ -193,12 +193,12 @@ function ApiKeysSettings({ settings, saving, onSave }: ApiKeysSettingsProps): JS
           onClick={handleSave}
           disabled={saving}
         >
-          Keys speichern
+          Save keys
         </button>
 
         {saveSuccess && (
           <span className="text-xs text-green-400 animate-fade-in">
-            Schlüssel erfolgreich aktualisiert!
+            Keys updated successfully!
           </span>
         )}
       </div>

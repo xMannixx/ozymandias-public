@@ -34,10 +34,10 @@ function MailDetail({ message, onReply }: MailDetailProps): JSX.Element {
           <span className="text-gray-400">An:</span> {message.to.join(", ")}
         </p>
         <p>
-          <span className="text-gray-400">Betreff:</span> {message.subject ?? "(kein Betreff)"}
+          <span className="text-gray-400">Subject:</span> {message.subject ?? "(no subject)"}
         </p>
         <p>
-          <span className="text-gray-400">Datum:</span> {formatDate(message.date)}
+          <span className="text-gray-400">Date:</span> {formatDate(message.date)}
         </p>
       </div>
 
@@ -56,7 +56,7 @@ function MailDetail({ message, onReply }: MailDetailProps): JSX.Element {
       <div className="space-y-1">
         <p className="text-xs uppercase tracking-wide text-gray-400">Attachments</p>
         {message.attachments.length === 0 ? (
-          <p className="text-sm text-gray-500">Keine Attachments</p>
+          <p className="text-sm text-gray-500">No attachments</p>
         ) : (
           <ul className="space-y-1 text-sm text-gray-300">
             {message.attachments.map((attachment) => (

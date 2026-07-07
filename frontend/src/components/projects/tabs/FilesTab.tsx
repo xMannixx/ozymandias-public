@@ -91,7 +91,7 @@ function FilesTab({
           dragActive ? "border-blue-500 bg-blue-950/30 text-blue-100" : "border-gray-600 text-gray-300"
         }`}
       >
-        <p>Datei hierher ziehen oder auswaehlen</p>
+        <p>Drag a file here or choose one</p>
         <label className="mt-2 inline-block cursor-pointer rounded bg-blue-700 px-3 py-1.5 text-xs text-white">
           Datei waehlen
           <input type="file" className="hidden" onChange={(event) => void onFileInput(event)} />
@@ -105,7 +105,7 @@ function FilesTab({
       </div>
 
       {files.length === 0 ? (
-        <p className="text-sm text-gray-400">Keine Dateien vorhanden.</p>
+        <p className="text-sm text-gray-400">No files yet.</p>
       ) : (
         <div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-3">
           {files.map((file) => (
@@ -120,7 +120,7 @@ function FilesTab({
                 {file.original_name}
               </p>
               <p className="mt-1 text-xs text-gray-500">
-                {new Date(file.created_at).toLocaleString("de-DE")}
+                {new Date(file.created_at).toLocaleString("en-GB")}
               </p>
               <div className="mt-3 flex items-center gap-2">
                 <Button

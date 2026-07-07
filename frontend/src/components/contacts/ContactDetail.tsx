@@ -91,7 +91,7 @@ function ContactDetail({
     event.preventDefault();
     setError(null);
     if (!firstName.trim()) {
-      setError("Vorname ist Pflicht.");
+      setError("First name is required.");
       return;
     }
     const phonePayload = phones
@@ -151,7 +151,7 @@ function ContactDetail({
               disabled={busy}
               onClick={() => void onDeleteAvatar(contact.contact_id)}
             >
-              Avatar entfernen
+              Remove avatar
             </Button>
           ) : null}
         </div>
@@ -160,7 +160,7 @@ function ContactDetail({
       <form className="space-y-3" onSubmit={(event) => void submit(event)}>
         <div>
           <label className="mb-1 block text-xs text-gray-400" htmlFor="cd-first">
-            Vorname
+            First name
           </label>
           <input
             id="cd-first"
@@ -171,7 +171,7 @@ function ContactDetail({
         </div>
         <div>
           <label className="mb-1 block text-xs text-gray-400" htmlFor="cd-last">
-            Nachname
+            Last name
           </label>
           <input
             id="cd-last"
@@ -182,7 +182,7 @@ function ContactDetail({
         </div>
         <div>
           <label className="mb-1 block text-xs text-gray-400" htmlFor="cd-company">
-            Firma
+            Company
           </label>
           <input
             id="cd-company"
@@ -193,7 +193,7 @@ function ContactDetail({
         </div>
         <div>
           <label className="mb-1 block text-xs text-gray-400" htmlFor="cd-role">
-            Rolle
+            Role
           </label>
           <input
             id="cd-role"
@@ -204,7 +204,7 @@ function ContactDetail({
         </div>
         <div>
           <label className="mb-1 block text-xs text-gray-400" htmlFor="cd-address">
-            Adresse
+            Address
           </label>
           <textarea
             id="cd-address"
@@ -216,7 +216,7 @@ function ContactDetail({
         </div>
         <div>
           <label className="mb-1 block text-xs text-gray-400" htmlFor="cd-birthday">
-            Geburtstag
+            Birthday
           </label>
           <input
             id="cd-birthday"
@@ -228,7 +228,7 @@ function ContactDetail({
         </div>
         <div>
           <label className="mb-1 block text-xs text-gray-400" htmlFor="cd-notes">
-            Notizen
+            Notes
           </label>
           <textarea
             id="cd-notes"
@@ -251,11 +251,11 @@ function ContactDetail({
         </div>
 
         <div className="space-y-2">
-          <p className="text-xs font-semibold text-gray-400">Telefon</p>
+          <p className="text-xs font-semibold text-gray-400">Phone</p>
           {phones.map((row, index) => (
             <div key={`phone-${String(index)}`} className="flex gap-2">
               <input
-                aria-label={`Telefon-Label ${String(index + 1)}`}
+                aria-label={`Phone label ${String(index + 1)}`}
                 placeholder="Label"
                 value={row.label}
                 onChange={(event) => {
@@ -266,7 +266,7 @@ function ContactDetail({
                 className="w-1/3 rounded border border-gray-700 bg-gray-900 px-2 py-1 text-xs text-gray-100"
               />
               <input
-                aria-label={`Telefon-Nummer ${String(index + 1)}`}
+                aria-label={`Phone number ${String(index + 1)}`}
                 placeholder="Nummer"
                 value={row.number}
                 onChange={(event) => {
@@ -304,7 +304,7 @@ function ContactDetail({
                 className="w-1/3 rounded border border-gray-700 bg-gray-900 px-2 py-1 text-xs text-gray-100"
               />
               <input
-                aria-label={`E-Mail-Adresse ${String(index + 1)}`}
+                aria-label={`Email address ${String(index + 1)}`}
                 placeholder="email@..."
                 value={row.email}
                 onChange={(event) => {
@@ -330,10 +330,10 @@ function ContactDetail({
 
         <div className="flex flex-wrap gap-2 pt-2">
           <Button type="submit" disabled={busy}>
-            Speichern
+            Save
           </Button>
           <Button type="button" variant="danger" disabled={busy} onClick={() => void onDelete(contact.contact_id)}>
-            Loeschen
+            Delete
           </Button>
         </div>
       </form>
@@ -354,7 +354,7 @@ function ContactDetail({
                 disabled={busy}
                 onClick={() => void onUnlinkProject(contact.contact_id, p.project_id)}
               >
-                Entfernen
+                Remove
               </Button>
             </li>
           ))}
@@ -362,7 +362,7 @@ function ContactDetail({
         {linkableProjects.length > 0 ? (
           <div className="mt-3 flex flex-wrap gap-2">
             <select
-              aria-label="Projekt verknuepfen"
+              aria-label="Link project"
               value={linkProjectId}
               onChange={(event) => setLinkProjectId(event.target.value)}
               className="rounded border border-gray-700 bg-gray-900 px-2 py-1 text-sm text-gray-100"
@@ -385,7 +385,7 @@ function ContactDetail({
                 }
               }}
             >
-              Verknuepfen
+              Link
             </Button>
           </div>
         ) : null}

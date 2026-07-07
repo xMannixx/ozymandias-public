@@ -20,3 +20,30 @@ export function listDeepSeekModels(): Promise<string[]> {
 export function listMistralModels(): Promise<string[]> {
   return request<string[]>("/llm/mistral/models");
 }
+
+export function listOpenAIModels(): Promise<string[]> {
+  return request<string[]>("/llm/openai/models");
+}
+
+export function listGeminiModels(): Promise<string[]> {
+  return request<string[]>("/llm/gemini/models");
+}
+
+export function listModelsForProvider(provider: string): Promise<string[]> {
+  switch (provider) {
+    case "ollama":
+      return listOllamaModels();
+    case "lmstudio":
+      return listLMStudioModels();
+    case "deepseek":
+      return listDeepSeekModels();
+    case "mistral":
+      return listMistralModels();
+    case "openai":
+      return listOpenAIModels();
+    case "gemini":
+      return listGeminiModels();
+    default:
+      return Promise.resolve([]);
+  }
+}

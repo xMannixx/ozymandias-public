@@ -36,7 +36,7 @@ describe("EventDetail", () => {
     const onDelete = vi.fn(async () => undefined);
     render(<EventDetail event={event} onClose={vi.fn()} onDelete={onDelete} />);
 
-    await userEvent.click(screen.getByRole("button", { name: "Loeschen" }));
+    await userEvent.click(screen.getByRole("button", { name: "Delete" }));
     expect(confirmSpy).toHaveBeenCalledTimes(1);
     expect(onDelete).not.toHaveBeenCalled();
   });

@@ -27,8 +27,8 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
     if (this.state.hasError) {
       return (
         <GlassCard className="m-4">
-          <h2 className="mb-2 text-lg font-semibold text-red-300">Etwas ist schiefgelaufen</h2>
-          <p className="text-sm text-gray-300">Bitte Seite neu laden.</p>
+          <h2 className="mb-2 text-lg font-semibold text-red-300">Something went wrong</h2>
+          <p className="text-sm text-gray-300">Please reload the page.</p>
         </GlassCard>
       );
     }

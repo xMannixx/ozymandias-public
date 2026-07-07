@@ -69,6 +69,6 @@ describe("useDashboard", () => {
     await flush();
 
     expect(result.current.stats).toBeNull();
-    expect(result.current.error).toBe("Ungueltige Dashboard-Daten vom Server");
+    expect(result.current.error).toBe("Invalid dashboard data from server");
   });
 });

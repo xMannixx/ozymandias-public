@@ -18,7 +18,7 @@ describe("S4AuditGuard", () => {
     const onEnable = vi.fn();
     render(<S4AuditGuard enabled={false} onEnable={onEnable} onDisable={vi.fn()} />);
     await userEvent.click(screen.getByLabelText("s4-toggle"));
-    await userEvent.click(screen.getByRole("button", { name: "Anzeigen" }));
+    await userEvent.click(screen.getByRole("button", { name: "Show" }));
     expect(onEnable).toHaveBeenCalledTimes(1);
   });
 
@@ -26,7 +26,7 @@ describe("S4AuditGuard", () => {
     const onEnable = vi.fn();
     render(<S4AuditGuard enabled={false} onEnable={onEnable} onDisable={vi.fn()} />);
     await userEvent.click(screen.getByLabelText("s4-toggle"));
-    await userEvent.click(screen.getByRole("button", { name: "Abbrechen" }));
+    await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
     expect(screen.queryByRole("dialog", { name: "s4-confirm-dialog" })).not.toBeInTheDocument();
     expect(onEnable).not.toHaveBeenCalled();
   });

@@ -38,7 +38,7 @@ describe("ContactList", () => {
 
   it("zeigt leer-Hinweis ohne Kontakte", () => {
     render(<ContactList {...baseProps} contacts={[]} />);
-    expect(screen.getByText("Keine Kontakte gefunden.")).toBeInTheDocument();
+    expect(screen.getByText("No contacts found.")).toBeInTheDocument();
   });
 
   it("Suchfeld aendern ruft onSearchChange auf", async () => {

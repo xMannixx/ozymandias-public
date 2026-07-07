@@ -2,13 +2,20 @@
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
 from typing import Any, cast
 
 from openai import AsyncOpenAI
 
 from app.config import get_settings
 from app.services.errors import ServiceError
-from app.services.llm.base import LLMMessage, LLMProvider, LLMResponse
+from app.services.llm.base import (
+    LLMMessage,
+    LLMProvider,
+    LLMResponse,
+    LLMStreamItem,
+    stream_openai_compatible,
+)
 
 
 class DeepSeekProvider(LLMProvider):
@@ -74,3 +81,25 @@ class DeepSeekProvider(LLMProvider):
             raw_response=raw_response,
             reasoning_content=reasoning,
         )
+
+    async def chat_stream(
+        self,
+        messages: list[LLMMessage],
+        *,
+        tools: list[dict[str, Any]] | None = None,
+        model: str | None = None,
+        api_key: str | None = None,
+    ) -> AsyncIterator[LLMStreamItem]:
+        selected_model = model or self._model_name
+        client = AsyncOpenAI(api_key=api_key, base_url=self._base_url) if api_key else self._client
+        if client is None:
+            raise ServiceError("DeepSeek provider not configured — api_key is missing")
+        async for item in stream_openai_compatible(
+            client,
+            model=selected_model,
+            messages=messages,
+            provider_name="deepseek",
+            tools=tools,
+            include_usage=True,
+        ):
+            yield item

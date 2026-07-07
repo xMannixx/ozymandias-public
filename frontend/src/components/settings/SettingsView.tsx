@@ -34,7 +34,7 @@ function SettingsView(): JSX.Element {
       <GlassCard className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
           <h2 className="text-lg font-semibold text-gray-100">Settings</h2>
-          <p className="text-sm text-gray-300">Runtime-Konfiguration fuer Mode, Decay, Circuit Breaker und Provider-Status.</p>
+          <p className="text-sm text-gray-300">Runtime configuration for mode, decay, circuit breaker, and provider status.</p>
         </div>
         <button
           type="button"

@@ -65,7 +65,7 @@ function normalizeError(error: unknown): string {
   if (error instanceof Error) {
     return error.message;
   }
-  return "Unbekannter Fehler";
+  return "Unknown error";
 }
 
 function isConflict(error: unknown): error is ApiError {
@@ -181,10 +181,10 @@ export function useClaims(): UseClaimsResult {
       try {
         const updated = await confirmClaimApi(id);
         updateClaimInState(updated);
-        setToast({ type: "success", message: "Claim wurde bestaetigt." });
+        setToast({ type: "success", message: "Memory confirmed." });
       } catch (err) {
         const message = normalizeError(err);
-        setToast({ type: "error", message: isConflict(err) ? `Konflikt: ${message}` : message });
+        setToast({ type: "error", message: isConflict(err) ? `Conflict: ${message}` : message });
       }
     },
     [updateClaimInState],
@@ -205,10 +205,10 @@ export function useClaims(): UseClaimsResult {
           ? { ...prev, verification_state: "retracted", superseded_at: new Date().toISOString() }
           : prev,
       );
-      setToast({ type: "success", message: "Claim wurde zurueckgezogen." });
+      setToast({ type: "success", message: "Memory retracted. It will no longer be used." });
     } catch (err) {
       const message = normalizeError(err);
-      setToast({ type: "error", message: isConflict(err) ? `Konflikt: ${message}` : message });
+      setToast({ type: "error", message: isConflict(err) ? `Conflict: ${message}` : message });
     }
   }, []);
 
@@ -219,10 +219,10 @@ export function useClaims(): UseClaimsResult {
         prev.map((claim) => (claim.claim_id === id ? { ...claim, lifecycle: "archived" } : claim)),
       );
       setSelectedClaim((prev) => (prev && prev.claim_id === id ? { ...prev, lifecycle: "archived" } : prev));
-      setToast({ type: "success", message: "Claim wurde archiviert." });
+      setToast({ type: "success", message: "Memory archived." });
     } catch (err) {
       const message = normalizeError(err);
-      setToast({ type: "error", message: isConflict(err) ? `Konflikt: ${message}` : message });
+      setToast({ type: "error", message: isConflict(err) ? `Conflict: ${message}` : message });
     }
   }, []);
 
@@ -231,10 +231,10 @@ export function useClaims(): UseClaimsResult {
       try {
         const updated = await lockClaimApi(id);
         updateClaimInState(updated);
-        setToast({ type: "success", message: "Claim wurde gesperrt." });
+        setToast({ type: "success", message: "Memory locked." });
       } catch (err) {
         const message = normalizeError(err);
-        setToast({ type: "error", message: isConflict(err) ? `Konflikt: ${message}` : message });
+        setToast({ type: "error", message: isConflict(err) ? `Conflict: ${message}` : message });
       }
     },
     [updateClaimInState],
@@ -245,10 +245,10 @@ export function useClaims(): UseClaimsResult {
       try {
         const updated = await unlockClaimApi(id);
         updateClaimInState(updated);
-        setToast({ type: "success", message: "Claim wurde entsperrt." });
+        setToast({ type: "success", message: "Memory unlocked." });
       } catch (err) {
         const message = normalizeError(err);
-        setToast({ type: "error", message: isConflict(err) ? `Konflikt: ${message}` : message });
+        setToast({ type: "error", message: isConflict(err) ? `Conflict: ${message}` : message });
       }
     },
     [updateClaimInState],
@@ -259,10 +259,10 @@ export function useClaims(): UseClaimsResult {
       try {
         const updated = await updateClaimSensitivityApi(id, sensitivity);
         updateClaimInState(updated);
-        setToast({ type: "success", message: "Sensitivity wurde aktualisiert." });
+        setToast({ type: "success", message: "Sensitivity updated." });
       } catch (err) {
         const message = normalizeError(err);
-        setToast({ type: "error", message: isConflict(err) ? `Konflikt: ${message}` : message });
+        setToast({ type: "error", message: isConflict(err) ? `Conflict: ${message}` : message });
       }
     },
     [updateClaimInState],

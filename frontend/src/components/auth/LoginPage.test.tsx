@@ -26,7 +26,7 @@ function renderLogin(): void {
 describe("LoginPage", () => {
   it("renders google login button", () => {
     renderLogin();
-    expect(screen.getByRole("button", { name: "Mit Google anmelden" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Sign in with Google" })).toBeInTheDocument();
   });
 
   it("submits dev token, stores token and redirects", async () => {
@@ -46,7 +46,7 @@ describe("LoginPage", () => {
     vi.mocked(getGoogleAuthUrl).mockResolvedValue({ url: "https://accounts.google.com/test" });
     renderLogin();
 
-    await userEvent.click(screen.getByRole("button", { name: "Mit Google anmelden" }));
+    await userEvent.click(screen.getByRole("button", { name: "Sign in with Google" }));
     expect(getGoogleAuthUrl).toHaveBeenCalled();
     expect(redirectSpy).toHaveBeenCalledWith("https://accounts.google.com/test");
   });

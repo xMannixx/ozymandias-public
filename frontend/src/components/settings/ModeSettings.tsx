@@ -25,7 +25,7 @@ function ModeSettings(): JSX.Element {
       </div>
 
       {mode === "kill-switch" ? (
-        <p className="text-xs text-red-300">Kill-Switch ist aktiv. Mode-Aenderung wird trotzdem gespeichert.</p>
+        <p className="text-xs text-red-300">Kill switch is active. The mode change will still be saved.</p>
       ) : null}
 
       <button
@@ -38,7 +38,7 @@ function ModeSettings(): JSX.Element {
 
       {confirmOpen ? (
         <div role="dialog" aria-label="mode-settings-confirm" className="space-y-2 rounded border border-gray-700 bg-black/30 p-3">
-          <p className="text-sm text-gray-200">Modus wirklich wechseln?</p>
+          <p className="text-sm text-gray-200">Really switch the mode?</p>
           <div className="flex gap-2">
             <Button
               onClick={() => {
@@ -46,10 +46,10 @@ function ModeSettings(): JSX.Element {
                 setConfirmOpen(false);
               }}
             >
-              Bestaetigen
+              Confirm
             </Button>
             <Button variant="ghost" onClick={() => setConfirmOpen(false)}>
-              Abbrechen
+              Cancel
             </Button>
           </div>
         </div>

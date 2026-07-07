@@ -211,6 +211,19 @@ export type UpdateSettingsRequest = {
   anthropic_api_key?: string | null;
 };
 
+export type TurnAttachment = {
+  filename: string;
+  content: string;
+};
+
+export type AttachmentExtractResponse = {
+  filename: string;
+  content: string;
+  truncated: boolean;
+  char_count: number;
+  sensitivity: string;
+};
+
 export type TurnRequest = {
   text: string;
   channel?: string;
@@ -220,6 +233,16 @@ export type TurnRequest = {
   allow_s3_cloud_fallback?: boolean;
   use_live_web?: boolean;
   allow_s3_live_web?: boolean;
+  conversation_id?: string;
+  attachments?: TurnAttachment[];
+};
+
+export type ClaimProcessResult = {
+  claim_ref: string;
+  status: "created" | "proposal_created" | "rejected" | "filtered_out";
+  reason: string | null;
+  claim_id: string | null;
+  proposal_id: string | null;
 };
 
 export type TurnResult = {
@@ -229,7 +252,26 @@ export type TurnResult = {
   reasoning_content?: string | null;
   provider?: string;
   model?: string;
-  claims?: ClaimResponse[];
+  results?: ClaimProcessResult[];
+  conversation_id?: string | null;
+};
+
+export type ConversationResponse = {
+  conversation_id: string;
+  title: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ConversationMessageResponse = {
+  message_id: string;
+  conversation_id: string;
+  role: "user" | "assistant";
+  content: string;
+  provider: string | null;
+  model: string | null;
+  turn_id: string | null;
+  created_at: string;
 };
 
 export type VoiceTranscriptionResponse = {

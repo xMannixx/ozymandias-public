@@ -11,6 +11,6 @@ describe("ProviderUsageChart", () => {
 
   it("shows empty text when usage is empty", () => {
     render(<ProviderUsageChart usage={{}} />);
-    expect(screen.getByText("Keine Daten")).toBeInTheDocument();
+    expect(screen.getByText("No data")).toBeInTheDocument();
   });
 });

@@ -20,10 +20,10 @@ const palette: Record<string, string> = {
 };
 
 const stateLabels: Record<string, string> = {
-  tentative: "Vorläufig",
-  confirmed: "Bestätigt",
-  superseded: "Ersetzt",
-  retracted: "Widerrufen",
+  tentative: "Tentative",
+  confirmed: "Confirmed",
+  superseded: "Superseded",
+  retracted: "Retracted",
 };
 
 function ClaimsSummary({ claimsTotal, verification, sensitivity }: ClaimsSummaryProps): JSX.Element {
@@ -41,7 +41,7 @@ function ClaimsSummary({ claimsTotal, verification, sensitivity }: ClaimsSummary
 
   // Fallback: If no sensitivity data exists, show a neutral placeholder ring
   if (radialData.length === 0) {
-    radialData.push({ name: "Keine", value: 1, fill: "#1e293b" });
+    radialData.push({ name: "None", value: 1, fill: "#1e293b" });
   }
 
   return (
@@ -56,7 +56,7 @@ function ClaimsSummary({ claimsTotal, verification, sensitivity }: ClaimsSummary
             <span className="text-4xl font-extrabold bg-gradient-to-r from-blue-400 to-cyan-300 bg-clip-text text-transparent">
               {claimsTotal}
             </span>
-            <span className="text-sm font-semibold text-gray-300">Claims Gesamt</span>
+            <span className="text-sm font-semibold text-gray-300">Total claims</span>
           </div>
         </div>
         <div className="flex gap-2">
@@ -72,7 +72,7 @@ function ClaimsSummary({ claimsTotal, verification, sensitivity }: ClaimsSummary
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2 items-center">
         {/* Left Side: Verification bars */}
         <div className="space-y-3">
-          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Verifizierung</p>
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Verification</p>
           <div className="space-y-2.5">
             {states.map((state) => {
               const value = verification[state] ?? 0;
@@ -98,7 +98,7 @@ function ClaimsSummary({ claimsTotal, verification, sensitivity }: ClaimsSummary
 
         {/* Right Side: Sensitivity Radial Bar Chart */}
         <div className="flex flex-col items-center justify-center space-y-2 border-t border-slate-800/40 pt-4 md:border-t-0 md:pt-0 md:border-l md:border-slate-800/40 md:pl-6">
-          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider self-start">Sensitivitätsverteilung</p>
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider self-start">Sensitivity distribution</p>
           <div className="w-full h-[150px] flex items-center justify-center">
             <ResponsiveContainer width="100%" height="100%">
               <RadialBarChart

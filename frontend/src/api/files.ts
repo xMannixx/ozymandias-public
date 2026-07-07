@@ -67,7 +67,7 @@ export async function downloadFile(projectId: string, fileId: string): Promise<B
       }
       throw new ApiError("Unauthorized", 401, payload);
     }
-    const defaultMessage = response.status >= 500 ? "Server-Fehler" : "Download fehlgeschlagen";
+    const defaultMessage = response.status >= 500 ? "Server error" : "Download failed";
     throw new ApiError(getErrorMessage(payload, defaultMessage), response.status, payload);
   }
 

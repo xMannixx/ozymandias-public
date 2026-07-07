@@ -5,7 +5,7 @@ import { mockClaimVersions } from "@/test/fixtures";
 describe("ClaimVersionTimeline", () => {
   it("renders fallback for empty list", () => {
     render(<ClaimVersionTimeline versions={[]} />);
-    expect(screen.getByText("Keine Versionen vorhanden.")).toBeInTheDocument();
+    expect(screen.getByText("No versions yet.")).toBeInTheDocument();
   });
 
   it("renders versions sorted by descending number", () => {

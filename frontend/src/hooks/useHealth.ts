@@ -17,7 +17,7 @@ function normalizeError(error: unknown): string {
   if (error instanceof Error) {
     return error.message;
   }
-  return "Health konnte nicht geladen werden";
+  return "Failed to load health status";
 }
 
 export function useHealth(pollIntervalMs: number | null = null): UseHealthResult {

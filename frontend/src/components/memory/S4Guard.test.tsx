@@ -19,7 +19,7 @@ describe("S4Guard", () => {
       </S4Guard>,
     );
     expect(screen.queryByText("hidden-content")).not.toBeInTheDocument();
-    expect(screen.getByText("S4-Inhalt ist ausgeblendet.")).toBeInTheDocument();
+    expect(screen.getByText(/hidden by default/)).toBeInTheDocument();
   });
 
   it("shows reveal button for S4", () => {
@@ -28,7 +28,7 @@ describe("S4Guard", () => {
         <p>hidden-content</p>
       </S4Guard>,
     );
-    expect(screen.getByRole("button", { name: "S4-Inhalt anzeigen" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Show content" })).toBeInTheDocument();
   });
 
   it("reveals content after confirmation click", async () => {
@@ -37,17 +37,17 @@ describe("S4Guard", () => {
         <p>hidden-content</p>
       </S4Guard>,
     );
-    await userEvent.click(screen.getByRole("button", { name: "S4-Inhalt anzeigen" }));
+    await userEvent.click(screen.getByRole("button", { name: "Show content" }));
     expect(screen.getByText("hidden-content")).toBeInTheDocument();
   });
 
-  it("renders visible badge after reveal", async () => {
+  it("renders visible indicator after reveal", async () => {
     render(
       <S4Guard isS4>
         <p>hidden-content</p>
       </S4Guard>,
     );
-    await userEvent.click(screen.getByRole("button", { name: "S4-Inhalt anzeigen" }));
-    expect(screen.getByText("S4-Inhalt sichtbar")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Show content" }));
+    expect(screen.getByText("Intimate (S4) content visible")).toBeInTheDocument();
   });
 });

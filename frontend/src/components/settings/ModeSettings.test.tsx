@@ -43,7 +43,7 @@ describe("ModeSettings", () => {
     render(<ModeSettings />);
 
     await userEvent.click(screen.getByRole("button", { name: "Zu Autopilot wechseln" }));
-    await userEvent.click(screen.getByRole("button", { name: "Bestaetigen" }));
+    await userEvent.click(screen.getByRole("button", { name: "Confirm" }));
     expect(setMode).toHaveBeenCalledWith("autopilot");
   });
 
@@ -56,6 +56,6 @@ describe("ModeSettings", () => {
       toggleKillSwitch: vi.fn(),
     });
     render(<ModeSettings />);
-    expect(screen.getByText(/Kill-Switch ist aktiv/i)).toBeInTheDocument();
+    expect(screen.getByText(/Kill switch is active/i)).toBeInTheDocument();
   });
 });

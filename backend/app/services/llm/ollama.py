@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
 from contextlib import suppress
 from typing import Any, cast
 
 from ollama import AsyncClient
 
 from app.config import get_settings
-from app.services.llm.base import LLMMessage, LLMProvider, LLMResponse
+from app.services.llm.base import LLMMessage, LLMProvider, LLMResponse, LLMStreamItem
 
 
 class OllamaProvider(LLMProvider):
@@ -97,4 +98,40 @@ class OllamaProvider(LLMProvider):
             provider="ollama",
             tokens_used=prompt_tokens + completion_tokens,
             raw_response=raw_response,
+        )
+
+    async def chat_stream(
+        self,
+        messages: list[LLMMessage],
+        *,
+        tools: list[dict[str, Any]] | None = None,
+        model: str | None = None,
+        api_key: str | None = None,
+    ) -> AsyncIterator[LLMStreamItem]:
+        del api_key, tools
+        selected_model = model or self._model_name
+        stream = await self._client.chat(model=selected_model, messages=messages, stream=True)
+        content_parts: list[str] = []
+        prompt_tokens = 0
+        completion_tokens = 0
+        async for part in stream:
+            part_dict: dict[str, Any]
+            if hasattr(part, "model_dump"):
+                part_dict = part.model_dump()
+            else:
+                part_dict = cast(dict[str, Any], part)
+            message = cast(dict[str, Any], part_dict.get("message", {}))
+            text = str(message.get("content", ""))
+            if text:
+                content_parts.append(text)
+                yield text
+            if part_dict.get("done"):
+                prompt_tokens = int(part_dict.get("prompt_eval_count", 0))
+                completion_tokens = int(part_dict.get("eval_count", 0))
+
+        yield LLMResponse(
+            content="".join(content_parts),
+            model=selected_model,
+            provider="ollama",
+            tokens_used=prompt_tokens + completion_tokens,
         )

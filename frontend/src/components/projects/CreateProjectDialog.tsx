@@ -34,7 +34,7 @@ function CreateProjectDialog({ open, creating, onClose, onCreate }: CreateProjec
     event.preventDefault();
     setError(null);
     if (!name.trim()) {
-      setError("Name ist Pflicht.");
+      setError("Name is required.");
       return;
     }
     await onCreate({
@@ -59,7 +59,7 @@ function CreateProjectDialog({ open, creating, onClose, onCreate }: CreateProjec
   return (
     <div className="fixed inset-0 z-[95] bg-black/50 p-4 backdrop-blur-sm">
       <div className="mx-auto max-w-xl rounded-xl border border-blue-500/30 bg-[#0d1117]/95 p-4">
-        <h3 className="mb-3 text-lg font-semibold text-blue-200">Neues Projekt</h3>
+        <h3 className="mb-3 text-lg font-semibold text-blue-200">New project</h3>
         <form className="space-y-3" onSubmit={(event) => void submit(event)}>
           <div>
             <label className="mb-1 block text-sm text-gray-300" htmlFor="create-project-name">
@@ -75,7 +75,7 @@ function CreateProjectDialog({ open, creating, onClose, onCreate }: CreateProjec
 
           <div>
             <label className="mb-1 block text-sm text-gray-300" htmlFor="create-project-description">
-              Beschreibung
+              Description
             </label>
             <textarea
               id="create-project-description"
@@ -166,10 +166,10 @@ function CreateProjectDialog({ open, creating, onClose, onCreate }: CreateProjec
 
           <div className="flex justify-end gap-2">
             <Button type="button" variant="ghost" onClick={onClose} disabled={creating}>
-              Abbrechen
+              Cancel
             </Button>
             <Button type="submit" disabled={creating}>
-              Erstellen
+              Create
             </Button>
           </div>
         </form>

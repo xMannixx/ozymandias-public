@@ -58,7 +58,7 @@ function CircuitBreakerSettings({
       (typeof parsedWindow === "number" && parsedWindow < 10) ||
       (typeof parsedCooldown === "number" && parsedCooldown < 10)
     ) {
-      setError("Ungueltige Werte. Leeres Feld nutzt den Backend-Default.");
+      setError("Invalid values. An empty field uses the backend default.");
       return;
     }
 
@@ -113,7 +113,7 @@ function CircuitBreakerSettings({
       {error ? <p className="text-xs text-red-300">{error}</p> : null}
 
       <Button disabled={saving} onClick={() => void handleSave()}>
-        Speichern
+        Save
       </Button>
     </GlassCard>
   );

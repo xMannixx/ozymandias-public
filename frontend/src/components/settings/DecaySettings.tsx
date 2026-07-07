@@ -26,11 +26,11 @@ function DecaySettings({ intervalHours, confidenceThreshold, saving = false, onS
     const parsedInterval = Number(interval);
     const parsedThreshold = Number(threshold);
     if (!Number.isFinite(parsedInterval) || parsedInterval < 1 || parsedInterval > 720) {
-      setError("Intervall muss zwischen 1 und 720 Stunden liegen.");
+      setError("Interval must be between 1 and 720 hours.");
       return;
     }
     if (!Number.isFinite(parsedThreshold) || parsedThreshold < 0 || parsedThreshold > 1) {
-      setError("Confidence muss zwischen 0.00 und 1.00 liegen.");
+      setError("Confidence must be between 0.00 and 1.00.");
       return;
     }
     setError(null);
@@ -42,7 +42,7 @@ function DecaySettings({ intervalHours, confidenceThreshold, saving = false, onS
       <p className="text-sm font-medium text-gray-200">Decay</p>
 
       <label className="block text-xs text-gray-300" htmlFor="decay-interval-hours">
-        Intervall (Stunden)
+        Interval (hours)
       </label>
       <input
         id="decay-interval-hours"
@@ -73,7 +73,7 @@ function DecaySettings({ intervalHours, confidenceThreshold, saving = false, onS
       {error ? <p className="text-xs text-red-300">{error}</p> : null}
 
       <Button disabled={saving} onClick={() => void handleSave()}>
-        Speichern
+        Save
       </Button>
     </GlassCard>
   );

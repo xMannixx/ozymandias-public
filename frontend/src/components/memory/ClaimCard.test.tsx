@@ -10,26 +10,31 @@ import {
 } from "@/test/fixtures";
 
 describe("ClaimCard", () => {
-  it("renders subject and value", () => {
+  it("renders a plain-language sentence as the primary line", () => {
     render(<ClaimCard claim={mockClaimS4} isSelected={false} onSelect={() => undefined} />);
-
-    expect(screen.getByText(mockClaimS4.subject)).toBeInTheDocument();
-    expect(screen.getByText(mockClaimS4.value)).toBeInTheDocument();
+    expect(screen.getByText("Relationship: private")).toBeInTheDocument();
   });
 
-  it("renders sensitivity badge", () => {
+  it("renders a labelled sensitivity chip", () => {
     render(<ClaimCard claim={mockClaimS4} isSelected={false} onSelect={() => undefined} />);
-    expect(screen.getByText("S4")).toBeInTheDocument();
+    expect(screen.getAllByText(/S4/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Intimate/).length).toBeGreaterThan(0);
   });
 
-  it("renders trust level badge", () => {
+  it("shows a needs review badge for tentative claims", () => {
     render(<ClaimCard claim={mockClaimS4} isSelected={false} onSelect={() => undefined} />);
-    expect(screen.getByText(mockClaimS4.trust_level)).toBeInTheDocument();
+    expect(screen.getByText("Needs review")).toBeInTheDocument();
   });
 
-  it("renders lifecycle icon", () => {
+  it("shows an archived badge instead of a lifecycle icon", () => {
     render(<ClaimCard claim={mockClaimArchived} isSelected={false} onSelect={() => undefined} />);
-    expect(screen.getByText("A")).toBeInTheDocument();
+    expect(screen.getByText("Archived")).toBeInTheDocument();
+    expect(screen.queryByText("Needs review")).not.toBeInTheDocument();
+  });
+
+  it("shows a possible duplicate badge when flagged as conflicting", () => {
+    render(<ClaimCard claim={mockClaimS4} isSelected={false} onSelect={() => undefined} hasConflict />);
+    expect(screen.getByText("Possible duplicate")).toBeInTheDocument();
   });
 
   it("renders locked indicator when claim is locked", () => {

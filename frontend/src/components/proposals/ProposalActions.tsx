@@ -25,7 +25,7 @@ function ProposalActions({ proposal, onApprove, onReject }: ProposalActionsProps
   if (!isPending) {
     return (
       <p className="text-xs text-gray-400">
-        Entscheidung: <span className="font-semibold text-gray-200">{proposal.status}</span>
+        Decision: <span className="font-semibold text-gray-200">{proposal.status}</span>
       </p>
     );
   }
@@ -45,7 +45,7 @@ function ProposalActions({ proposal, onApprove, onReject }: ProposalActionsProps
         value={reason}
         onChange={(event) => setReason(event.target.value)}
         className="w-full rounded border border-gray-700 bg-gray-900 px-2 py-1 text-xs text-gray-100"
-        placeholder="Optionaler Ablehnungsgrund"
+        placeholder="Optional reason for rejecting"
       />
     </div>
   );

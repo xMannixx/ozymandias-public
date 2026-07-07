@@ -54,19 +54,19 @@ function MailInbox(): JSX.Element {
         <input
           aria-label="mail-search"
           className="w-full rounded border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-gray-100"
-          placeholder="Suche in Mails"
+          placeholder="Search emails"
           value={searchInput}
           onChange={(event) => setSearchInput(event.target.value)}
         />
         <div className="flex gap-2">
           <Button type="button" variant="ghost" onClick={() => void search(searchInput)}>
-            Suchen
+            Search
           </Button>
           <Button type="button" variant="ghost" onClick={() => void refetch()}>
             Neu laden
           </Button>
           <Button type="button" onClick={() => setComposeOpen((prev) => !prev)}>
-            {composeOpen ? "Compose schliessen" : "Neue Mail"}
+            {composeOpen ? "Close compose" : "New email"}
           </Button>
         </div>
       </div>
@@ -88,7 +88,7 @@ function MailInbox(): JSX.Element {
       <div className="grid gap-4 md:grid-cols-[2fr_3fr]">
         <div className="glass-card space-y-2 p-3">
           {messages.length === 0 ? (
-            <p className="text-sm text-gray-400">Keine Mails</p>
+            <p className="text-sm text-gray-400">No emails</p>
           ) : (
             messages.map((mail) => (
               <button
@@ -109,7 +109,7 @@ function MailInbox(): JSX.Element {
                     </span>
                   ) : null}
                 </div>
-                <p className="truncate text-sm text-gray-300">{mail.subject ?? "(kein Betreff)"}</p>
+                <p className="truncate text-sm text-gray-300">{mail.subject ?? "(no subject)"}</p>
                 <p className="truncate text-xs text-gray-400">{mail.snippet}</p>
                 <p className="mt-1 text-xs text-gray-500">{formatRelativeDate(mail.date)}</p>
               </button>
@@ -131,7 +131,7 @@ function MailInbox(): JSX.Element {
           {selectedMessage ? (
             <MailDetail message={selectedMessage} onReply={() => setComposeOpen(true)} />
           ) : (
-            <div className="glass-card p-4 text-sm text-gray-400">Waehle eine Mail fuer Details.</div>
+            <div className="glass-card p-4 text-sm text-gray-400">Select an email to see details.</div>
           )}
         </div>
       </div>

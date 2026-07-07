@@ -224,6 +224,6 @@ describe("useClaims", () => {
       await result.current.lockClaim(mockClaimTentative.claim_id);
     });
 
-    expect(result.current.toast?.message).toContain("Konflikt");
+    expect(result.current.toast?.message).toContain("Conflict");
   });
 });

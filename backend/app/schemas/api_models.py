@@ -21,6 +21,13 @@ ProviderLiteral = Literal[
 LocalProviderLiteral = Literal["ollama", "lmstudio"]
 
 
+class TurnAttachment(BaseModel):
+    """Extracted text attachment sent along with a chat turn."""
+
+    filename: str = Field(min_length=1, max_length=255)
+    content: str = Field(min_length=1, max_length=50_000)
+
+
 class TurnRequest(BaseModel):
     """Incoming request for turn processing."""
 
@@ -32,6 +39,18 @@ class TurnRequest(BaseModel):
     allow_s3_cloud_fallback: bool = False
     use_live_web: bool | None = None
     allow_s3_live_web: bool = False
+    conversation_id: str | None = None
+    attachments: list[TurnAttachment] | None = Field(default=None, max_length=5)
+
+
+class AttachmentExtractResponse(BaseModel):
+    """Extracted text and sensitivity classification for an uploaded file."""
+
+    filename: str
+    content: str
+    truncated: bool
+    char_count: int
+    sensitivity: str
 
 
 class GoogleAuthUrlResponse(BaseModel):
@@ -102,6 +121,35 @@ class TurnResult(BaseModel):
     filtered_count: int = Field(ge=0)
     results: list[ClaimProcessResult]
     taint_summary: TaintSummary | None = None
+    conversation_id: str | None = None
+
+
+class ConversationResponse(BaseModel):
+    """Serialized conversation list item."""
+
+    conversation_id: str
+    title: str
+    created_at: datetime
+    updated_at: datetime
+
+
+class ConversationMessageResponse(BaseModel):
+    """Serialized chat message for history restore."""
+
+    message_id: str
+    conversation_id: str
+    role: Literal["user", "assistant"]
+    content: str
+    provider: str | None
+    model: str | None
+    turn_id: str | None
+    created_at: datetime
+
+
+class UpdateConversationRequest(BaseModel):
+    """Rename payload for one conversation."""
+
+    title: str = Field(min_length=1, max_length=200)
 
 
 class CreateClaimRequest(BaseModel):

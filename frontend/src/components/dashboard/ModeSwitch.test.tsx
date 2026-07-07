@@ -26,7 +26,7 @@ describe("ModeSwitch", () => {
   it("confirm switches mode", async () => {
     renderWithProvider();
     await userEvent.click(screen.getByRole("button", { name: "Autopilot" }));
-    await userEvent.click(screen.getByRole("button", { name: "Bestaetigen" }));
+    await userEvent.click(screen.getByRole("button", { name: "Confirm" }));
     expect(screen.getByTestId("mode-status")).toHaveTextContent("Autopilot");
   });
 });

@@ -9,7 +9,7 @@ describe("GoogleNotConnected", () => {
         <GoogleNotConnected />
       </MemoryRouter>,
     );
-    expect(screen.getByText("Google nicht verbunden")).toBeInTheDocument();
+    expect(screen.getByText("Google not connected")).toBeInTheDocument();
   });
 
   it("Link zu /settings vorhanden", () => {
@@ -18,6 +18,6 @@ describe("GoogleNotConnected", () => {
         <GoogleNotConnected />
       </MemoryRouter>,
     );
-    expect(screen.getByRole("link", { name: "Zu den Einstellungen" })).toHaveAttribute("href", "/settings");
+    expect(screen.getByRole("link", { name: "Go to Settings" })).toHaveAttribute("href", "/settings");
   });
 });

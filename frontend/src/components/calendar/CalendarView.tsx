@@ -53,17 +53,17 @@ function CalendarView(): JSX.Element {
       <div className="glass-card flex flex-col gap-2 p-3 md:flex-row md:items-center md:justify-between">
         <div className="flex items-center gap-2">
           <Button type="button" variant="ghost" onClick={prevWeek}>
-            Vorherige Woche
+            Previous week
           </Button>
           <Button type="button" variant="ghost" onClick={nextWeek}>
-            Naechste Woche
+            Next week
           </Button>
           <Button type="button" variant="ghost" onClick={goToday}>
-            Heute
+            Today
           </Button>
         </div>
         <Button type="button" onClick={() => setCreateOpen((prev) => !prev)}>
-          {createOpen ? "Termin-Formular schliessen" : "Neuer Termin"}
+          {createOpen ? "Close event form" : "New event"}
         </Button>
       </div>
 
@@ -95,7 +95,7 @@ function CalendarView(): JSX.Element {
         {days.map((day, index) => (
           <div key={day.key} data-testid={`calendar-day-${index}`} className="glass-card min-h-44 space-y-2 p-2">
             <p className="text-xs font-semibold uppercase tracking-wide text-gray-300">
-              {day.date.toLocaleDateString("de-DE", { weekday: "short", day: "2-digit", month: "2-digit" })}
+              {day.date.toLocaleDateString("en-GB", { weekday: "short", day: "2-digit", month: "2-digit" })}
             </p>
             <div className="space-y-2">
               {day.events.map((event) => (

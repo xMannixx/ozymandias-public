@@ -31,7 +31,7 @@ describe("ProjectList", () => {
 
   it("zeigt platzhalter bei leerer liste", () => {
     renderProjectList({ projects: [] });
-    expect(screen.getByText("Keine Projekte vorhanden. Erstelle dein erstes Projekt.")).toBeInTheDocument();
+    expect(screen.getByText("No projects yet. Create your first project.")).toBeInTheDocument();
   });
 
   it("status-filter ruft setStatusFilter auf", async () => {
@@ -48,9 +48,9 @@ describe("ProjectList", () => {
     const user = userEvent.setup();
     renderProjectList();
 
-    await user.click(screen.getByText("Neues Projekt"));
+    await user.click(screen.getByText("New project"));
 
-    expect(screen.getByRole("heading", { name: "Neues Projekt" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "New project" })).toBeInTheDocument();
     expect(screen.getByLabelText("Name")).toBeInTheDocument();
   });
 });

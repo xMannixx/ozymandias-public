@@ -27,16 +27,16 @@ function VoiceButton({
   const isPlaying = voiceState === "playing";
   const pushToTalk = voiceMode === "push_to_talk";
   const buttonLabel = !isVoiceEnabled
-    ? "Voice aus"
+    ? "Voice off"
     : isProcessing
       ? "Verarbeitung"
       : isPlaying
-        ? "Wiedergabe"
+        ? "Playing"
         : isRecording
-          ? "Aufnahme..."
+          ? "Recording..."
           : pushToTalk
             ? "Push-to-Talk"
-            : "Freisprechen";
+            : "Hands-free";
 
   return (
     <div className="flex flex-col gap-1">

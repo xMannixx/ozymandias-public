@@ -56,10 +56,10 @@ function SystemHealth(): JSX.Element {
   return (
     <GlassCard className="space-y-4 border border-slate-800/80 bg-slate-950/30 backdrop-blur-md">
       <div className="flex items-center justify-between border-b border-slate-800/60 pb-2">
-        <p className="text-xs uppercase tracking-wider text-gray-400 font-semibold">System-Infrastruktur</p>
+        <p className="text-xs uppercase tracking-wider text-gray-400 font-semibold">System Infrastructure</p>
         {loading ? (
           <span className="text-[10px] text-blue-400 flex items-center gap-1">
-            <Spinner /> Synchronisiere...
+            <Spinner /> Syncing...
           </span>
         ) : (
           <span className="text-[10px] text-gray-500">Live</span>
@@ -73,7 +73,7 @@ function SystemHealth(): JSX.Element {
           {/* Database */}
           <div className="bg-slate-900/40 border border-slate-800/40 p-3 rounded-lg flex items-center justify-between hover:bg-slate-900/60 transition-all duration-300">
             <div>
-              <p className="text-xs font-semibold text-gray-200">Datenbank</p>
+              <p className="text-xs font-semibold text-gray-200">Database</p>
               <p className="text-[10px] text-gray-500">PostgreSQL + Vector</p>
             </div>
             <div className="flex items-center gap-2">
@@ -85,7 +85,7 @@ function SystemHealth(): JSX.Element {
           {/* Redis */}
           <div className="bg-slate-900/40 border border-slate-800/40 p-3 rounded-lg flex items-center justify-between hover:bg-slate-900/60 transition-all duration-300">
             <div>
-              <p className="text-xs font-semibold text-gray-200">Arbeitsspeicher-Cache</p>
+              <p className="text-xs font-semibold text-gray-200">In-memory cache</p>
               <p className="text-[10px] text-gray-500">Redis</p>
             </div>
             <div className="flex items-center gap-2">
@@ -97,7 +97,7 @@ function SystemHealth(): JSX.Element {
           {/* Rust Core */}
           <div className="bg-slate-900/40 border border-slate-800/40 p-3 rounded-lg flex items-center justify-between hover:bg-slate-900/60 transition-all duration-300">
             <div>
-              <p className="text-xs font-semibold text-gray-200">Governance Kern</p>
+              <p className="text-xs font-semibold text-gray-200">Governance core</p>
               <p className="text-[10px] text-gray-500">Rust Bindings (PyO3)</p>
             </div>
             <div className="flex items-center gap-2">
@@ -116,7 +116,7 @@ function SystemHealth(): JSX.Element {
                     {providerNameLabel(provider.name)} {modelLabel}
                   </p>
                   <p className="text-[10px] text-gray-500 max-w-[280px] truncate">
-                    {provider.detail || (provider.status === "ok" ? "Verbindung hergestellt" : "Nicht verbunden")}
+                    {provider.detail || (provider.status === "ok" ? "Connected" : "Not connected")}
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
@@ -133,7 +133,7 @@ function SystemHealth(): JSX.Element {
               <div>
                 <p className="text-xs font-semibold text-gray-200">Live-Web Connector</p>
                 <p className="text-[10px] text-gray-500 max-w-[280px] truncate">
-                  {health.live_web.connector_detail || "Suchmodul bereit"}
+                  {health.live_web.connector_detail || "Search module ready"}
                 </p>
               </div>
               <div className="flex items-center gap-2">

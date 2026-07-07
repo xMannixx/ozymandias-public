@@ -12,18 +12,19 @@ function baseHandlers() {
 }
 
 describe("ProposalCard", () => {
-  it("renders proposed subject and value", () => {
+  it("renders a plain-language sentence describing what will be remembered", () => {
     const handlers = baseHandlers();
     render(<ProposalCard proposal={mockProposalPending} isSelected={false} {...handlers} />);
 
-    expect(screen.getByText(mockProposalPending.proposed_claim.subject)).toBeInTheDocument();
-    expect(screen.getByText(mockProposalPending.proposed_claim.value)).toBeInTheDocument();
+    expect(screen.getByText(/Ozymandias wants to remember:/)).toBeInTheDocument();
+    expect(screen.getByText("Location: Vienna")).toBeInTheDocument();
   });
 
-  it("renders status badge", () => {
+  it("renders a labelled sensitivity chip", () => {
     const handlers = baseHandlers();
     render(<ProposalCard proposal={mockProposalPending} isSelected={false} {...handlers} />);
-    expect(screen.getByText(mockProposalPending.status)).toBeInTheDocument();
+    expect(screen.getAllByText(/S1/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/General/).length).toBeGreaterThan(0);
   });
 
   it("renders auto badge for auto_confirmed status", () => {
@@ -32,11 +33,17 @@ describe("ProposalCard", () => {
     expect(screen.getByText("Auto")).toBeInTheDocument();
   });
 
-  it("calls onSelect when card header is clicked", async () => {
+  it("renders relative creation time", () => {
+    const handlers = baseHandlers();
+    render(<ProposalCard proposal={mockProposalPending} isSelected={false} {...handlers} />);
+    expect(screen.getByText(/ago|just now/)).toBeInTheDocument();
+  });
+
+  it("calls onSelect when card body is clicked", async () => {
     const handlers = baseHandlers();
     render(<ProposalCard proposal={mockProposalPending} isSelected={false} {...handlers} />);
 
-    await userEvent.click(screen.getByText(mockProposalPending.proposed_claim.subject));
+    await userEvent.click(screen.getByText(/Ozymandias wants to remember:/));
     expect(handlers.onSelect).toHaveBeenCalledWith(mockProposalPending);
   });
 
@@ -51,11 +58,5 @@ describe("ProposalCard", () => {
     const handlers = baseHandlers();
     const { container } = render(<ProposalCard proposal={mockProposalPending} isSelected {...handlers} />);
     expect(container.firstChild).toHaveClass("neon-glow-blue");
-  });
-
-  it("renders sensitivity badge from proposed claim", () => {
-    const handlers = baseHandlers();
-    render(<ProposalCard proposal={mockProposalPending} isSelected={false} {...handlers} />);
-    expect(screen.getByText(mockProposalPending.proposed_claim.sensitivity)).toBeInTheDocument();
   });
 });

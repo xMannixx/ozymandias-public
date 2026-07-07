@@ -11,84 +11,109 @@ const baseFilters: ClaimsFilters = {
   trustLevel: "",
 };
 
+async function openAdvancedFilters(): Promise<void> {
+  await userEvent.click(screen.getByText(/Advanced filters/));
+}
+
 describe("ClaimFilters", () => {
-  it("renders all sensitivity checkboxes S0-S4", () => {
+  it("shows All as the active segment for empty filters", () => {
     render(<ClaimFilters filters={baseFilters} onChange={() => undefined} onReset={() => undefined} />);
+    expect(screen.getByRole("button", { name: "All" })).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("switching to Needs review sets verificationState to tentative", async () => {
+    const onChange = vi.fn();
+    render(<ClaimFilters filters={baseFilters} onChange={onChange} onReset={() => undefined} />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Needs review" }));
+    expect(onChange).toHaveBeenCalledWith({ ...baseFilters, verificationState: "tentative", lifecycle: "" });
+  });
+
+  it("switching to Archived sets lifecycle to archived", async () => {
+    const onChange = vi.fn();
+    render(<ClaimFilters filters={baseFilters} onChange={onChange} onReset={() => undefined} />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Archived" }));
+    expect(onChange).toHaveBeenCalledWith({ ...baseFilters, lifecycle: "archived", verificationState: "" });
+  });
+
+  it("marks Needs review as active when verificationState is tentative", () => {
+    render(
+      <ClaimFilters
+        filters={{ ...baseFilters, verificationState: "tentative" }}
+        onChange={() => undefined}
+        onReset={() => undefined}
+      />,
+    );
+    expect(screen.getByRole("button", { name: "Needs review" })).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("keeps advanced filters (sensitivity, type, lifecycle, verification, trust) behind a collapsible drawer", async () => {
+    render(<ClaimFilters filters={baseFilters} onChange={() => undefined} onReset={() => undefined} />);
+    await openAdvancedFilters();
 
     ["S0", "S1", "S2", "S3", "S4"].forEach((label) => {
       expect(screen.getByLabelText(label)).toBeInTheDocument();
     });
+    expect(screen.getByLabelText("Memory Type")).toBeInTheDocument();
+    expect(screen.getByLabelText("Lifecycle")).toBeInTheDocument();
+    expect(screen.getByLabelText("Verification")).toBeInTheDocument();
+    expect(screen.getByLabelText("Trust")).toBeInTheDocument();
+  });
+
+  it("does not offer the dead T4 trust option", async () => {
+    render(<ClaimFilters filters={baseFilters} onChange={() => undefined} onReset={() => undefined} />);
+    await openAdvancedFilters();
+
+    const trustSelect = screen.getByLabelText("Trust");
+    expect(within(trustSelect).queryByRole("option", { name: "T4" })).not.toBeInTheDocument();
   });
 
   it("toggles sensitivity values through onChange", async () => {
     const onChange = vi.fn();
     render(<ClaimFilters filters={baseFilters} onChange={onChange} onReset={() => undefined} />);
+    await openAdvancedFilters();
 
     await userEvent.click(screen.getByLabelText("S3"));
     expect(onChange).toHaveBeenCalledWith({ ...baseFilters, sensitivities: ["S3"] });
   });
 
-  it("updates lifecycle dropdown and includes archived option", async () => {
+  it("sends memoryType=health when Health is selected", async () => {
     const onChange = vi.fn();
     render(<ClaimFilters filters={baseFilters} onChange={onChange} onReset={() => undefined} />);
+    await openAdvancedFilters();
 
-    const select = screen.getByLabelText("Lifecycle");
-    expect(screen.getByRole("option", { name: "archived" })).toBeInTheDocument();
-    await userEvent.selectOptions(select, "archived");
-
-    expect(onChange).toHaveBeenCalledWith({ ...baseFilters, lifecycle: "archived" });
+    await userEvent.selectOptions(screen.getByLabelText("Memory Type"), "health");
+    expect(onChange).toHaveBeenCalledWith({ ...baseFilters, memoryType: "health" });
   });
 
-  it("updates verification dropdown", async () => {
-    const onChange = vi.fn();
-    render(<ClaimFilters filters={baseFilters} onChange={onChange} onReset={() => undefined} />);
+  it("shows all 10 memory type labels in the dropdown", async () => {
+    render(<ClaimFilters filters={baseFilters} onChange={() => undefined} onReset={() => undefined} />);
+    await openAdvancedFilters();
 
-    await userEvent.selectOptions(screen.getByLabelText("Verification"), "confirmed");
-    expect(onChange).toHaveBeenCalledWith({ ...baseFilters, verificationState: "confirmed" });
-  });
-
-  it("updates trust dropdown", async () => {
-    const onChange = vi.fn();
-    render(<ClaimFilters filters={baseFilters} onChange={onChange} onReset={() => undefined} />);
-
-    await userEvent.selectOptions(screen.getByLabelText("Trust"), "T4");
-    expect(onChange).toHaveBeenCalledWith({ ...baseFilters, trustLevel: "T4" });
+    const memoryTypeSelect = screen.getByLabelText("Memory Type");
+    [
+      "All",
+      "Profile",
+      "Health",
+      "Preference",
+      "Relationship",
+      "Event",
+      "Location",
+      "Work",
+      "Finance",
+      "Security",
+      "Intimate",
+    ].forEach((label) => {
+      expect(within(memoryTypeSelect).getByRole("option", { name: label })).toBeInTheDocument();
+    });
   });
 
   it("fires reset callback", async () => {
     const onReset = vi.fn();
     render(<ClaimFilters filters={baseFilters} onChange={() => undefined} onReset={onReset} />);
 
-    await userEvent.click(screen.getByRole("button", { name: "Filter zuruecksetzen" }));
+    await userEvent.click(screen.getByRole("button", { name: "Reset filters" }));
     expect(onReset).toHaveBeenCalledTimes(1);
-  });
-
-  it("zeigt alle 10 deutschen Memory-Type Labels im Dropdown", () => {
-    render(<ClaimFilters filters={baseFilters} onChange={() => undefined} onReset={() => undefined} />);
-
-    const memoryTypeSelect = screen.getByLabelText("Memory Type");
-    [
-      "Alle",
-      "Profil",
-      "Gesundheit",
-      "Vorliebe",
-      "Beziehung",
-      "Ereignis",
-      "Ort",
-      "Arbeit",
-      "Finanzen",
-      "Sicherheit",
-      "Intim",
-    ].forEach((label) => {
-      expect(within(memoryTypeSelect).getByRole("option", { name: label })).toBeInTheDocument();
-    });
-  });
-
-  it("sendet memoryType=health wenn Gesundheit gewaehlt wird", async () => {
-    const onChange = vi.fn();
-    render(<ClaimFilters filters={baseFilters} onChange={onChange} onReset={() => undefined} />);
-
-    await userEvent.selectOptions(screen.getByLabelText("Memory Type"), "health");
-    expect(onChange).toHaveBeenCalledWith({ ...baseFilters, memoryType: "health" });
   });
 });
