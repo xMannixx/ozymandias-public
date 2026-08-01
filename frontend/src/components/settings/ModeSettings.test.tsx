@@ -22,7 +22,13 @@ describe("ModeSettings", () => {
 
   it("renders guardian mode badge", () => {
     render(<ModeSettings />);
-    expect(screen.getByText("Guardian")).toHaveClass("neon-glow-blue");
+    expect(screen.getByText("Guardian")).toBeInTheDocument();
+  });
+
+  it("explains in plain words what the current mode does", () => {
+    render(<ModeSettings />);
+    expect(screen.getByText(/asks before it saves anything/i)).toBeInTheDocument();
+    expect(screen.getByText(/wait for your approval/i)).toBeInTheDocument();
   });
 
   it("opens confirmation dialog", async () => {

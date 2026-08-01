@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
+import { Eye, EyeOff, Trash2 } from "lucide-react";
 import Button from "@/components/common/Button";
-import GlassCard from "@/components/common/GlassCard";
 import Spinner from "@/components/common/Spinner";
+import SettingsCard from "@/components/settings/SettingsCard";
 import type { UserSettingsResponse } from "@/api/types";
 
 type ApiKeysSettingsProps = {
@@ -16,189 +17,160 @@ type ApiKeysSettingsProps = {
   ) => Promise<void>;
 };
 
+const MASKED_KEY = "••••••••";
+
+type KeyFieldConfig = {
+  id: string;
+  label: string;
+  placeholder: string;
+  /** Where the user goes to create this key. */
+  source: string;
+};
+
+const keyFields: KeyFieldConfig[] = [
+  { id: "openai", label: "OpenAI", placeholder: "sk-proj-…", source: "platform.openai.com" },
+  { id: "deepseek", label: "DeepSeek", placeholder: "sk-…", source: "platform.deepseek.com" },
+  { id: "gemini", label: "Google Gemini", placeholder: "AIzaSy…", source: "aistudio.google.com" },
+  { id: "mistral", label: "Mistral", placeholder: "…", source: "console.mistral.ai" },
+  { id: "anthropic", label: "Anthropic Claude", placeholder: "sk-ant-…", source: "console.anthropic.com" },
+];
+
 function ApiKeysSettings({ settings, saving, onSave }: ApiKeysSettingsProps): JSX.Element {
-  const [openaiKey, setOpenaiKey] = useState("");
-  const [deepseekKey, setDeepseekKey] = useState("");
-  const [geminiKey, setGeminiKey] = useState("");
-  const [mistralKey, setMistralKey] = useState("");
-  const [anthropicKey, setAnthropicKey] = useState("");
-
-  const [showOpenai, setShowOpenai] = useState(false);
-  const [showDeepseek, setShowDeepseek] = useState(false);
-  const [showGemini, setShowGemini] = useState(false);
-  const [showMistral, setShowMistral] = useState(false);
-  const [showAnthropic, setShowAnthropic] = useState(false);
-
+  const [values, setValues] = useState<Record<string, string>>({
+    openai: "",
+    deepseek: "",
+    gemini: "",
+    mistral: "",
+    anthropic: "",
+  });
+  const [revealed, setRevealed] = useState<Record<string, boolean>>({});
   const [saveSuccess, setSaveSuccess] = useState(false);
 
-  // Sync settings when they load
   useEffect(() => {
     if (settings) {
-      setOpenaiKey(settings.openai_api_key ?? "");
-      setDeepseekKey(settings.deepseek_api_key ?? "");
-      setGeminiKey(settings.gemini_api_key ?? "");
-      setMistralKey(settings.mistral_api_key ?? "");
-      setAnthropicKey(settings.anthropic_api_key ?? "");
+      setValues({
+        openai: settings.openai_api_key ?? "",
+        deepseek: settings.deepseek_api_key ?? "",
+        gemini: settings.gemini_api_key ?? "",
+        mistral: settings.mistral_api_key ?? "",
+        anthropic: settings.anthropic_api_key ?? "",
+      });
     }
   }, [settings]);
 
-  const hasConfiguredKey = (originalKey: string | null | undefined) => {
-    return originalKey === "••••••••";
+  const originalKeys: Record<string, string | null | undefined> = {
+    openai: settings?.openai_api_key,
+    deepseek: settings?.deepseek_api_key,
+    gemini: settings?.gemini_api_key,
+    mistral: settings?.mistral_api_key,
+    anthropic: settings?.anthropic_api_key,
   };
 
-  const handleSave = async () => {
-    // Treat empty string as null to clear key
-    const nextOpenai = openaiKey.trim() === "" ? "" : openaiKey;
-    const nextDeepseek = deepseekKey.trim() === "" ? "" : deepseekKey;
-    const nextGemini = geminiKey.trim() === "" ? "" : geminiKey;
-    const nextMistral = mistralKey.trim() === "" ? "" : mistralKey;
-    const nextAnthropic = anthropicKey.trim() === "" ? "" : anthropicKey;
+  const configuredCount = keyFields.filter((field) => originalKeys[field.id] === MASKED_KEY).length;
 
-    await onSave(nextOpenai, nextDeepseek, nextGemini, nextMistral, nextAnthropic);
-    setSaveSuccess(true);
-    setTimeout(() => setSaveSuccess(false), 3000);
-  };
-
-  const renderKeyField = (
-    label: string,
-    value: string,
-    onChange: (val: string) => void,
-    show: boolean,
-    toggleShow: () => void,
-    originalKey: string | null | undefined,
-    placeholder: string
-  ) => {
-    const isConfigured = hasConfiguredKey(originalKey);
-    const hasValue = value.length > 0;
-
-    return (
-      <div className="flex flex-col gap-1.5">
-        <div className="flex items-center justify-between">
-          <label className="text-xs font-semibold text-gray-400">{label}</label>
-          {isConfigured && (
-            <span className="inline-flex items-center gap-1 text-[10px] font-medium text-green-400 bg-green-500/10 px-2 py-0.5 rounded-full border border-green-500/20">
-              <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse" />
-              Active
-            </span>
-          )}
-        </div>
-        <div className="relative flex items-center">
-          <input
-            type={show ? "text" : "password"}
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
-            placeholder={placeholder}
-            className="w-full pr-20 py-2 bg-gray-900 border border-gray-700 rounded text-sm text-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/80"
-            autoComplete="new-password"
-          />
-          <div className="absolute right-2 flex items-center gap-1.5">
-            <button
-              type="button"
-              onClick={toggleShow}
-              className="p-1 hover:text-gray-100 text-gray-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/80 rounded transition-colors cursor-pointer"
-              title={show ? "Hide" : "Show"}
-            >
-              {show ? (
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
-                </svg>
-              ) : (
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                </svg>
-              )}
-            </button>
-            {hasValue && (
-              <button
-                type="button"
-                onClick={() => onChange("")}
-                className="p-1 hover:text-red-400 text-gray-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/80 rounded transition-colors cursor-pointer"
-                title="Delete"
-              >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-4v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                </svg>
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
+  const handleSave = async (): Promise<void> => {
+    await onSave(
+      values.openai.trim() === "" ? "" : values.openai,
+      values.deepseek.trim() === "" ? "" : values.deepseek,
+      values.gemini.trim() === "" ? "" : values.gemini,
+      values.mistral.trim() === "" ? "" : values.mistral,
+      values.anthropic.trim() === "" ? "" : values.anthropic,
     );
+    setSaveSuccess(true);
+    window.setTimeout(() => setSaveSuccess(false), 3000);
   };
 
   return (
-    <GlassCard className="space-y-4">
-      <div className="flex items-center justify-between border-b border-gray-800 pb-2">
-        <div>
-          <h3 className="text-sm font-semibold text-gray-200">Cloud API keys</h3>
-          <p className="text-xs text-gray-400 mt-0.5">
-            Configure your own API keys for external model providers.
-          </p>
-        </div>
-        {saving && <Spinner />}
-      </div>
+    <SettingsCard
+      title="Provider API keys"
+      description="Each cloud AI needs its own key so Ozymandias may use it. You only need a key for the providers you actually want."
+      badge={
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-1 text-xs text-zinc-300">
+          {configuredCount} of {keyFields.length} set up
+        </span>
+      }
+      footer={
+        <>
+          <Button type="button" onClick={() => void handleSave()} disabled={saving}>
+            Save changes
+          </Button>
+          {saving ? <Spinner /> : null}
+          {saveSuccess ? (
+            <span className="text-xs text-emerald-300" role="status" aria-live="polite">
+              Keys updated.
+            </span>
+          ) : null}
+        </>
+      }
+    >
+      <p className="rounded-md border border-white/[0.06] bg-white/[0.02] px-3 py-2 text-xs leading-relaxed text-zinc-400">
+        Keys are stored encrypted on your own server and are never shown again after saving — a saved key shows as
+        dots. To remove a key, clear the field and save.
+      </p>
 
-      <div className="space-y-3">
-        {renderKeyField(
-          "OpenAI API Key",
-          openaiKey,
-          setOpenaiKey,
-          showOpenai,
-          () => setShowOpenai(!showOpenai),
-          settings?.openai_api_key,
-          "sk-proj-..."
-        )}
-        {renderKeyField(
-          "DeepSeek API Key",
-          deepseekKey,
-          setDeepseekKey,
-          showDeepseek,
-          () => setShowDeepseek(!showDeepseek),
-          settings?.deepseek_api_key,
-          "sk-..."
-        )}
-        {renderKeyField(
-          "Google Gemini API Key",
-          geminiKey,
-          setGeminiKey,
-          showGemini,
-          () => setShowGemini(!showGemini),
-          settings?.gemini_api_key,
-          "AIzaSy..."
-        )}
-        {renderKeyField(
-          "Mistral API Key",
-          mistralKey,
-          setMistralKey,
-          showMistral,
-          () => setShowMistral(!showMistral),
-          settings?.mistral_api_key,
-          "..."
-        )}
-        {renderKeyField(
-          "Anthropic Claude API Key",
-          anthropicKey,
-          setAnthropicKey,
-          showAnthropic,
-          () => setShowAnthropic(!showAnthropic),
-          settings?.anthropic_api_key,
-          "sk-ant-..."
-        )}
-      </div>
+      <div className="space-y-4">
+        {keyFields.map((field) => {
+          const value = values[field.id] ?? "";
+          const isConfigured = originalKeys[field.id] === MASKED_KEY;
+          const isRevealed = revealed[field.id] === true;
 
-      <div className="flex items-center gap-3 pt-2">
-        <Button type="button" variant="ghost" onClick={handleSave} disabled={saving}>
-          Save keys
-        </Button>
-
-        {saveSuccess && (
-          <span className="text-xs text-green-400 animate-fade-in" role="status" aria-live="polite">
-            Keys updated successfully!
-          </span>
-        )}
+          return (
+            <div key={field.id} className="space-y-1.5">
+              <div className="flex items-center justify-between gap-2">
+                <label htmlFor={`api-key-${field.id}`} className="text-sm font-medium text-zinc-200">
+                  {field.label}
+                </label>
+                {isConfigured ? (
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/[0.08] px-2 py-0.5 text-[11px] font-medium text-emerald-200">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" aria-hidden="true" />
+                    Key saved
+                  </span>
+                ) : (
+                  <span className="text-[11px] text-zinc-500">Get one at {field.source}</span>
+                )}
+              </div>
+              <div className="relative flex items-center">
+                <input
+                  id={`api-key-${field.id}`}
+                  type={isRevealed ? "text" : "password"}
+                  value={value}
+                  onChange={(event) =>
+                    setValues((prev) => ({ ...prev, [field.id]: event.target.value }))
+                  }
+                  placeholder={field.placeholder}
+                  autoComplete="new-password"
+                  className="w-full pr-16 text-sm"
+                />
+                <div className="absolute right-2 flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setRevealed((prev) => ({ ...prev, [field.id]: !isRevealed }))}
+                    className="rounded p-1 text-zinc-500 hover:bg-white/[0.05] hover:text-zinc-200"
+                    aria-label={isRevealed ? `Hide ${field.label} key` : `Show ${field.label} key`}
+                  >
+                    {isRevealed ? (
+                      <EyeOff className="h-3.5 w-3.5" aria-hidden="true" />
+                    ) : (
+                      <Eye className="h-3.5 w-3.5" aria-hidden="true" />
+                    )}
+                  </button>
+                  {value.length > 0 ? (
+                    <button
+                      type="button"
+                      onClick={() => setValues((prev) => ({ ...prev, [field.id]: "" }))}
+                      className="rounded p-1 text-zinc-500 hover:bg-white/[0.05] hover:text-rose-300"
+                      aria-label={`Clear ${field.label} key`}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+            </div>
+          );
+        })}
       </div>
-    </GlassCard>
+    </SettingsCard>
   );
 }
 
