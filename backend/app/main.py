@@ -22,6 +22,7 @@ from app.api.proposals import router as proposals_router
 from app.api.settings import router as settings_router
 from app.api.stats import router as stats_router
 from app.api.turns import router as turns_router
+from app.api.usage import router as usage_router
 from app.api.voice import router as voice_router
 from app.config import get_settings
 
@@ -65,5 +66,6 @@ def create_app() -> FastAPI:
     app.include_router(stats_router, prefix="/stats")
     app.include_router(settings_router, prefix="/settings")
     app.include_router(turns_router, prefix="/turns")
+    app.include_router(usage_router, prefix="/usage")
     app.include_router(voice_router, prefix="/voice")
     return app

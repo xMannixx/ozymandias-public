@@ -300,6 +300,87 @@ class DashboardStats(BaseModel):
     contacts_total: int = Field(ge=0)
 
 
+UsageRangeLiteral = Literal["24h", "7d", "30d", "all"]
+
+
+class UsageTotals(BaseModel):
+    """Headline numbers of one usage range."""
+
+    messages_total: int = Field(ge=0)
+    messages_user: int = Field(ge=0)
+    messages_assistant: int = Field(ge=0)
+    sessions: int = Field(ge=0)
+    calls: int = Field(ge=0)
+    calls_failed: int = Field(ge=0)
+    #: Failed calls over all calls, 0.0 to 1.0.
+    error_rate: float = Field(ge=0.0, le=1.0)
+    tool_calls: int = Field(ge=0)
+    tokens_total: int = Field(ge=0)
+    tokens_input: int = Field(ge=0)
+    tokens_output: int = Field(ge=0)
+    tokens_cached: int = Field(ge=0)
+    #: Tokens per minute across the measured window, None below two calls.
+    tokens_per_minute: float | None = None
+    avg_tokens_per_message: float | None = None
+    #: Cached input over all input tokens of providers that report caching.
+    cache_hit_rate: float | None = None
+    avg_latency_ms: int | None = None
+    cost_usd: float = Field(ge=0.0)
+    avg_cost_per_message: float | None = None
+    #: Calls whose model has no known price, so cost is understated by them.
+    unpriced_calls: int = Field(ge=0)
+    first_call_at: datetime | None = None
+    last_call_at: datetime | None = None
+
+
+class UsageBreakdownItem(BaseModel):
+    """One row of a top list, for example a model or a provider."""
+
+    key: str
+    calls: int = Field(ge=0)
+    tokens: int = Field(ge=0)
+    cost_usd: float = Field(ge=0.0)
+    #: Share of the range's total cost, 0.0 to 1.0.
+    cost_share: float = Field(ge=0.0, le=1.0)
+
+
+class UsageCount(BaseModel):
+    """A labelled count, used for error distributions."""
+
+    label: str
+    count: int = Field(ge=0)
+
+
+class UsageBucket(BaseModel):
+    """One point of the usage trend, hourly or daily."""
+
+    bucket: datetime
+    calls: int = Field(ge=0)
+    tokens: int = Field(ge=0)
+    cost_usd: float = Field(ge=0.0)
+    errors: int = Field(ge=0)
+
+
+class UsageReport(BaseModel):
+    """Everything the usage page shows for one range."""
+
+    range: UsageRangeLiteral
+    since: datetime | None = None
+    generated_at: datetime
+    #: hour for the 24h range, day for the longer ones.
+    bucket_unit: Literal["hour", "day"]
+    totals: UsageTotals
+    top_models: list[UsageBreakdownItem]
+    top_providers: list[UsageBreakdownItem]
+    top_tools: list[UsageBreakdownItem]
+    top_channels: list[UsageBreakdownItem]
+    top_call_types: list[UsageBreakdownItem]
+    errors_by_kind: list[UsageCount]
+    errors_by_day: list[UsageCount]
+    errors_by_hour: list[UsageCount]
+    series: list[UsageBucket]
+
+
 class UserSettingsResponse(BaseModel):
     """Serialized per-user runtime settings."""
 

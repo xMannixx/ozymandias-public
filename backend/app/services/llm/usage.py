@@ -23,6 +23,10 @@ _INTENT_CALL_TYPES = {
 STATUS_OK = "ok"
 STATUS_ERROR = "error"
 
+#: Providers whose API tells us how much of the prompt came from their cache.
+#: A cache hit rate over other providers would silently read as zero percent.
+CACHE_REPORTING_PROVIDERS = frozenset({"openai", "deepseek", "anthropic", "gemini"})
+
 
 @dataclass(frozen=True)
 class LLMCallUsage:
