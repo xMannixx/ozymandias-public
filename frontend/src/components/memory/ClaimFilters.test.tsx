@@ -48,25 +48,55 @@ describe("ClaimFilters", () => {
     expect(screen.getByRole("button", { name: "Needs review" })).toHaveAttribute("aria-pressed", "true");
   });
 
+  it("shows counts next to the segments when provided", () => {
+    render(
+      <ClaimFilters
+        filters={baseFilters}
+        onChange={() => undefined}
+        onReset={() => undefined}
+        counts={{ all: 12, needs_review: 3, archived: 1 }}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: /All\s*12/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Needs review\s*3/ })).toBeInTheDocument();
+  });
+
   it("keeps advanced filters (sensitivity, type, lifecycle, verification, trust) behind a collapsible drawer", async () => {
     render(<ClaimFilters filters={baseFilters} onChange={() => undefined} onReset={() => undefined} />);
     await openAdvancedFilters();
 
-    ["S0", "S1", "S2", "S3", "S4"].forEach((label) => {
+    ["S0 · Public", "S1 · General", "S2 · Personal", "S3 · Confidential", "S4 · Intimate"].forEach((label) => {
       expect(screen.getByLabelText(label)).toBeInTheDocument();
     });
-    expect(screen.getByLabelText("Memory Type")).toBeInTheDocument();
-    expect(screen.getByLabelText("Lifecycle")).toBeInTheDocument();
-    expect(screen.getByLabelText("Verification")).toBeInTheDocument();
-    expect(screen.getByLabelText("Trust")).toBeInTheDocument();
+    expect(screen.getByLabelText("Category")).toBeInTheDocument();
+    expect(screen.getByLabelText("How long it is kept")).toBeInTheDocument();
+    expect(screen.getByLabelText("Status")).toBeInTheDocument();
+    expect(screen.getByLabelText("Source trust")).toBeInTheDocument();
+  });
+
+  it("labels enum options in plain language instead of raw database values", async () => {
+    render(<ClaimFilters filters={baseFilters} onChange={() => undefined} onReset={() => undefined} />);
+    await openAdvancedFilters();
+
+    const statusSelect = screen.getByLabelText("Status");
+    expect(within(statusSelect).getByRole("option", { name: "Needs review" })).toBeInTheDocument();
+    expect(within(statusSelect).queryByRole("option", { name: "tentative" })).not.toBeInTheDocument();
+
+    const lifecycleSelect = screen.getByLabelText("How long it is kept");
+    expect(within(lifecycleSelect).getByRole("option", { name: "Permanent" })).toBeInTheDocument();
+    expect(within(lifecycleSelect).queryByRole("option", { name: "permanent" })).not.toBeInTheDocument();
+
+    const trustSelect = screen.getByLabelText("Source trust");
+    expect(within(trustSelect).getByRole("option", { name: "T3 · Verified by you" })).toBeInTheDocument();
   });
 
   it("does not offer the dead T4 trust option", async () => {
     render(<ClaimFilters filters={baseFilters} onChange={() => undefined} onReset={() => undefined} />);
     await openAdvancedFilters();
 
-    const trustSelect = screen.getByLabelText("Trust");
-    expect(within(trustSelect).queryByRole("option", { name: "T4" })).not.toBeInTheDocument();
+    const trustSelect = screen.getByLabelText("Source trust");
+    expect(within(trustSelect).queryByRole("option", { name: /T4/ })).not.toBeInTheDocument();
   });
 
   it("toggles sensitivity values through onChange", async () => {
@@ -74,7 +104,7 @@ describe("ClaimFilters", () => {
     render(<ClaimFilters filters={baseFilters} onChange={onChange} onReset={() => undefined} />);
     await openAdvancedFilters();
 
-    await userEvent.click(screen.getByLabelText("S3"));
+    await userEvent.click(screen.getByLabelText("S3 · Confidential"));
     expect(onChange).toHaveBeenCalledWith({ ...baseFilters, sensitivities: ["S3"] });
   });
 
@@ -83,7 +113,7 @@ describe("ClaimFilters", () => {
     render(<ClaimFilters filters={baseFilters} onChange={onChange} onReset={() => undefined} />);
     await openAdvancedFilters();
 
-    await userEvent.selectOptions(screen.getByLabelText("Memory Type"), "health");
+    await userEvent.selectOptions(screen.getByLabelText("Category"), "health");
     expect(onChange).toHaveBeenCalledWith({ ...baseFilters, memoryType: "health" });
   });
 
@@ -91,7 +121,7 @@ describe("ClaimFilters", () => {
     render(<ClaimFilters filters={baseFilters} onChange={() => undefined} onReset={() => undefined} />);
     await openAdvancedFilters();
 
-    const memoryTypeSelect = screen.getByLabelText("Memory Type");
+    const memoryTypeSelect = screen.getByLabelText("Category");
     [
       "All",
       "Profile",

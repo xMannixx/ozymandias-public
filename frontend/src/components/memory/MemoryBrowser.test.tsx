@@ -63,11 +63,33 @@ describe("MemoryBrowser", () => {
     hookState.filteredClaims = [mockClaimTentative];
   });
 
-  it("renders empty state when no claims match filters", () => {
+  it("renders a filter-specific empty state when memories exist but none match", () => {
     hookState.filteredClaims = [];
     renderWithRouter();
-    expect(screen.getByText(/No memories match these filters yet\./)).toBeInTheDocument();
+    expect(screen.getByText("No memories match these filters")).toBeInTheDocument();
+    expect(screen.getByText(/clearing the filters/)).toBeInTheDocument();
     hookState.filteredClaims = [mockClaimTentative];
+  });
+
+  it("points first-time users to chat when nothing is remembered yet", () => {
+    hookState.claims = [];
+    hookState.filteredClaims = [];
+    renderWithRouter();
+    expect(screen.getByText("Nothing remembered yet")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Chat" })).toHaveAttribute("href", "/chat");
+    hookState.claims = [mockClaimTentative];
+    hookState.filteredClaims = [mockClaimTentative];
+  });
+
+  it("explains what memory is and how things get in there", () => {
+    renderWithRouter();
+    expect(screen.getByRole("heading", { name: "Memory" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "a proposal" })).toHaveAttribute("href", "/proposals");
+  });
+
+  it("shows how many memories need review", () => {
+    renderWithRouter();
+    expect(screen.getByRole("button", { name: /Needs review\s*1/ })).toBeInTheDocument();
   });
 
   it("calls selectClaim when card is clicked", async () => {

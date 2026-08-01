@@ -91,8 +91,16 @@ describe("ClaimActions", () => {
     const handlers = buildHandlers();
     render(<ClaimActions claim={mockClaimTentative} {...handlers} />);
 
-    await userEvent.selectOptions(screen.getByLabelText("Sensitivity"), "S4");
+    await userEvent.selectOptions(screen.getByLabelText("Privacy level"), "S4");
     expect(handlers.onSensitivityChange).toHaveBeenCalledWith(mockClaimTentative.claim_id, "S4");
+  });
+
+  it("labels privacy levels in plain language and explains the selected one", () => {
+    const handlers = buildHandlers();
+    render(<ClaimActions claim={mockClaimTentative} {...handlers} />);
+
+    expect(screen.getByRole("option", { name: "S4 · Intimate" })).toBeInTheDocument();
+    expect(screen.getByText(/Can be sent to any provider/)).toBeInTheDocument();
   });
 
   it("disables action buttons except lock when claim is retracted", () => {
@@ -101,7 +109,7 @@ describe("ClaimActions", () => {
 
     expect(screen.getByRole("button", { name: "Retract" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Archive" })).toBeDisabled();
-    expect(screen.getByLabelText("Sensitivity")).toBeDisabled();
+    expect(screen.getByLabelText("Privacy level")).toBeDisabled();
     expect(screen.getByRole("button", { name: "Lock" })).not.toBeDisabled();
   });
 

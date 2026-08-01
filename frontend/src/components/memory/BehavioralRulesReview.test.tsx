@@ -62,7 +62,20 @@ describe("BehavioralRulesReview", () => {
     hookState.conflicts = [hardConflict];
     render(<BehavioralRulesReview />);
     expect(screen.getByRole("button", { name: "Activate" })).toBeDisabled();
-    expect(screen.getByText(/HARD/)).toBeInTheDocument();
+    expect(screen.getByText("Blocking: Contradicts another rule")).toBeInTheDocument();
+    expect(screen.getByText(/Retire the other rule first/)).toBeInTheDocument();
+  });
+
+  it("explains what behaviour rules are and never activates them on its own", () => {
+    render(<BehavioralRulesReview />);
+    expect(screen.getByRole("heading", { name: "Behaviour rules" })).toBeInTheDocument();
+    expect(screen.getByText(/never switches one on without you/)).toBeInTheDocument();
+  });
+
+  it("describes the artifact cost as a weight instead of jargon", () => {
+    render(<BehavioralRulesReview />);
+    expect(screen.getByText("Weight 1")).toBeInTheDocument();
+    expect(screen.queryByText(/Artifact cost/)).not.toBeInTheDocument();
   });
 
   it("calls approve when activated", async () => {

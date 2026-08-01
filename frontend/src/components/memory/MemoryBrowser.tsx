@@ -1,5 +1,6 @@
 import { useEffect, useMemo } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
+import { Brain, Search } from "lucide-react";
 import Spinner from "@/components/common/Spinner";
 import Toast from "@/components/common/Toast";
 import ClaimCard from "@/components/memory/ClaimCard";
@@ -83,19 +84,61 @@ function MemoryBrowser(): JSX.Element {
   const conflictMap = useMemo(() => buildConflictMap(claims), [claims]);
   const selectedConflict = selectedClaim ? conflictMap.get(selectedClaim.claim_id) : undefined;
 
-  return (
-    <section className="space-y-4">
-      <div className="flex items-center justify-between gap-3">
-        <input
-          aria-label="memory-search"
-          value={searchQuery}
-          onChange={(event) => setSearchQuery(event.target.value)}
-          placeholder="Search your memories"
-          className="w-full rounded border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-gray-100"
-        />
-      </div>
+  const segmentCounts = useMemo(
+    () => ({
+      all: claims.filter((claim) => claim.lifecycle !== "archived").length,
+      needs_review: claims.filter(
+        (claim) => claim.verification_state === "tentative" && claim.lifecycle !== "archived",
+      ).length,
+      archived: claims.filter((claim) => claim.lifecycle === "archived").length,
+    }),
+    [claims],
+  );
 
-      <ClaimFilters filters={filters} onChange={setFilters} onReset={resetFilters} />
+  return (
+    <section className="space-y-5">
+      <header className="space-y-3">
+        <div className="flex items-start gap-3">
+          <span
+            aria-hidden="true"
+            className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-white/[0.07] bg-white/[0.03] text-[color:var(--accent)]"
+          >
+            <Brain className="h-4 w-4" />
+          </span>
+          <div>
+            <h2 className="text-lg font-medium tracking-tight text-white">Memory</h2>
+            <p className="mt-0.5 max-w-2xl text-sm text-zinc-500">
+              Everything Ozymandias knows about you, and where each piece came from. Confirm what is right, retract
+              what is wrong. Nothing here is saved without going through{" "}
+              <Link to="/proposals" className="text-[color:var(--accent)] hover:underline">
+                a proposal
+              </Link>{" "}
+              first.
+            </p>
+          </div>
+        </div>
+
+        <div className="relative">
+          <Search
+            aria-hidden="true"
+            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500"
+          />
+          <input
+            aria-label="memory-search"
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
+            placeholder="Search what Ozymandias remembers…"
+            className="w-full rounded-lg border border-white/[0.08] bg-white/[0.03] py-2 pl-9 pr-3 text-sm text-zinc-100 placeholder:text-zinc-600"
+          />
+        </div>
+      </header>
+
+      <ClaimFilters
+        filters={filters}
+        onChange={setFilters}
+        onReset={resetFilters}
+        counts={segmentCounts}
+      />
 
       {toast ? (
         <div onAnimationEnd={clearToast}>
@@ -104,25 +147,46 @@ function MemoryBrowser(): JSX.Element {
       ) : null}
 
       {loading && claims.length === 0 ? (
-        <div className="glass-card flex items-center justify-center p-6" role="status" aria-live="polite">
+        <div
+          className="flex items-center justify-center rounded-xl border border-white/[0.07] bg-[color:var(--surface)] p-8"
+          role="status"
+          aria-live="polite"
+        >
           <Spinner />
         </div>
       ) : error && claims.length === 0 ? (
-        <div className="glass-card flex flex-col items-start gap-2 p-4" role="alert">
-          <p className="text-sm text-red-300">Could not load memories. {error}</p>
+        <div
+          className="flex flex-col items-start gap-2 rounded-xl border border-rose-500/25 bg-rose-500/[0.06] p-4"
+          role="alert"
+        >
+          <p className="text-sm text-rose-100">Could not load memories. {error}</p>
           <button
             type="button"
             onClick={() => void refetch()}
-            className="rounded border border-blue-500/40 px-3 py-1 text-xs text-blue-200 hover:bg-blue-900/40"
+            className="rounded-lg border border-white/[0.1] px-3 py-1.5 text-xs text-zinc-200 transition hover:bg-white/[0.05]"
           >
-            Retry
+            Try again
           </button>
         </div>
       ) : filteredClaims.length === 0 ? (
-        <p className="glass-card p-4 text-sm text-gray-400">
-          No memories match these filters yet. Memories appear here once you approve a proposal or Ozymandias
-          confirms something automatically.
-        </p>
+        <div className="rounded-xl border border-white/[0.07] bg-[color:var(--surface)] p-8 text-center">
+          <p className="text-sm text-zinc-300">
+            {claims.length === 0 ? "Nothing remembered yet" : "No memories match these filters"}
+          </p>
+          <p className="mx-auto mt-1.5 max-w-md text-sm text-zinc-500">
+            {claims.length === 0 ? (
+              <>
+                Talk to Ozymandias in{" "}
+                <Link to="/chat" className="text-[color:var(--accent)] hover:underline">
+                  Chat
+                </Link>
+                . When it picks up something worth keeping, it will ask you first — approved proposals show up here.
+              </>
+            ) : (
+              "Try clearing the filters or searching for a different word."
+            )}
+          </p>
+        </div>
       ) : (
         <div className="grid gap-4 md:grid-cols-[3fr_2fr]">
           <div
@@ -142,16 +206,20 @@ function MemoryBrowser(): JSX.Element {
           </div>
 
           {selectedClaim ? (
-            <div className="space-y-2">
+            <div className="space-y-2 md:sticky md:top-4 md:self-start">
               <button
                 type="button"
-                className="rounded border border-cyan-500/30 bg-slate-900/40 px-3 py-1 text-xs text-gray-200 hover:border-cyan-400/60 md:hidden"
+                className="rounded-lg border border-white/[0.08] px-3 py-1.5 text-xs text-zinc-300 transition hover:bg-white/[0.05] md:hidden"
                 onClick={() => void selectClaim(null)}
               >
                 ← Back to list
               </button>
               {versionsLoading ? (
-                <div className="glass-card flex items-center justify-center p-6" role="status" aria-live="polite">
+                <div
+                  className="flex items-center justify-center rounded-xl border border-white/[0.07] bg-[color:var(--surface)] p-8"
+                  role="status"
+                  aria-live="polite"
+                >
                   <Spinner />
                 </div>
               ) : (
@@ -170,8 +238,8 @@ function MemoryBrowser(): JSX.Element {
               )}
             </div>
           ) : (
-            <div className="glass-card hidden h-fit p-4 text-sm text-gray-400 md:block">
-              Select a memory to see details.
+            <div className="hidden h-fit rounded-xl border border-dashed border-white/[0.08] p-6 text-center text-sm text-zinc-500 md:block">
+              Pick a memory on the left to see where it came from and what you can do with it.
             </div>
           )}
         </div>

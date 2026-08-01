@@ -39,10 +39,38 @@ describe("ClaimDetail", () => {
     renderWithRouter(<ClaimDetail claim={mockClaimTentative} versions={mockClaimVersions} {...handlers} />);
 
     expect(screen.getByText("Technical details")).toBeInTheDocument();
-    expect(screen.getByText("Core")).toBeInTheDocument();
-    expect(screen.getByText("Classification")).toBeInTheDocument();
-    expect(screen.getByText("Status")).toBeInTheDocument();
-    expect(screen.getByText("Timestamps")).toBeInTheDocument();
+    expect(screen.getByText("Content")).toBeInTheDocument();
+    expect(screen.getByText("Privacy and trust")).toBeInTheDocument();
+    expect(screen.getByText("State")).toBeInTheDocument();
+    expect(screen.getByText("Dates")).toBeInTheDocument();
+  });
+
+  it("gives every technical field a readable label next to its database column", () => {
+    const handlers = buildHandlers();
+    renderWithRouter(<ClaimDetail claim={mockClaimTentative} versions={mockClaimVersions} {...handlers} />);
+
+    expect(screen.getByText("Where it may be processed")).toBeInTheDocument();
+    expect(screen.getByText("handling_policy")).toBeInTheDocument();
+    expect(screen.getByText("May fade over time")).toBeInTheDocument();
+    expect(screen.getByText("decay_eligible")).toBeInTheDocument();
+  });
+
+  it("renders booleans as Yes/No rather than true/false", () => {
+    const handlers = buildHandlers();
+    renderWithRouter(<ClaimDetail claim={mockClaimTentative} versions={mockClaimVersions} {...handlers} />);
+
+    expect(screen.queryByText("false")).not.toBeInTheDocument();
+    expect(screen.queryByText("true")).not.toBeInTheDocument();
+    expect(screen.getAllByText("No").length).toBeGreaterThan(0);
+  });
+
+  it("summarises status, confidence and handling in plain language", () => {
+    const handlers = buildHandlers();
+    renderWithRouter(<ClaimDetail claim={mockClaimTentative} versions={mockClaimVersions} {...handlers} />);
+
+    expect(screen.getAllByText("Fairly sure (72%)").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Cloud allowed (encrypted)").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Ozymandias inferred this").length).toBeGreaterThan(0);
   });
 
   it("does not render user_id field", () => {
@@ -64,7 +92,7 @@ describe("ClaimDetail", () => {
     renderWithRouter(<ClaimDetail claim={mockClaimTentative} versions={mockClaimVersions} {...handlers} />);
 
     expect(screen.getByText("Version history")).toBeInTheDocument();
-    expect(screen.getByText(/Version #3/)).toBeInTheDocument();
+    expect(screen.getByText(/Version 3/)).toBeInTheDocument();
   });
 
   it("renders a conflict warning with resolve hint when part of a conflict group", () => {
