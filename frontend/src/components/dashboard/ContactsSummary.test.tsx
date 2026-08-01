@@ -13,13 +13,20 @@ vi.mock("react-router-dom", async () => {
 });
 
 describe("ContactsSummary", () => {
-  it("zeigt Kontaktanzahl", () => {
+  it("shows how many contacts are saved", () => {
     render(<ContactsSummary contactsTotal={12} />);
 
-    expect(screen.getByText("12 Kontakte")).toBeInTheDocument();
+    expect(screen.getByText("12 saved")).toBeInTheDocument();
+    expect(screen.getByText("People Ozy can look up by name")).toBeInTheDocument();
   });
 
-  it("Klick navigiert zu /contacts", async () => {
+  it("says the address book is empty", () => {
+    render(<ContactsSummary contactsTotal={0} />);
+
+    expect(screen.getByText("Nobody in your address book yet")).toBeInTheDocument();
+  });
+
+  it("navigates to the address book", async () => {
     const user = userEvent.setup();
     render(<ContactsSummary contactsTotal={3} />);
 

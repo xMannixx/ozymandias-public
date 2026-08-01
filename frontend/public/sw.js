@@ -11,9 +11,9 @@ const STATIC_ASSETS = [
 
 function offlineHtmlPage() {
   return new Response(
-    `<!DOCTYPE html><html lang="de"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>Offline</title>
+    `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>Offline</title>
 <style>body{font-family:system-ui,sans-serif;background:#0d1117;color:#c9d1d9;display:flex;min-height:100vh;align-items:center;justify-content:center;margin:0;padding:1rem;text-align:center;}
-p{max-width:28rem;line-height:1.5}</style></head><body><p><strong>Keine Verbindung.</strong><br/>Bitte Netzwerk prüfen und Seite neu laden.</p></body></html>`,
+p{max-width:28rem;line-height:1.5}</style></head><body><p><strong>No connection.</strong><br/>Check your network and reload the page.</p></body></html>`,
     { status: 503, headers: { "content-type": "text/html; charset=utf-8" } },
   );
 }

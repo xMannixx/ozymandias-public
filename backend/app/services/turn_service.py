@@ -325,8 +325,8 @@ class TurnService:
                     raise LiveWebPermissionRequiredError(
                         sensitivity=payload_sensitivity.value,
                         detail=(
-                            "S3-Inhalt erkannt. Bitte Live-Web-Zugriff fuer diese Nachricht "
-                            "explizit bestaetigen."
+                            "This message contains S3 content. Confirm live web access for it "
+                            "explicitly before Ozymandias may search."
                         ),
                     )
             if payload_sensitivity in {

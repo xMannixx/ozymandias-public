@@ -10,13 +10,18 @@ function ContactsSummary({ contactsTotal }: ContactsSummaryProps): JSX.Element {
 
   return (
     <GlassCard
-      className="cursor-pointer space-y-2 transition hover:border-blue-500/60"
+      className="cursor-pointer space-y-2"
       onClick={() => navigate("/contacts")}
       data-testid="contacts-summary-card"
     >
-      <h3 className="text-sm font-semibold text-blue-200">Kontakte</h3>
-      <p className="text-3xl font-semibold text-blue-100">{contactsTotal} Kontakte</p>
-      <p className="text-sm text-gray-300">Adressbuch oeffnen</p>
+      <h3 className="text-sm font-medium text-zinc-400">Contacts</h3>
+      <p className="text-3xl font-semibold text-zinc-100">{contactsTotal} saved</p>
+      <p className="text-sm text-zinc-400">
+        {contactsTotal === 0
+          ? "Nobody in your address book yet"
+          : "People Ozy can look up by name"}
+      </p>
+      <p className="text-xs text-zinc-500">Open the address book</p>
     </GlassCard>
   );
 }
