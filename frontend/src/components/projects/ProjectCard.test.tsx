@@ -1,36 +1,65 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { MemoryRouter } from "react-router-dom";
 import ProjectCard from "@/components/projects/ProjectCard";
 import { mockProject } from "@/test/projects-fixtures";
+import type { ProjectResponse } from "@/api/types";
+
+function renderCard(
+  project: ProjectResponse = mockProject,
+  onDelete: () => void = vi.fn(),
+): void {
+  render(
+    <MemoryRouter>
+      <ProjectCard project={project} onDelete={onDelete} />
+    </MemoryRouter>,
+  );
+}
 
 describe("ProjectCard", () => {
-  it("rendert Name, Status und Prioritaet", () => {
-    render(<ProjectCard project={mockProject} onOpen={vi.fn()} onDelete={vi.fn()} />);
+  it("shows the name and status", () => {
+    renderCard();
 
-    expect(screen.getByText("Projekt Alpha")).toBeInTheDocument();
+    expect(screen.getByText("Tax return 2026")).toBeInTheDocument();
     expect(screen.getByText("Active")).toBeInTheDocument();
-    expect(screen.getByText("high")).toBeInTheDocument();
   });
 
-  it("zeigt progress korrekt", () => {
-    render(<ProjectCard project={mockProject} onOpen={vi.fn()} onDelete={vi.fn()} />);
+  it("summarizes what the workspace holds", () => {
+    renderCard();
 
-    expect(screen.getByText("1/3 tasks done")).toBeInTheDocument();
+    expect(screen.getByText("Holds instructions, 1 file, 2 chats.")).toBeInTheDocument();
+  });
+
+  it("shows task progress and the next deadline", () => {
+    renderCard();
+
+    expect(screen.getByText("1 of 3 tasks done")).toBeInTheDocument();
     expect(screen.getByLabelText("progress-project-1")).toHaveStyle({ width: "33%" });
+    expect(screen.getByText("Next up: File the return (2026-05-31)")).toBeInTheDocument();
   });
 
-  it("zeigt Risiko-Warnung", () => {
-    render(<ProjectCard project={mockProject} onOpen={vi.fn()} onDelete={vi.fn()} />);
-    expect(screen.getByText("2 open risks")).toBeInTheDocument();
+  it("marks workspaces that never leave the machine", () => {
+    renderCard({ ...mockProject, sensitivity: "S4" });
+
+    expect(screen.getByText("Local only")).toBeInTheDocument();
   });
 
-  it("klick auf karte ruft onOpen auf", async () => {
+  it("links to the workspace page", () => {
+    renderCard();
+
+    expect(screen.getByRole("link", { name: /Open workspace/ })).toHaveAttribute(
+      "href",
+      "/projects/project-1",
+    );
+  });
+
+  it("deletes on request", async () => {
     const user = userEvent.setup();
-    const onOpen = vi.fn();
-    render(<ProjectCard project={mockProject} onOpen={onOpen} onDelete={vi.fn()} />);
+    const onDelete = vi.fn();
+    renderCard(mockProject, onDelete);
 
-    await user.click(screen.getByText("Projekt Alpha"));
+    await user.click(screen.getByRole("button", { name: "Delete Tax return 2026" }));
 
-    expect(onOpen).toHaveBeenCalledWith(mockProject.project_id, mockProject.name);
+    expect(onDelete).toHaveBeenCalledWith(mockProject.project_id);
   });
 });

@@ -10,6 +10,7 @@ import LoginPage from "@/pages/LoginPage";
 import MailPage from "@/pages/MailPage";
 import MemoryPage from "@/pages/MemoryPage";
 import ProjectsPage from "@/pages/ProjectsPage";
+import ProjectWorkspacePage from "@/pages/ProjectWorkspacePage";
 import ProposalsPage from "@/pages/ProposalsPage";
 import SettingsPage from "@/pages/SettingsPage";
 
@@ -30,6 +31,7 @@ function App(): JSX.Element {
           <Route path="calendar" element={<CalendarPage />} />
           <Route path="mail" element={<MailPage />} />
           <Route path="projects" element={<ProjectsPage />} />
+          <Route path="projects/:projectId" element={<ProjectWorkspacePage />} />
           <Route path="contacts" element={<ContactsPage />} />
         </Route>
       </Route>

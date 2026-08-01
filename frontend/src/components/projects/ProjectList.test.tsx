@@ -1,6 +1,7 @@
 import type { ComponentProps } from "react";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { MemoryRouter } from "react-router-dom";
 import ProjectList from "@/components/projects/ProjectList";
 import { mockProject } from "@/test/projects-fixtures";
 
@@ -14,27 +15,30 @@ function renderProjectList(overrides: Partial<ComponentProps<typeof ProjectList>
     setStatusFilter: vi.fn(),
     createProject: vi.fn(async () => undefined),
     deleteProject: vi.fn(async () => undefined),
-    openProject: vi.fn(),
     clearToast: vi.fn(),
     refetch: vi.fn(async () => undefined),
     ...overrides,
   };
-  render(<ProjectList {...props} />);
+  render(
+    <MemoryRouter>
+      <ProjectList {...props} />
+    </MemoryRouter>,
+  );
 }
 
 describe("ProjectList", () => {
-  it("rendert projekt-grid", () => {
+  it("renders the workspace grid", () => {
     renderProjectList();
     expect(screen.getByTestId("projects-grid")).toBeInTheDocument();
-    expect(screen.getByText("Projekt Alpha")).toBeInTheDocument();
+    expect(screen.getByText("Tax return 2026")).toBeInTheDocument();
   });
 
-  it("zeigt platzhalter bei leerer liste", () => {
+  it("explains the empty state", () => {
     renderProjectList({ projects: [] });
-    expect(screen.getByText("No projects yet. Create your first project.")).toBeInTheDocument();
+    expect(screen.getByText("No workspaces yet.")).toBeInTheDocument();
   });
 
-  it("status-filter ruft setStatusFilter auf", async () => {
+  it("filters by status", async () => {
     const user = userEvent.setup();
     const setStatusFilter = vi.fn();
     renderProjectList({ setStatusFilter });
@@ -44,13 +48,14 @@ describe("ProjectList", () => {
     expect(setStatusFilter).toHaveBeenCalledWith("active");
   });
 
-  it("neues projekt button oeffnet dialog", async () => {
+  it("opens the create dialog", async () => {
     const user = userEvent.setup();
     renderProjectList();
 
-    await user.click(screen.getByText("New project"));
+    await user.click(screen.getByRole("button", { name: "New workspace" }));
 
-    expect(screen.getByRole("heading", { name: "New project" })).toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: "New workspace" })).toBeInTheDocument();
     expect(screen.getByLabelText("Name")).toBeInTheDocument();
+    expect(screen.getByLabelText("Instructions (optional)")).toBeInTheDocument();
   });
 });

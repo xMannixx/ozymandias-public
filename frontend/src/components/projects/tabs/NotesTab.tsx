@@ -9,11 +9,14 @@ type NotesTabProps = {
   onDeleteNote: (noteId: string) => Promise<void>;
 };
 
-const sourceOptions: NoteSource[] = ["user", "chat", "system"];
+const SOURCE_LABELS: Record<NoteSource, string> = {
+  user: "Written by you",
+  chat: "From a chat",
+  system: "Added automatically",
+};
 
 function NotesTab({ project, loading, onCreateNote, onDeleteNote }: NotesTabProps): JSX.Element {
   const [content, setContent] = useState("");
-  const [source, setSource] = useState<NoteSource>("user");
 
   const sortedNotes = useMemo(
     () =>
@@ -28,73 +31,60 @@ function NotesTab({ project, loading, onCreateNote, onDeleteNote }: NotesTabProp
     if (!content.trim()) {
       return;
     }
-    await onCreateNote({
-      content: content.trim(),
-      source,
-    });
+    await onCreateNote({ content: content.trim(), source: "user" });
     setContent("");
-    setSource("user");
   };
 
   return (
-    <div className="space-y-3">
-      {sortedNotes.length === 0 ? (
-        <p className="text-sm text-gray-400">No notes yet.</p>
-      ) : (
-        <div className="space-y-2">
-          {sortedNotes.map((note) => (
-            <article key={note.note_id} className="rounded-md border border-gray-700 bg-gray-900/70 p-3">
-              <div className="mb-2 flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <span className="rounded-full bg-blue-900/50 px-2 py-0.5 text-xs text-blue-100">
-                    {note.source}
-                  </span>
-                  <span className="text-xs text-gray-500">
-                    {new Date(note.created_at).toLocaleString("en-GB")}
-                  </span>
-                </div>
-                <Button
-                  type="button"
-                  variant="danger"
-                  className="h-8 px-2 py-0 text-xs"
-                  onClick={() => void onDeleteNote(note.note_id)}
-                  disabled={loading}
-                >
-                  Del
-                </Button>
-              </div>
-              <p className="whitespace-pre-wrap text-sm text-gray-200">{note.content}</p>
-            </article>
-          ))}
-        </div>
-      )}
+    <div className="space-y-4">
+      <p className="text-xs text-zinc-500">
+        Notes are facts and decisions Ozy should remember in this workspace.
+      </p>
 
-      <form className="space-y-2 rounded-md border border-dashed border-gray-600 p-3" onSubmit={(event) => void submit(event)}>
+      <form className="space-y-2" onSubmit={(event) => void submit(event)}>
         <textarea
           aria-label="new-note-content"
           value={content}
           onChange={(event) => setContent(event.target.value)}
-          placeholder="New note..."
-          className="h-24 w-full rounded border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-gray-100"
+          placeholder="Something Ozy should remember here…"
+          className="h-24 w-full"
         />
-        <div className="flex items-center justify-between gap-2">
-          <select
-            aria-label="new-note-source"
-            value={source}
-            onChange={(event) => setSource(event.target.value as NoteSource)}
-            className="rounded border border-gray-700 bg-gray-900 px-2 py-2 text-sm text-gray-100"
-          >
-            {sourceOptions.map((option) => (
-              <option key={option} value={option}>
-                {option}
-              </option>
-            ))}
-          </select>
+        <div className="flex justify-end">
           <Button type="submit" disabled={loading}>
-            Save note
+            Add note
           </Button>
         </div>
       </form>
+
+      {sortedNotes.length === 0 ? (
+        <p className="text-sm text-zinc-500">No notes yet.</p>
+      ) : (
+        <ul className="space-y-2">
+          {sortedNotes.map((note) => (
+            <li
+              key={note.note_id}
+              className="rounded-lg border border-white/[0.06] bg-white/[0.02] p-3"
+            >
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <span className="text-xs text-zinc-500">
+                  {SOURCE_LABELS[note.source]} · {new Date(note.created_at).toLocaleDateString("en-GB")}
+                </span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="h-8 px-2 py-0 text-xs text-red-200 hover:text-red-100"
+                  onClick={() => void onDeleteNote(note.note_id)}
+                  disabled={loading}
+                  aria-label="Delete note"
+                >
+                  Delete
+                </Button>
+              </div>
+              <p className="whitespace-pre-wrap text-sm text-zinc-200">{note.content}</p>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }
