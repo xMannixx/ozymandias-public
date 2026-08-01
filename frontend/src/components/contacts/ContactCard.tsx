@@ -14,6 +14,7 @@ function displayName(contact: ContactResponse): string {
 
 function ContactCard({ contact, isSelected, onSelect }: ContactCardProps): JSX.Element {
   const name = displayName(contact);
+  const staysLocal = contact.sensitivity === "S3" || contact.sensitivity === "S4";
 
   return (
     <button
@@ -32,7 +33,17 @@ function ContactCard({ contact, isSelected, onSelect }: ContactCardProps): JSX.E
           className="h-12 w-12 shrink-0"
         />
         <div className="min-w-0 flex-1">
-          <p className="truncate font-semibold text-blue-100">{name}</p>
+          <div className="flex items-center gap-2">
+            <p className="truncate font-semibold text-blue-100">{name}</p>
+            {staysLocal ? (
+              <span
+                title="Ozy only uses this contact on a local model"
+                className="shrink-0 rounded bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-amber-200"
+              >
+                Local only
+              </span>
+            ) : null}
+          </div>
           {contact.company ? <p className="truncate text-sm text-gray-400">{contact.company}</p> : null}
         </div>
       </div>

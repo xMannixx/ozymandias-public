@@ -571,6 +571,7 @@ export type ContactResponse = {
   emails: EmailEntry[];
   tags: string[];
   has_avatar: boolean;
+  sensitivity: Sensitivity;
   created_at: string;
   updated_at: string;
 };
@@ -599,6 +600,7 @@ export type CreateContactRequest = {
   birthday?: string | null;
   notes?: string | null;
   tags?: string[];
+  sensitivity?: Sensitivity;
 };
 
 export type UpdateContactRequest = {
@@ -612,6 +614,7 @@ export type UpdateContactRequest = {
   birthday?: string | null;
   notes?: string | null;
   tags?: string[];
+  sensitivity?: Sensitivity;
 };
 
 export type LinkProjectRequest = {

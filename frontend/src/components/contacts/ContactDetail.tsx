@@ -1,6 +1,13 @@
 import { FormEvent, useEffect, useState } from "react";
 import { listProjects } from "@/api/projects";
-import type { ContactDetailResponse, EmailEntry, PhoneEntry, ProjectResponse, UpdateContactRequest } from "@/api/types";
+import type {
+  ContactDetailResponse,
+  EmailEntry,
+  PhoneEntry,
+  ProjectResponse,
+  Sensitivity,
+  UpdateContactRequest,
+} from "@/api/types";
 import AvatarDisplay from "@/components/contacts/AvatarDisplay";
 import Button from "@/components/common/Button";
 import Spinner from "@/components/common/Spinner";
@@ -22,6 +29,15 @@ function displayName(contact: ContactDetailResponse): string {
   return parts.join(" ").trim() || contact.first_name;
 }
 
+/** S3 and S4 keep this person out of every cloud request, so say so plainly. */
+const sensitivityOptions: Array<{ value: Sensitivity; label: string }> = [
+  { value: "S0", label: "S0 — public, nothing to protect" },
+  { value: "S1", label: "S1 — normal, may use cloud models" },
+  { value: "S2", label: "S2 — personal, may use cloud models" },
+  { value: "S3", label: "S3 — private contact, local models only" },
+  { value: "S4", label: "S4 — secret, local models only" },
+];
+
 function ContactDetail({
   contact,
   loading,
@@ -42,6 +58,7 @@ function ContactDetail({
   const [birthday, setBirthday] = useState("");
   const [notes, setNotes] = useState("");
   const [tagsRaw, setTagsRaw] = useState("");
+  const [sensitivity, setSensitivity] = useState<Sensitivity>("S2");
   const [phones, setPhones] = useState<PhoneEntry[]>([]);
   const [emails, setEmails] = useState<EmailEntry[]>([]);
   const [linkProjectId, setLinkProjectId] = useState("");
@@ -63,6 +80,7 @@ function ContactDetail({
     setBirthday(contact.birthday ?? "");
     setNotes(contact.notes ?? "");
     setTagsRaw(contact.tags.join(", "));
+    setSensitivity(contact.sensitivity);
     setPhones(contact.phones.length > 0 ? contact.phones : [{ label: "", number: "" }]);
     setEmails(contact.emails.length > 0 ? contact.emails : [{ label: "", email: "" }]);
     setError(null);
@@ -115,9 +133,12 @@ function ContactDetail({
       tags,
       phones: phonePayload,
       emails: emailPayload,
+      sensitivity,
     };
     await onSave(contact.contact_id, payload);
   };
+
+  const staysLocal = sensitivity === "S3" || sensitivity === "S4";
 
   const linkedIds = new Set(contact.linked_projects.map((p) => p.project_id));
   const linkableProjects = projects.filter((p) => !linkedIds.has(p.project_id));
@@ -248,6 +269,29 @@ function ContactDetail({
             onChange={(event) => setTagsRaw(event.target.value)}
             className="w-full rounded border border-gray-700 bg-gray-900 px-2 py-1 text-sm text-gray-100"
           />
+        </div>
+
+        <div>
+          <label className="mb-1 block text-xs text-gray-400" htmlFor="cd-sensitivity">
+            Privacy level
+          </label>
+          <select
+            id="cd-sensitivity"
+            value={sensitivity}
+            onChange={(event) => setSensitivity(event.target.value as Sensitivity)}
+            className="w-full rounded border border-gray-700 bg-gray-900 px-2 py-1 text-sm text-gray-100"
+          >
+            {sensitivityOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+          <p className="mt-1 text-xs text-gray-500">
+            {staysLocal
+              ? "Ozy only uses this contact when answering on a local model. Nothing about this person goes to a cloud provider."
+              : "When you mention this person in a chat, Ozy sees the full entry — phone, email, address, notes."}
+          </p>
         </div>
 
         <div className="space-y-2">
