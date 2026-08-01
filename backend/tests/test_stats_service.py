@@ -311,7 +311,7 @@ def _make_db_metrics() -> object:
         provider_usage={"deepseek": 3},
         projects_active=1,
         projects_tasks_open=4,
-        projects_risks_critical=0,
-        projects_next_milestone=None,
+        projects_knowledge_files=0,
+        projects_next_due_task=None,
         contacts_total=5,
     )

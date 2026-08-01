@@ -453,23 +453,9 @@ CREATE TABLE IF NOT EXISTS projects (
 CREATE INDEX IF NOT EXISTS idx_projects_user_status
     ON projects(user_id, status);
 
--- === PROJEKT-MEILENSTEINE ===
-CREATE TABLE IF NOT EXISTS project_milestones (
-    milestone_id    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    project_id      UUID NOT NULL REFERENCES projects(project_id) ON DELETE CASCADE,
-    user_id         TEXT NOT NULL,
-    name            TEXT NOT NULL,
-    due_date        DATE,
-    completed       BOOLEAN NOT NULL DEFAULT FALSE,
-    completed_at    TIMESTAMPTZ,
-    sort_order      INT NOT NULL DEFAULT 0,
-    created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
-CREATE INDEX IF NOT EXISTS idx_milestones_project
-    ON project_milestones(project_id, sort_order);
-
 -- === PROJEKT-AUFGABEN ===
+-- Meilensteine sind hier aufgegangen: eine Aufgabe mit due_date erfuellt
+-- denselben Zweck. Siehe Migrationsblock am Dateiende.
 CREATE TABLE IF NOT EXISTS project_tasks (
     task_id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     project_id      UUID NOT NULL REFERENCES projects(project_id) ON DELETE CASCADE,
@@ -488,24 +474,6 @@ CREATE TABLE IF NOT EXISTS project_tasks (
 
 CREATE INDEX IF NOT EXISTS idx_tasks_project_status
     ON project_tasks(project_id, status);
-
--- === PROJEKT-RISIKEN ===
-CREATE TABLE IF NOT EXISTS project_risks (
-    risk_id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    project_id      UUID NOT NULL REFERENCES projects(project_id) ON DELETE CASCADE,
-    user_id         TEXT NOT NULL,
-    name            TEXT NOT NULL,
-    description     TEXT,
-    severity        TEXT NOT NULL DEFAULT 'medium',
-                    -- low | medium | high | critical
-    status          TEXT NOT NULL DEFAULT 'open',
-                    -- open | watching | occurred | resolved
-    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
-CREATE INDEX IF NOT EXISTS idx_risks_project_status
-    ON project_risks(project_id, status);
 
 -- === PROJEKT-NOTIZEN ===
 CREATE TABLE IF NOT EXISTS project_notes (
@@ -722,5 +690,79 @@ BEGIN
     ALTER TABLE user_settings
         ADD CONSTRAINT user_settings_preferred_provider_check
         CHECK (preferred_provider IN ('deepseek', 'openai', 'ollama', 'gemini', 'lmstudio', 'mistral'));
+END
+$$;
+
+-- ============================================================
+-- PROJEKT-WORKSPACES: Instruktionen, Wissen, Projekt-Chats
+-- ============================================================
+-- Idempotenter Zusatz fuer bestehende Installationen.
+
+-- Eigene Instruktionen und Sensitivity-Stufe pro Projekt.
+-- sensitivity steuert das Routing: S3/S4 halten Projektwissen lokal.
+ALTER TABLE projects
+    ADD COLUMN IF NOT EXISTS instructions TEXT,
+    ADD COLUMN IF NOT EXISTS sensitivity TEXT NOT NULL DEFAULT 'S1';
+                    -- S0 | S1 | S2 | S3 | S4
+
+-- Aus Dateien extrahierter Text. Nur dieser Text erreicht den LLM-Kontext,
+-- nie das Original-Blob aus MinIO.
+ALTER TABLE project_files
+    ADD COLUMN IF NOT EXISTS extracted_text TEXT,
+    ADD COLUMN IF NOT EXISTS extract_status TEXT NOT NULL DEFAULT 'pending',
+                    -- pending | ok | unsupported | failed
+    ADD COLUMN IF NOT EXISTS text_chars INT NOT NULL DEFAULT 0;
+
+-- Chats gehoeren optional zu einem Projekt. ON DELETE SET NULL, damit ein
+-- geloeschtes Projekt den Gespraechsverlauf nicht mitnimmt.
+ALTER TABLE conversations
+    ADD COLUMN IF NOT EXISTS project_id UUID REFERENCES projects(project_id) ON DELETE SET NULL;
+
+CREATE INDEX IF NOT EXISTS idx_conversations_project
+    ON conversations(project_id, updated_at DESC);
+
+-- Meilensteine werden zu Aufgaben mit Datum. Der Guard laeuft genau einmal,
+-- weil die Quelltabelle im selben Block entfernt wird.
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM information_schema.tables
+        WHERE table_schema = 'public' AND table_name = 'project_milestones'
+    ) THEN
+        INSERT INTO project_tasks (project_id, user_id, name, status, priority, due_date, sort_order, created_at)
+        SELECT project_id,
+               user_id,
+               name,
+               CASE WHEN completed THEN 'done' ELSE 'open' END,
+               'high',
+               due_date,
+               sort_order,
+               created_at
+        FROM project_milestones;
+
+        DROP TABLE project_milestones;
+    END IF;
+END
+$$;
+
+-- Risiken entfallen als eigene Entitaet. Bestehende Eintraege werden als
+-- Notiz archiviert, damit kein Inhalt verloren geht.
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM information_schema.tables
+        WHERE table_schema = 'public' AND table_name = 'project_risks'
+    ) THEN
+        INSERT INTO project_notes (project_id, user_id, content, source, created_at)
+        SELECT project_id,
+               user_id,
+               'Archived risk (' || severity || ', ' || status || '): ' || name
+                   || COALESCE(chr(10) || description, ''),
+               'system',
+               created_at
+        FROM project_risks;
+
+        DROP TABLE project_risks;
+    END IF;
 END
 $$;

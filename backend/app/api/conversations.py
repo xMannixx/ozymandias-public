@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.jwt import get_current_user
@@ -21,11 +21,15 @@ router = APIRouter(tags=["conversations"])
 
 @router.get("", response_model=list[ConversationResponse])
 async def list_conversations(
+    project_id: str | None = Query(default=None),
     user_id: str = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> list[ConversationResponse]:
     service = ConversationService(db)
-    conversations = await service.list_conversations(user_id=user_id)
+    try:
+        conversations = await service.list_conversations(user_id=user_id, project_id=project_id)
+    except NotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     return [_to_conversation_response(item) for item in conversations]
 
 
@@ -79,6 +83,7 @@ def _to_conversation_response(conversation: Conversation) -> ConversationRespons
     return ConversationResponse(
         conversation_id=str(conversation.conversation_id),
         title=conversation.title,
+        project_id=str(conversation.project_id) if conversation.project_id else None,
         created_at=conversation.created_at,
         updated_at=conversation.updated_at,
     )

@@ -9,23 +9,26 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.conversation import Conversation
 from app.models.project import (
     Project,
     ProjectFile,
     ProjectLink,
-    ProjectMilestone,
     ProjectNote,
-    ProjectRisk,
     ProjectTask,
 )
 from app.services.errors import NotFoundError
 from app.services.file_service import FileService
 
-_PROJECT_NULLABLE_FIELDS = {"description", "color", "start_date", "target_date", "completed_date"}
+_PROJECT_NULLABLE_FIELDS = {
+    "description",
+    "instructions",
+    "color",
+    "start_date",
+    "target_date",
+    "completed_date",
+}
 _TASK_NULLABLE_FIELDS = {"description", "due_date"}
-_MILESTONE_NULLABLE_FIELDS = {"due_date", "completed", "sort_order"}
-_RISK_NULLABLE_FIELDS = {"description"}
-_NOTE_NULLABLE_FIELDS = {"source"}
 
 
 class ProjectService:
@@ -82,58 +85,16 @@ class ProjectService:
         await self.db.delete(project)
         await self.db.commit()
 
-    async def list_milestones(self, project_id: str, user_id: str) -> list[ProjectMilestone]:
+    async def list_conversations(self, project_id: str, user_id: str) -> list[Conversation]:
+        """Chats that belong to this workspace, most recently used first."""
         project = await self.get_project(project_id, user_id)
         stmt = (
-            select(ProjectMilestone)
-            .where(
-                ProjectMilestone.project_id == project.project_id,
-                ProjectMilestone.user_id == user_id,
-            )
-            .order_by(ProjectMilestone.sort_order.asc(), ProjectMilestone.created_at.asc())
+            select(Conversation)
+            .where(Conversation.project_id == project.project_id)
+            .order_by(Conversation.updated_at.desc())
         )
         result = await self.db.execute(stmt)
         return list(result.scalars().all())
-
-    async def create_milestone(
-        self,
-        project_id: str,
-        user_id: str,
-        **kwargs: Any,
-    ) -> ProjectMilestone:
-        project = await self.get_project(project_id, user_id)
-        milestone = ProjectMilestone(project_id=project.project_id, user_id=user_id, **kwargs)
-        if milestone.completed and milestone.completed_at is None:
-            milestone.completed_at = datetime.now(tz=UTC)
-        self.db.add(milestone)
-        await self.db.commit()
-        await self.db.refresh(milestone)
-        return milestone
-
-    async def update_milestone(
-        self,
-        milestone_id: str,
-        user_id: str,
-        **kwargs: Any,
-    ) -> ProjectMilestone:
-        milestone = await self._get_milestone(milestone_id=milestone_id, user_id=user_id)
-        for key, value in kwargs.items():
-            if value is None and key not in _MILESTONE_NULLABLE_FIELDS:
-                continue
-            if hasattr(milestone, key):
-                setattr(milestone, key, value)
-        if milestone.completed and milestone.completed_at is None:
-            milestone.completed_at = datetime.now(tz=UTC)
-        if not milestone.completed:
-            milestone.completed_at = None
-        await self.db.commit()
-        await self.db.refresh(milestone)
-        return milestone
-
-    async def delete_milestone(self, milestone_id: str, user_id: str) -> None:
-        milestone = await self._get_milestone(milestone_id=milestone_id, user_id=user_id)
-        await self.db.delete(milestone)
-        await self.db.commit()
 
     async def list_tasks(
         self,
@@ -175,41 +136,6 @@ class ProjectService:
     async def delete_task(self, task_id: str, user_id: str) -> None:
         task = await self._get_task(task_id=task_id, user_id=user_id)
         await self.db.delete(task)
-        await self.db.commit()
-
-    async def list_risks(self, project_id: str, user_id: str) -> list[ProjectRisk]:
-        project = await self.get_project(project_id, user_id)
-        stmt = (
-            select(ProjectRisk)
-            .where(ProjectRisk.project_id == project.project_id, ProjectRisk.user_id == user_id)
-            .order_by(ProjectRisk.created_at.desc())
-        )
-        result = await self.db.execute(stmt)
-        return list(result.scalars().all())
-
-    async def create_risk(self, project_id: str, user_id: str, **kwargs: Any) -> ProjectRisk:
-        project = await self.get_project(project_id, user_id)
-        risk = ProjectRisk(project_id=project.project_id, user_id=user_id, **kwargs)
-        self.db.add(risk)
-        await self.db.commit()
-        await self.db.refresh(risk)
-        return risk
-
-    async def update_risk(self, risk_id: str, user_id: str, **kwargs: Any) -> ProjectRisk:
-        risk = await self._get_risk(risk_id=risk_id, user_id=user_id)
-        for key, value in kwargs.items():
-            if value is None and key not in _RISK_NULLABLE_FIELDS:
-                continue
-            if hasattr(risk, key):
-                setattr(risk, key, value)
-        risk.updated_at = datetime.now(tz=UTC)
-        await self.db.commit()
-        await self.db.refresh(risk)
-        return risk
-
-    async def delete_risk(self, risk_id: str, user_id: str) -> None:
-        risk = await self._get_risk(risk_id=risk_id, user_id=user_id)
-        await self.db.delete(risk)
         await self.db.commit()
 
     async def list_notes(self, project_id: str, user_id: str) -> list[ProjectNote]:
@@ -287,6 +213,9 @@ class ProjectService:
         size_bytes: int,
         minio_bucket: str,
         minio_key: str,
+        extracted_text: str | None = None,
+        extract_status: str = "pending",
+        text_chars: int = 0,
     ) -> ProjectFile:
         project = await self.get_project(project_id, user_id)
         file_row = ProjectFile(
@@ -298,6 +227,9 @@ class ProjectService:
             size_bytes=size_bytes,
             minio_bucket=minio_bucket,
             minio_key=minio_key,
+            extracted_text=extracted_text,
+            extract_status=extract_status,
+            text_chars=text_chars,
         )
         self.db.add(file_row)
         await self.db.commit()
@@ -323,18 +255,6 @@ class ProjectService:
         await self.db.delete(file_row)
         await self.db.commit()
 
-    async def _get_milestone(self, *, milestone_id: str, user_id: str) -> ProjectMilestone:
-        milestone_uuid = _parse_uuid(milestone_id)
-        stmt = select(ProjectMilestone).where(
-            ProjectMilestone.milestone_id == milestone_uuid,
-            ProjectMilestone.user_id == user_id,
-        )
-        result = await self.db.execute(stmt)
-        milestone = result.scalar_one_or_none()
-        if milestone is None:
-            raise NotFoundError(f"Milestone not found: {milestone_id}")
-        return milestone
-
     async def _get_task(self, *, task_id: str, user_id: str) -> ProjectTask:
         task_uuid = _parse_uuid(task_id)
         stmt = select(ProjectTask).where(
@@ -345,17 +265,6 @@ class ProjectService:
         if task is None:
             raise NotFoundError(f"Task not found: {task_id}")
         return task
-
-    async def _get_risk(self, *, risk_id: str, user_id: str) -> ProjectRisk:
-        risk_uuid = _parse_uuid(risk_id)
-        stmt = select(ProjectRisk).where(
-            ProjectRisk.risk_id == risk_uuid, ProjectRisk.user_id == user_id
-        )
-        result = await self.db.execute(stmt)
-        risk = result.scalar_one_or_none()
-        if risk is None:
-            raise NotFoundError(f"Risk not found: {risk_id}")
-        return risk
 
     async def _get_note(self, *, note_id: str, user_id: str) -> ProjectNote:
         note_uuid = _parse_uuid(note_id)

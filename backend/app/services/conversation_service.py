@@ -34,21 +34,34 @@ class ConversationService:
         self.db = db
         self.audit = AuditService(db)
 
-    async def list_conversations(self, *, user_id: str) -> list[Conversation]:
-        """Return conversations for the user, newest activity first."""
+    async def list_conversations(
+        self, *, user_id: str, project_id: str | None = None
+    ) -> list[Conversation]:
+        """Return conversations for the user, newest activity first.
+
+        Passing ``project_id`` narrows the list to one workspace.
+        """
         stmt = (
             select(Conversation)
             .where(Conversation.user_id == normalize_user_id(user_id))
             .order_by(Conversation.updated_at.desc())
         )
+        if project_id is not None:
+            try:
+                stmt = stmt.where(Conversation.project_id == uuid.UUID(project_id))
+            except ValueError as exc:
+                raise NotFoundError(f"Project not found: {project_id}") from exc
         result = await self.db.execute(stmt)
         return list(result.scalars().all())
 
-    async def create_conversation(self, *, user_id: str, title: str) -> Conversation:
-        """Create a new conversation with the given title."""
+    async def create_conversation(
+        self, *, user_id: str, title: str, project_id: str | None = None
+    ) -> Conversation:
+        """Create a new conversation, optionally inside a workspace."""
         conversation = Conversation(
             user_id=normalize_user_id(user_id),
             title=derive_title(title),
+            project_id=uuid.UUID(project_id) if project_id else None,
         )
         self.db.add(conversation)
         await self.db.commit()

@@ -22,6 +22,11 @@ class Conversation(Base):
     )
     user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
     title: Mapped[str] = mapped_column(Text, nullable=False)
+    #: Workspace this chat belongs to. NULL means a general chat outside any project.
+    project_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("projects.project_id", ondelete="SET NULL"),
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=text("now()")
     )

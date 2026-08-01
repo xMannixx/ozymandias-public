@@ -40,6 +40,9 @@ class TurnRequest(BaseModel):
     use_live_web: bool | None = None
     allow_s3_live_web: bool = False
     conversation_id: str | None = None
+    #: Workspace this turn happens in. Pulls that project's instructions and
+    #: knowledge into context and can force local-only routing.
+    project_id: str | None = None
     attachments: list[TurnAttachment] | None = Field(default=None, max_length=5)
 
 
@@ -129,6 +132,7 @@ class ConversationResponse(BaseModel):
 
     conversation_id: str
     title: str
+    project_id: str | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -291,8 +295,8 @@ class DashboardStats(BaseModel):
     provider_usage: dict[str, int]
     projects_active: int = Field(ge=0)
     projects_tasks_open: int = Field(ge=0)
-    projects_risks_critical: int = Field(ge=0)
-    projects_next_milestone: str | None = None
+    projects_knowledge_files: int = Field(ge=0)
+    projects_next_due_task: str | None = None
     contacts_total: int = Field(ge=0)
 
 
@@ -476,6 +480,8 @@ class ProjectResponse(BaseModel):
     project_id: str
     name: str
     description: str | None
+    instructions: str | None = None
+    sensitivity: str = "S1"
     status: str
     priority: str
     color: str | None
@@ -484,8 +490,10 @@ class ProjectResponse(BaseModel):
     completed_date: date | None
     task_count: int = Field(ge=0)
     task_done_count: int = Field(ge=0)
-    risk_open_count: int = Field(ge=0)
-    next_milestone: str | None = None
+    #: Files that carry usable text for the workspace context.
+    knowledge_count: int = Field(default=0, ge=0)
+    chat_count: int = Field(default=0, ge=0)
+    next_due_task: str | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -493,12 +501,20 @@ class ProjectResponse(BaseModel):
 class ProjectDetailResponse(ProjectResponse):
     """Project payload with fully expanded related entities."""
 
-    milestones: list[MilestoneResponse]
     tasks: list[TaskResponse]
-    risks: list[RiskResponse]
     notes: list[NoteResponse]
     files: list[FileResponse]
     links: list[LinkResponse]
+    chats: list[ProjectChatResponse]
+
+
+class ProjectChatResponse(BaseModel):
+    """A chat that lives inside a workspace."""
+
+    conversation_id: str
+    title: str
+    created_at: datetime
+    updated_at: datetime
 
 
 class CreateProjectRequest(BaseModel):
@@ -506,6 +522,8 @@ class CreateProjectRequest(BaseModel):
 
     name: str = Field(min_length=1, max_length=200)
     description: str | None = None
+    instructions: str | None = Field(default=None, max_length=20_000)
+    sensitivity: Literal["S0", "S1", "S2", "S3", "S4"] = "S1"
     status: Literal["active", "paused", "completed", "cancelled"] = "active"
     priority: Literal["low", "medium", "high", "critical"] = "medium"
     color: str | None = None
@@ -518,42 +536,14 @@ class UpdateProjectRequest(BaseModel):
 
     name: str | None = Field(default=None, min_length=1, max_length=200)
     description: str | None = None
+    instructions: str | None = Field(default=None, max_length=20_000)
+    sensitivity: Literal["S0", "S1", "S2", "S3", "S4"] | None = None
     status: Literal["active", "paused", "completed", "cancelled"] | None = None
     priority: Literal["low", "medium", "high", "critical"] | None = None
     color: str | None = None
     start_date: date | None = None
     target_date: date | None = None
     completed_date: date | None = None
-
-
-class MilestoneResponse(BaseModel):
-    """Milestone payload."""
-
-    milestone_id: str
-    project_id: str
-    name: str
-    due_date: date | None
-    completed: bool
-    completed_at: datetime | None
-    sort_order: int
-    created_at: datetime
-
-
-class CreateMilestoneRequest(BaseModel):
-    """Create milestone payload."""
-
-    name: str = Field(min_length=1, max_length=200)
-    due_date: date | None = None
-    sort_order: int = 0
-
-
-class UpdateMilestoneRequest(BaseModel):
-    """Partial milestone update."""
-
-    name: str | None = Field(default=None, min_length=1, max_length=200)
-    due_date: date | None = None
-    completed: bool | None = None
-    sort_order: int | None = None
 
 
 class TaskResponse(BaseModel):
@@ -593,37 +583,6 @@ class UpdateTaskRequest(BaseModel):
     sort_order: int | None = None
 
 
-class RiskResponse(BaseModel):
-    """Risk payload."""
-
-    risk_id: str
-    project_id: str
-    name: str
-    description: str | None
-    severity: str
-    status: str
-    created_at: datetime
-    updated_at: datetime
-
-
-class CreateRiskRequest(BaseModel):
-    """Create risk payload."""
-
-    name: str = Field(min_length=1, max_length=200)
-    description: str | None = None
-    severity: Literal["low", "medium", "high", "critical"] = "medium"
-    status: Literal["open", "watching", "occurred", "resolved"] = "open"
-
-
-class UpdateRiskRequest(BaseModel):
-    """Partial risk update."""
-
-    name: str | None = Field(default=None, min_length=1, max_length=200)
-    description: str | None = None
-    severity: Literal["low", "medium", "high", "critical"] | None = None
-    status: Literal["open", "watching", "occurred", "resolved"] | None = None
-
-
 class NoteResponse(BaseModel):
     """Project note payload."""
 
@@ -642,7 +601,7 @@ class CreateNoteRequest(BaseModel):
 
 
 class FileResponse(BaseModel):
-    """Project file metadata payload."""
+    """Project file metadata plus whether its text is usable as knowledge."""
 
     file_id: str
     project_id: str
@@ -650,6 +609,9 @@ class FileResponse(BaseModel):
     original_name: str
     content_type: str
     size_bytes: int
+    #: pending | ok | unsupported | failed
+    extract_status: str = "pending"
+    text_chars: int = Field(default=0, ge=0)
     created_at: datetime
 
 

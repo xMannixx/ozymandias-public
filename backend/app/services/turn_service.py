@@ -60,6 +60,7 @@ from app.services.llm.sensitivity_classifier import (
     normalize_classification,
 )
 from app.services.llm.system_prompt import build_system_prompt
+from app.services.project_context_service import ProjectContext, ProjectContextService
 from app.services.proposal_service import ProposalService
 from app.services.settings_service import SettingsService
 from app.services.utils import normalize_user_id
@@ -82,6 +83,7 @@ class _TurnPreparation:
     api_keys: dict[str, str | None]
     is_chat_turn: bool
     conversation: Conversation | None
+    project_context: ProjectContext | None
     live_web_requested: bool
     live_web_mode: str
     live_web_result: LiveWebContext | None = None
@@ -197,8 +199,27 @@ class TurnService:
             await classify_sensitivity(user_text, payload.channel)
         )
         payload_sensitivity = classification.sensitivity
-        enforce_local = payload_sensitivity is Sensitivity.S4 or (
-            payload_sensitivity is Sensitivity.S3 and not payload.allow_s3_cloud_fallback
+
+        # Chat turns (no claim override) run against a persisted conversation.
+        # It is resolved before routing because a workspace can force local-only.
+        is_chat_turn = payload.claims is None
+        conversation = None
+        if is_chat_turn and payload.conversation_id:
+            conversation = await self.conversation_service.get_conversation(
+                conversation_id=payload.conversation_id,
+                user_id=user_id,
+            )
+
+        project_context = await self._resolve_project_context(
+            user_id=user_id,
+            payload=payload,
+            conversation=conversation,
+        )
+
+        enforce_local = (
+            payload_sensitivity is Sensitivity.S4
+            or (payload_sensitivity is Sensitivity.S3 and not payload.allow_s3_cloud_fallback)
+            or (project_context is not None and project_context.force_local)
         )
         preferred_provider = payload.provider or settings.preferred_provider
         preferred_model = payload.model or settings.preferred_model
@@ -235,15 +256,6 @@ class TurnService:
             "anthropic": getattr(settings, "anthropic_api_key", None),
         }
 
-        # Chat turns (no claim override) run against a persisted conversation.
-        is_chat_turn = payload.claims is None
-        conversation = None
-        if is_chat_turn and payload.conversation_id:
-            conversation = await self.conversation_service.get_conversation(
-                conversation_id=payload.conversation_id,
-                user_id=user_id,
-            )
-
         live_web_requested = payload.use_live_web
         if live_web_requested is None:
             live_web_requested = bool(getattr(settings, "live_web_enabled", False))
@@ -265,6 +277,7 @@ class TurnService:
             api_keys=api_keys,
             is_chat_turn=is_chat_turn,
             conversation=conversation,
+            project_context=project_context,
             live_web_requested=bool(live_web_requested),
             live_web_mode=live_web_mode,
         )
@@ -304,6 +317,25 @@ class TurnService:
                     prep.live_web_error = str(exc)
 
         return prep
+
+    async def _resolve_project_context(
+        self,
+        *,
+        user_id: str,
+        payload: TurnRequest,
+        conversation: Conversation | None,
+    ) -> ProjectContext | None:
+        """Load the workspace for this turn, explicit request beating the chat's own."""
+        project_id = payload.project_id
+        if project_id is None and conversation is not None and conversation.project_id is not None:
+            project_id = str(conversation.project_id)
+        if project_id is None:
+            return None
+        return await ProjectContextService(self.db).build(
+            user_id=user_id,
+            project_id=project_id,
+            query=payload.text,
+        )
 
     async def _finalize_turn(
         self,
@@ -502,6 +534,11 @@ class TurnService:
                 conversation = await self.conversation_service.create_conversation(
                     user_id=user_id,
                     title=payload.text,
+                    project_id=(
+                        prep.project_context.project_id
+                        if prep.project_context is not None
+                        else None
+                    ),
                 )
                 prep.conversation = conversation
             await self.conversation_service.append_message(
@@ -557,6 +594,13 @@ class TurnService:
         )
         if prep.live_web_error is not None:
             audit_payload["live_web_error"] = prep.live_web_error
+        if prep.project_context is not None:
+            # Record exactly which workspace knowledge reached the model.
+            audit_payload["project_id"] = prep.project_context.project_id
+            audit_payload["project_sensitivity"] = prep.project_context.sensitivity
+            audit_payload["project_forced_local"] = prep.project_context.force_local
+            audit_payload["project_knowledge_files"] = prep.project_context.knowledge_files
+            audit_payload["project_knowledge_chars"] = prep.project_context.knowledge_chars
         await self.audit.log(
             event_type=AuditEventType.turn_processed,
             result=AuditResult.success,
@@ -610,10 +654,13 @@ class TurnService:
             prep.preferred_provider is not None
             and prep.preferred_provider in {"ollama", "lmstudio"}
         )
+        # Inside a workspace the active project is rendered in depth, so the
+        # shallow list of every other active project would only add noise.
         context_block = await ContextAssembler(self.db).assemble(
             user_id=user_id,
             sensitivity=prep.payload_sensitivity,
             provider_is_local=provider_is_local,
+            include_projects=prep.project_context is None,
         )
         history: list[LLMMessage] = []
         if prep.conversation is not None:
@@ -633,21 +680,21 @@ class TurnService:
                 "role": "system",
                 "content": prep.system_prompt,
             },
-            {
-                "role": "system",
-                "content": context_block,
-            },
-            *history,
-            {"role": "user", "content": prep.user_text},
         ]
+        # Workspace instructions sit directly behind the system prompt so they
+        # outrank general memory for the duration of this chat.
+        if prep.project_context is not None:
+            messages.append({"role": "system", "content": prep.project_context.text})
+        messages.append({"role": "system", "content": context_block})
         if prep.live_web_result is not None:
-            messages.insert(
-                2,
+            messages.append(
                 {
                     "role": "system",
                     "content": format_live_web_context_block(prep.live_web_result),
-                },
+                }
             )
+        messages.extend(history)
+        messages.append({"role": "user", "content": prep.user_text})
         return messages
 
     async def _extract_claims(

@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.audit import AuditLog
 from app.models.claim import Claim
 from app.models.contact import Contact
-from app.models.project import Project, ProjectMilestone, ProjectRisk, ProjectTask
+from app.models.project import Project, ProjectFile, ProjectTask
 from app.models.proposal import MemoryProposal
 from app.schemas import AuditEventType, VerificationState
 from app.schemas.api_models import (
@@ -39,8 +39,8 @@ class _DbMetrics:
     provider_usage: dict[str, int]
     projects_active: int
     projects_tasks_open: int
-    projects_risks_critical: int
-    projects_next_milestone: str | None
+    projects_knowledge_files: int
+    projects_next_due_task: str | None
     contacts_total: int
 
 
@@ -69,8 +69,8 @@ class StatsService:
             provider_usage=db_metrics.provider_usage,
             projects_active=db_metrics.projects_active,
             projects_tasks_open=db_metrics.projects_tasks_open,
-            projects_risks_critical=db_metrics.projects_risks_critical,
-            projects_next_milestone=db_metrics.projects_next_milestone,
+            projects_knowledge_files=db_metrics.projects_knowledge_files,
+            projects_next_due_task=db_metrics.projects_next_due_task,
             contacts_total=db_metrics.contacts_total,
         )
 
@@ -95,8 +95,8 @@ class StatsService:
         (
             projects_active,
             projects_tasks_open,
-            projects_risks_critical,
-            projects_next_milestone,
+            projects_knowledge_files,
+            projects_next_due_task,
         ) = await self._project_metrics(user_id=user_id)
         contacts_total = await self._contacts_total(user_id=user_id)
         return _DbMetrics(
@@ -109,8 +109,8 @@ class StatsService:
             provider_usage=provider_usage,
             projects_active=projects_active,
             projects_tasks_open=projects_tasks_open,
-            projects_risks_critical=projects_risks_critical,
-            projects_next_milestone=projects_next_milestone,
+            projects_knowledge_files=projects_knowledge_files,
+            projects_next_due_task=projects_next_due_task,
             contacts_total=contacts_total,
         )
 
@@ -259,42 +259,41 @@ class StatsService:
         tasks_raw = tasks_result.scalar_one_or_none()
         projects_tasks_open = int(tasks_raw) if tasks_raw is not None else 0
 
-        risks_stmt = (
+        knowledge_stmt = (
             select(func.count())
-            .select_from(ProjectRisk)
+            .select_from(ProjectFile)
             .where(
-                ProjectRisk.user_id == user_id,
-                ProjectRisk.severity == "critical",
-                ProjectRisk.status == "open",
+                ProjectFile.user_id == user_id,
+                ProjectFile.extract_status == "ok",
             )
         )
-        risks_result = await self.db.execute(risks_stmt)
-        risks_raw = risks_result.scalar_one_or_none()
-        projects_risks_critical = int(risks_raw) if risks_raw is not None else 0
+        knowledge_result = await self.db.execute(knowledge_stmt)
+        knowledge_raw = knowledge_result.scalar_one_or_none()
+        projects_knowledge_files = int(knowledge_raw) if knowledge_raw is not None else 0
 
-        next_milestone_stmt = (
-            select(ProjectMilestone.name, ProjectMilestone.due_date)
-            .join(Project, Project.project_id == ProjectMilestone.project_id)
+        next_task_stmt = (
+            select(ProjectTask.name, ProjectTask.due_date)
+            .join(Project, Project.project_id == ProjectTask.project_id)
             .where(
                 Project.user_id == user_id,
                 Project.status == "active",
-                ProjectMilestone.completed.is_(False),
-                ProjectMilestone.due_date.is_not(None),
+                ProjectTask.status != "done",
+                ProjectTask.due_date.is_not(None),
             )
-            .order_by(ProjectMilestone.due_date.asc())
+            .order_by(ProjectTask.due_date.asc())
             .limit(1)
         )
-        next_milestone_result = await self.db.execute(next_milestone_stmt)
-        next_milestone_row = next_milestone_result.first()
-        if next_milestone_row is None:
-            projects_next_milestone = None
+        next_task_result = await self.db.execute(next_task_stmt)
+        next_task_row = next_task_result.first()
+        if next_task_row is None:
+            projects_next_due_task = None
         else:
-            name, due_date = next_milestone_row
-            projects_next_milestone = f"{name} ({due_date.isoformat()})"
+            name, due_date = next_task_row
+            projects_next_due_task = f"{name} ({due_date.isoformat()})"
 
         return (
             projects_active,
             projects_tasks_open,
-            projects_risks_critical,
-            projects_next_milestone,
+            projects_knowledge_files,
+            projects_next_due_task,
         )

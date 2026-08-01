@@ -160,7 +160,7 @@ async def test_context_assembler_returns_empty_context_when_no_data() -> None:
         sensitivity=Sensitivity.S1,
         provider_is_local=False,
     )
-    assert "Memory ist leer" in output
+    assert "Memory is empty" in output
     assert output.startswith("<user_context>")
 
 
@@ -185,11 +185,35 @@ async def test_context_assembler_formats_claims_projects_and_contacts() -> None:
     assert '<projects count="1">' in output
     assert '<contacts count="1">' in output
     assert "Alex wohnt in Beispielstadt" in output
-    assert "Projekt: Ozymandias" in output
+    assert "Project: Ozymandias" in output
     assert "Task A (done)" in output
     assembler.project_service.list_tasks.assert_awaited_once_with(  # type: ignore[attr-defined]
         str(project.project_id), "user-1"
     )
+
+
+@pytest.mark.asyncio
+async def test_context_assembler_omits_projects_when_a_workspace_is_active() -> None:
+    assembler = _assembler()
+    project = _project(name="Ozymandias")
+    _patch_services(
+        assembler,
+        claims=[_claim(content="Alex wohnt in Beispielstadt")],
+        projects=[project],
+        tasks=[_task(project_id=project.project_id, name="Task A", status="open")],
+        contacts=[],
+    )
+
+    output = await assembler.assemble(
+        user_id="user-1",
+        sensitivity=Sensitivity.S1,
+        provider_is_local=True,
+        include_projects=False,
+    )
+    assert '<projects count="0">' in output
+    assert "Ozymandias" not in output
+    assert "Alex wohnt in Beispielstadt" in output
+    assembler.project_service.list_projects.assert_not_awaited()  # type: ignore[attr-defined]
 
 
 @pytest.mark.asyncio
@@ -349,5 +373,5 @@ async def test_context_assembler_renders_project_without_date_range() -> None:
         sensitivity=Sensitivity.S1,
         provider_is_local=True,
     )
-    assert "Projekt: OhneDatum | Status: active | Prioritaet: high" in output
+    assert "Project: OhneDatum | Status: active | Priority: high" in output
     assert "?" not in output

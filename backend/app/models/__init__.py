@@ -24,9 +24,7 @@ from app.models.project import (  # noqa: E402
     Project,
     ProjectFile,
     ProjectLink,
-    ProjectMilestone,
     ProjectNote,
-    ProjectRisk,
     ProjectTask,
 )
 from app.models.proposal import MemoryProposal  # noqa: E402
@@ -56,9 +54,7 @@ __all__ = [
     "Project",
     "ProjectFile",
     "ProjectLink",
-    "ProjectMilestone",
     "ProjectNote",
-    "ProjectRisk",
     "ProjectTask",
     "ProceduralRule",
     "UserSettings",

@@ -64,8 +64,13 @@ class ContextAssembler:
         sensitivity: Sensitivity,
         provider_is_local: bool,
         intent: str = "general_turn",
+        include_projects: bool = True,
     ) -> str:
-        """Fetch and format user context, with size-aware fallback compaction."""
+        """Fetch and format user context, with size-aware fallback compaction.
+
+        ``include_projects=False`` omits the project overview, for turns where a
+        single workspace is already rendered in depth elsewhere.
+        """
         del sensitivity  # Reserved for future relevance/scope filtering.
 
         claims = await self.claim_service.list_claims(user_id=user_id)
@@ -94,11 +99,15 @@ class ContextAssembler:
 
         claims = claims[:max_claims]
 
-        projects = await self.project_service.list_projects(user_id, status="active")
+        projects: list[Project] = []
         tasks_by_project: dict[str, list[ProjectTask]] = {}
-        for project in projects:
-            project_tasks = await self.project_service.list_tasks(str(project.project_id), user_id)
-            tasks_by_project[str(project.project_id)] = project_tasks
+        if include_projects:
+            projects = await self.project_service.list_projects(user_id, status="active")
+            for project in projects:
+                project_tasks = await self.project_service.list_tasks(
+                    str(project.project_id), user_id
+                )
+                tasks_by_project[str(project.project_id)] = project_tasks
 
         contacts = await self.contact_service.list_contacts(user_id)
         contacts = contacts[:_MAX_CONTACTS]
@@ -204,8 +213,8 @@ class ContextAssembler:
             if project_tasks:
                 task_summary = ", ".join(f"{task.name} ({task.status})" for task in project_tasks)
             else:
-                task_summary = "keine"
-            lines.append(f"  Tasks ({done_count}/{len(project_tasks)} erledigt): {task_summary}")
+                task_summary = "none"
+            lines.append(f"  Tasks ({done_count}/{len(project_tasks)} done): {task_summary}")
         lines.append("</projects>")
         lines.append("")
 
@@ -221,7 +230,7 @@ class ContextAssembler:
     def _render_empty_context() -> str:
         return (
             "<user_context>\n"
-            "Keine Claims, Projekte oder Kontakte gespeichert. Memory ist leer.\n"
+            "No claims, projects or contacts stored yet. Memory is empty.\n"
             "</user_context>"
         )
 
@@ -244,10 +253,8 @@ class ContextAssembler:
 
     def _render_project_line(self, project: Project, *, compact: bool) -> str:
         if compact:
-            return f"Projekt: {project.name} | Status: {project.status}"
-        line = (
-            f"Projekt: {project.name} | Status: {project.status} | Prioritaet: {project.priority}"
-        )
+            return f"Project: {project.name} | Status: {project.status}"
+        line = f"Project: {project.name} | Status: {project.status} | Priority: {project.priority}"
         if project.start_date or project.target_date:
             start = self._format_date(project.start_date) if project.start_date else "?"
             end = self._format_date(project.target_date) if project.target_date else "?"
