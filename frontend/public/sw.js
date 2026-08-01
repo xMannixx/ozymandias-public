@@ -1,5 +1,5 @@
-const STATIC_CACHE = "ozy-static-v4";
-const API_CACHE = "ozy-api-v4";
+const STATIC_CACHE = "ozy-static-v5";
+const API_CACHE = "ozy-api-v5";
 const OFFLINE_FALLBACK = "/index.html";
 const STATIC_ASSETS = [
   OFFLINE_FALLBACK,
@@ -17,7 +17,7 @@ p{max-width:28rem;line-height:1.5}</style></head><body><p><strong>No connection.
     { status: 503, headers: { "content-type": "text/html; charset=utf-8" } },
   );
 }
-const API_PREFIXES = ["/health", "/settings", "/audit", "/stats", "/claims", "/proposals", "/turns", "/voice", "/auth"];
+const API_PREFIXES = ["/health", "/settings", "/audit", "/stats", "/usage", "/claims", "/proposals", "/turns", "/voice", "/auth"];
 
 function isApiRequest(url) {
   return API_PREFIXES.some((prefix) => url.pathname.startsWith(prefix));
