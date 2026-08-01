@@ -28,13 +28,9 @@ function ModeSettings(): JSX.Element {
         <p className="text-xs text-red-300">Kill switch is active. The mode change will still be saved.</p>
       ) : null}
 
-      <button
-        type="button"
-        className="w-full rounded border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-gray-100 hover:bg-gray-800"
-        onClick={() => setConfirmOpen(true)}
-      >
+      <Button variant="ghost" className="w-full" onClick={() => setConfirmOpen(true)}>
         Switch to {targetMode === "autopilot" ? "Autopilot" : "Guardian"}
-      </button>
+      </Button>
 
       {confirmOpen ? (
         <div role="dialog" aria-label="mode-settings-confirm" className="space-y-2 rounded border border-gray-700 bg-black/30 p-3">

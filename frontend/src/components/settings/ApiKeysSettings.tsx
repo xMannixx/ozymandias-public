@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import Button from "@/components/common/Button";
 import GlassCard from "@/components/common/GlassCard";
 import Spinner from "@/components/common/Spinner";
 import type { UserSettingsResponse } from "@/api/types";
@@ -187,17 +188,12 @@ function ApiKeysSettings({ settings, saving, onSave }: ApiKeysSettingsProps): JS
       </div>
 
       <div className="flex items-center gap-3 pt-2">
-        <button
-          type="button"
-          className="rounded border border-gray-700 bg-gray-900 px-4 py-2 text-sm font-medium text-gray-100 hover:bg-gray-800 transition-all cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
-          onClick={handleSave}
-          disabled={saving}
-        >
+        <Button type="button" variant="ghost" onClick={handleSave} disabled={saving}>
           Save keys
-        </button>
+        </Button>
 
         {saveSuccess && (
-          <span className="text-xs text-green-400 animate-fade-in">
+          <span className="text-xs text-green-400 animate-fade-in" role="status" aria-live="polite">
             Keys updated successfully!
           </span>
         )}
