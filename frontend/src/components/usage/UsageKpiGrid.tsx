@@ -43,7 +43,7 @@ function buildTiles(totals: UsageTotals): Tile[] {
     {
       label: "Tokens per answer",
       value: formatDecimal(totals.avg_tokens_per_message, 0),
-      explanation: "Average tokens spent on one answer, prompt included",
+      explanation: "Average per answer that was measured, prompt included",
     },
     {
       label: "Cache hit rate",

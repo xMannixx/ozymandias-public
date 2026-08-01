@@ -137,6 +137,9 @@ class _MessageAggregate:
     user: int = 0
     assistant: int = 0
     sessions: int = 0
+    #: Assistant messages that have usage behind them, so averages stay honest
+    #: for a range that reaches back before the first recorded call.
+    assistant_measured: int = 0
 
 
 def build_totals(
@@ -148,7 +151,8 @@ def build_totals(
     """Derive the headline numbers from raw sums.
 
     Averages are per assistant message, because that is the unit a reader
-    thinks in: one answer Ozy gave.
+    thinks in: one answer Ozy gave. Only answers given after recording began
+    count, otherwise older chats would drag every average down.
     """
     return UsageTotals(
         messages_total=messages.user + messages.assistant,
@@ -168,11 +172,11 @@ def build_totals(
             first_call_at=calls.first_call_at,
             last_call_at=calls.last_call_at,
         ),
-        avg_tokens_per_message=_ratio(calls.tokens_total, messages.assistant),
+        avg_tokens_per_message=_ratio(calls.tokens_total, messages.assistant_measured),
         cache_hit_rate=cache_hit_rate,
         avg_latency_ms=round(calls.avg_latency_ms) if calls.avg_latency_ms is not None else None,
         cost_usd=calls.cost_usd,
-        avg_cost_per_message=_ratio(calls.cost_usd, messages.assistant),
+        avg_cost_per_message=_ratio(calls.cost_usd, messages.assistant_measured),
         unpriced_calls=calls.unpriced,
         first_call_at=calls.first_call_at,
         last_call_at=calls.last_call_at,
@@ -378,11 +382,42 @@ class UsageService:
             *conditions
         )
         sessions = _as_int((await self.db.execute(session_stmt)).scalar_one_or_none())
+        assistant = by_role.get("assistant", 0)
         return _MessageAggregate(
             user=by_role.get("user", 0),
-            assistant=by_role.get("assistant", 0),
+            assistant=assistant,
             sessions=sessions,
+            assistant_measured=await self._measured_answers(
+                normalized_user_id=normalized_user_id,
+                since=since,
+            ),
         )
+
+    async def _measured_answers(
+        self,
+        *,
+        normalized_user_id: uuid.UUID,
+        since: datetime | None,
+    ) -> int:
+        """Answers whose turn actually left usage records behind.
+
+        Chats from before recording began keep counting as messages, but they
+        must not dilute the per-answer averages.
+        """
+        measured_turns = self._in_range(
+            select(LLMUsageEvent.turn_id)
+            .select_from(LLMUsageEvent)
+            .where(LLMUsageEvent.turn_id.is_not(None))
+            .distinct(),
+            normalized_user_id=normalized_user_id,
+            since=since,
+        )
+        stmt = select(func.count()).where(
+            ConversationMessage.user_id == normalized_user_id,
+            ConversationMessage.role == "assistant",
+            ConversationMessage.turn_id.in_(measured_turns),
+        )
+        return _as_int((await self.db.execute(stmt)).scalar_one_or_none())
 
     async def _cache_hit_rate(
         self,

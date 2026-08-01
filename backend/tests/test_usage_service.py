@@ -136,7 +136,7 @@ def test_totals_report_rates_per_assistant_message() -> None:
             first_call_at=datetime(2026, 6, 1, 12, 0, tzinfo=UTC),
             last_call_at=datetime(2026, 6, 1, 12, 30, tzinfo=UTC),
         ),
-        messages=_MessageAggregate(user=4, assistant=4, sessions=2),
+        messages=_MessageAggregate(user=4, assistant=4, sessions=2, assistant_measured=4),
         cache_hit_rate=0.25,
     )
 
@@ -175,18 +175,31 @@ def test_throughput_needs_two_moments_in_time() -> None:
             first_call_at=moment,
             last_call_at=moment,
         ),
-        messages=_MessageAggregate(assistant=1),
+        messages=_MessageAggregate(assistant=1, assistant_measured=1),
         cache_hit_rate=None,
     )
 
     assert totals.tokens_per_minute is None
 
 
+def test_averages_ignore_answers_from_before_recording_began() -> None:
+    """Older chats still count as messages, but must not drag the averages down."""
+    totals = build_totals(
+        calls=_CallAggregate(calls=2, tokens_total=4000, cost_usd=0.5),
+        messages=_MessageAggregate(user=10, assistant=10, sessions=3, assistant_measured=2),
+        cache_hit_rate=None,
+    )
+
+    assert totals.messages_assistant == 10
+    assert totals.avg_tokens_per_message == 2000
+    assert totals.avg_cost_per_message == 0.25
+
+
 def test_unpriced_calls_are_reported_next_to_the_cost() -> None:
     """Cost is understated when a model has no price, so say how often that happened."""
     totals = build_totals(
         calls=_CallAggregate(calls=5, unpriced=2, cost_usd=0.42),
-        messages=_MessageAggregate(assistant=5),
+        messages=_MessageAggregate(assistant=5, assistant_measured=5),
         cache_hit_rate=None,
     )
 
