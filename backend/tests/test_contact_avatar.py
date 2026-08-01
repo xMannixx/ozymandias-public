@@ -30,6 +30,7 @@ def _contact(*, avatar_key: str | None = None) -> Contact:
         notes=None,
         tags=[],
         avatar_minio_key=avatar_key,
+        sensitivity="S2",
         created_at=now,
         updated_at=now,
     )

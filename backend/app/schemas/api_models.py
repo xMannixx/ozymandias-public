@@ -742,6 +742,7 @@ class ContactResponse(BaseModel):
     emails: list[EmailEntry]
     tags: list[str]
     has_avatar: bool
+    sensitivity: str = "S2"
     created_at: datetime
     updated_at: datetime
 
@@ -776,6 +777,7 @@ class CreateContactRequest(BaseModel):
     birthday: date | None = None
     notes: str | None = None
     tags: list[str] = Field(default_factory=list)
+    sensitivity: Literal["S0", "S1", "S2", "S3", "S4"] = "S2"
 
 
 class UpdateContactRequest(BaseModel):
@@ -791,6 +793,7 @@ class UpdateContactRequest(BaseModel):
     birthday: date | None = None
     notes: str | None = None
     tags: list[str] | None = None
+    sensitivity: Literal["S0", "S1", "S2", "S3", "S4"] | None = None
 
 
 class LinkProjectRequest(BaseModel):

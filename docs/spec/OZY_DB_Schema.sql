@@ -581,6 +581,26 @@ CREATE INDEX IF NOT EXISTS idx_contacts_user
 CREATE INDEX IF NOT EXISTS idx_contacts_name
     ON contacts(user_id, first_name, last_name);
 
+-- Sensitivity pro Kontakt steuert das Routing: S3/S4 erreichen kein Cloud-Modell,
+-- weder als Name noch als Detail. Default S2, weil Kontaktdaten persoenlich sind.
+ALTER TABLE contacts
+    ADD COLUMN IF NOT EXISTS sensitivity TEXT NOT NULL DEFAULT 'S2';
+                    -- S0 | S1 | S2 | S3 | S4
+
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM pg_constraint
+        WHERE conname = 'chk_contacts_sensitivity'
+    ) THEN
+        ALTER TABLE contacts
+            ADD CONSTRAINT chk_contacts_sensitivity
+            CHECK (sensitivity IN ('S0', 'S1', 'S2', 'S3', 'S4'));
+    END IF;
+END
+$$;
+
 -- === KONTAKT-PROJEKT-VERKNUEPFUNG ===
 
 CREATE TABLE IF NOT EXISTS contact_projects (
