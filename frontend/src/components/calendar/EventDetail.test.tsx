@@ -25,7 +25,7 @@ describe("EventDetail", () => {
 
   it('"In Google Calendar" Link vorhanden', () => {
     render(<EventDetail event={event} onClose={vi.fn()} onDelete={vi.fn(async () => undefined)} />);
-    expect(screen.getByRole("link", { name: "In Google Calendar oeffnen" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Open in Google Calendar" })).toHaveAttribute(
       "href",
       "https://calendar.google.com/event?e=1",
     );
