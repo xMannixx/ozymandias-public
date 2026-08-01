@@ -103,6 +103,13 @@ def _contact(
     last_name: str | None = "Mustermann",
     company: str | None = "Firma GmbH",
     role: str | None = "Developer",
+    phones: list[dict[str, str]] | None = None,
+    emails: list[dict[str, str]] | None = None,
+    address: str | None = None,
+    birthday: date | None = None,
+    notes: str | None = None,
+    tags: list[str] | None = None,
+    sensitivity: str = "S2",
 ) -> Contact:
     now = datetime.now(tz=UTC)
     return Contact(
@@ -112,13 +119,14 @@ def _contact(
         last_name=last_name,
         company=company,
         role=role,
-        phones=[],
-        emails=[],
-        address=None,
-        birthday=None,
-        notes=None,
-        tags=[],
+        phones=phones if phones is not None else [],
+        emails=emails if emails is not None else [],
+        address=address,
+        birthday=birthday,
+        notes=notes,
+        tags=tags if tags is not None else [],
         avatar_minio_key=None,
+        sensitivity=sensitivity,
         created_at=now,
         updated_at=now,
     )
@@ -355,6 +363,160 @@ async def test_context_assembler_renders_contact_without_last_name() -> None:
     )
     assert "- Lisa" in output
     assert "Lisa None" not in output
+
+
+@pytest.mark.asyncio
+async def test_named_contact_is_rendered_in_full() -> None:
+    """The point of the feature: ask about someone, get what is stored."""
+    assembler = _assembler()
+    lisa = _contact(
+        first_name="Lisa",
+        last_name="Schmidt",
+        company="Muster GmbH",
+        role="Steuerberaterin",
+        phones=[{"label": "mobil", "number": "+491701234567"}],
+        emails=[{"label": "buero", "email": "lisa@muster.de"}],
+        address="Musterweg 1\n12345 Musterstadt",
+        birthday=date(1980, 4, 12),
+        tags=["Arbeit"],
+        notes="Telefoniert nicht gern.",
+    )
+    _patch_services(assembler, claims=[], projects=[], tasks=[], contacts=[lisa])
+
+    result = await assembler.assemble_with_report(
+        user_id="user-1",
+        sensitivity=Sensitivity.S1,
+        provider_is_local=False,
+        query="Hast du Schmidts Nummer?",
+    )
+
+    assert '<contact_details count="1">' in result.text
+    assert 'matched_by="name"' in result.text
+    assert "Phone (mobil): +491701234567" in result.text
+    assert "Email (buero): lisa@muster.de" in result.text
+    assert "Address: Musterweg 1 12345 Musterstadt" in result.text
+    assert "Birthday: 12.4.1980" in result.text
+    assert "Notes: Telefoniert nicht gern." in result.text
+    assert result.detailed_contact_ids == [str(lisa.contact_id)]
+
+
+@pytest.mark.asyncio
+async def test_contacts_stay_names_when_nobody_is_named() -> None:
+    assembler = _assembler()
+    _patch_services(
+        assembler,
+        claims=[],
+        projects=[],
+        tasks=[],
+        contacts=[_contact(phones=[{"label": "mobil", "number": "+491701234567"}])],
+    )
+
+    result = await assembler.assemble_with_report(
+        user_id="user-1",
+        sensitivity=Sensitivity.S1,
+        provider_is_local=False,
+        query="Wie wird das Wetter morgen?",
+    )
+
+    assert "contact_details" not in result.text
+    assert "+491701234567" not in result.text
+    assert result.detailed_contact_ids == []
+
+
+@pytest.mark.asyncio
+async def test_private_contacts_never_reach_a_cloud_model() -> None:
+    """S3 means local only, so not even the name goes to a cloud provider."""
+    assembler = _assembler()
+    private = _contact(first_name="Eva", last_name="Vogel", sensitivity="S3", notes="Therapie")
+    normal = _contact(first_name="Max", last_name="Mustermann")
+    _patch_services(assembler, claims=[], projects=[], tasks=[], contacts=[private, normal])
+
+    result = await assembler.assemble_with_report(
+        user_id="user-1",
+        sensitivity=Sensitivity.S1,
+        provider_is_local=False,
+        query="Was weisst du ueber Vogel?",
+    )
+
+    assert "Vogel" not in result.text
+    assert "Therapie" not in result.text
+    assert "Mustermann" in result.text
+    assert result.detailed_contact_ids == []
+    assert result.withheld_private_contacts == 1
+
+
+@pytest.mark.asyncio
+async def test_private_contacts_are_available_on_a_local_model() -> None:
+    assembler = _assembler()
+    private = _contact(
+        first_name="Eva",
+        last_name="Vogel",
+        sensitivity="S3",
+        phones=[{"label": "mobil", "number": "+4915100000"}],
+    )
+    _patch_services(assembler, claims=[], projects=[], tasks=[], contacts=[private])
+
+    result = await assembler.assemble_with_report(
+        user_id="user-1",
+        sensitivity=Sensitivity.S1,
+        provider_is_local=True,
+        query="Was weisst du ueber Vogel?",
+    )
+
+    assert "Phone (mobil): +4915100000" in result.text
+    assert result.withheld_private_contacts == 0
+
+
+@pytest.mark.asyncio
+async def test_long_notes_are_shortened() -> None:
+    assembler = _assembler()
+    _patch_services(
+        assembler,
+        claims=[],
+        projects=[],
+        tasks=[],
+        contacts=[_contact(notes="A" * 900)],
+    )
+
+    result = await assembler.assemble_with_report(
+        user_id="user-1",
+        sensitivity=Sensitivity.S1,
+        provider_is_local=True,
+        query="Was steht bei Mustermann?",
+    )
+
+    assert "…" in result.text
+    assert "A" * 400 not in result.text
+
+
+@pytest.mark.asyncio
+async def test_the_roster_gives_way_before_the_entry_that_was_asked_for() -> None:
+    """Under space pressure the named person matters more than a list of names."""
+    assembler = _assembler()
+    crowd = [_contact(first_name=f"Kontakt{idx}", company="C" * 300) for idx in range(30)]
+    asked_for = _contact(
+        first_name="Lisa",
+        last_name="Schmidt",
+        phones=[{"label": "mobil", "number": "+491701234567"}],
+    )
+    _patch_services(
+        assembler,
+        claims=[_claim(content=f"Claim-{idx}-" + ("x" * 300)) for idx in range(50)],
+        projects=[],
+        tasks=[],
+        contacts=[*crowd, asked_for],
+    )
+
+    result = await assembler.assemble_with_report(
+        user_id="user-1",
+        sensitivity=Sensitivity.S1,
+        provider_is_local=True,
+        query="Hast du Schmidts Nummer?",
+    )
+
+    assert len(result.text) <= 6000
+    assert "Phone (mobil): +491701234567" in result.text
+    assert "Kontakt29" not in result.text
 
 
 @pytest.mark.asyncio

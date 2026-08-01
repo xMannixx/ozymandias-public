@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass, field
 from datetime import date
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -15,6 +16,7 @@ from app.schemas import Sensitivity
 from app.schemas.token_budget import TokenBudgetRequest
 from app.services.claim_service import ClaimService
 from app.services.contact_service import ContactService
+from app.services.llm.contact_match import ContactMatch, match_contacts
 from app.services.memory_recall_service import MemoryRecallService
 from app.services.project_service import ProjectService
 from app.services.rust_bridge import OzyRustError, allocate_token_budget
@@ -23,6 +25,20 @@ _log = logging.getLogger(__name__)
 _CHAR_LIMIT = 6000
 _MAX_CLAIMS = 50
 _MAX_CONTACTS = 30
+#: Long notes would eat the budget a full entry is worth.
+_MAX_NOTE_CHARS = 300
+_LOCAL_ONLY_SENSITIVITIES = {Sensitivity.S3.value, Sensitivity.S4.value}
+
+
+@dataclass(frozen=True)
+class ContextResult:
+    """The rendered block plus what it means for the audit trail."""
+
+    text: str
+    #: Contacts whose full entry reached the model, for the audit trail.
+    detailed_contact_ids: list[str] = field(default_factory=list)
+    #: Private contacts left out because the answering model is not local.
+    withheld_private_contacts: int = 0
 
 
 class ContextAssembler:
@@ -65,11 +81,35 @@ class ContextAssembler:
         provider_is_local: bool,
         intent: str = "general_turn",
         include_projects: bool = True,
+        query: str = "",
     ) -> str:
+        """Fetch and format user context, without the audit details."""
+        result = await self.assemble_with_report(
+            user_id=user_id,
+            sensitivity=sensitivity,
+            provider_is_local=provider_is_local,
+            intent=intent,
+            include_projects=include_projects,
+            query=query,
+        )
+        return result.text
+
+    async def assemble_with_report(
+        self,
+        *,
+        user_id: str,
+        sensitivity: Sensitivity,
+        provider_is_local: bool,
+        intent: str = "general_turn",
+        include_projects: bool = True,
+        query: str = "",
+    ) -> ContextResult:
         """Fetch and format user context, with size-aware fallback compaction.
 
         ``include_projects=False`` omits the project overview, for turns where a
-        single workspace is already rendered in depth elsewhere.
+        single workspace is already rendered in depth elsewhere. ``query`` is the
+        current user message: contacts it names are rendered in full, the rest
+        stay a bare name.
         """
         del sensitivity  # Reserved for future relevance/scope filtering.
 
@@ -109,66 +149,69 @@ class ContextAssembler:
                 )
                 tasks_by_project[str(project.project_id)] = project_tasks
 
-        contacts = await self.contact_service.list_contacts(user_id)
-        contacts = contacts[:_MAX_CONTACTS]
+        stored_contacts = await self.contact_service.list_contacts(user_id)
+        allowed_contacts = [
+            contact
+            for contact in stored_contacts
+            if provider_is_local or contact.sensitivity not in _LOCAL_ONLY_SENSITIVITIES
+        ]
+        withheld = len(stored_contacts) - len(allowed_contacts)
+        # Full entries for whoever the message is about; the rest stay a name.
+        matches = match_contacts(query, allowed_contacts)
+        detailed_ids = [str(match.contact.contact_id) for match in matches]
+        contacts = allowed_contacts[:_MAX_CONTACTS]
+
+        def report(text: str) -> ContextResult:
+            return ContextResult(
+                text=text,
+                detailed_contact_ids=detailed_ids,
+                withheld_private_contacts=withheld,
+            )
 
         context = self._render_context(
             claims=claims,
             projects=projects,
             contacts=contacts,
+            matches=matches,
             tasks_by_project=tasks_by_project,
             compact_projects=False,
             compact_contacts=False,
         )
         if len(context) <= _CHAR_LIMIT:
-            return context
+            return report(context)
 
         prioritized_claims = self._prioritize_claims(claims)
         compact_claims = prioritized_claims[:]
         compact_contacts = contacts[:]
         compact_projects = projects[:]
-        compact_context = self._render_context(
-            claims=compact_claims,
-            projects=compact_projects,
-            contacts=compact_contacts,
-            tasks_by_project={},
-            compact_projects=True,
-            compact_contacts=True,
-        )
-        while len(compact_context) > _CHAR_LIMIT and compact_contacts:
-            compact_contacts.pop()
-            compact_context = self._render_context(
+
+        def render_compact() -> str:
+            return self._render_context(
                 claims=compact_claims,
                 projects=compact_projects,
                 contacts=compact_contacts,
-                tasks_by_project={},
-                compact_projects=True,
-                compact_contacts=True,
-            )
-        while len(compact_context) > _CHAR_LIMIT and compact_claims:
-            compact_claims.pop()
-            compact_context = self._render_context(
-                claims=compact_claims,
-                projects=compact_projects,
-                contacts=compact_contacts,
-                tasks_by_project={},
-                compact_projects=True,
-                compact_contacts=True,
-            )
-        while len(compact_context) > _CHAR_LIMIT and compact_projects:
-            compact_projects.pop()
-            compact_context = self._render_context(
-                claims=compact_claims,
-                projects=compact_projects,
-                contacts=compact_contacts,
+                matches=matches,
                 tasks_by_project={},
                 compact_projects=True,
                 compact_contacts=True,
             )
 
+        compact_context = render_compact()
+        # The roster of names goes first: the entries of the people actually
+        # being asked about are worth more than a list of everyone else.
+        while len(compact_context) > _CHAR_LIMIT and compact_contacts:
+            compact_contacts.pop()
+            compact_context = render_compact()
+        while len(compact_context) > _CHAR_LIMIT and compact_claims:
+            compact_claims.pop()
+            compact_context = render_compact()
+        while len(compact_context) > _CHAR_LIMIT and compact_projects:
+            compact_projects.pop()
+            compact_context = render_compact()
+
         if len(compact_context) > _CHAR_LIMIT:
-            return self._render_empty_context()
-        return compact_context
+            return report(self._render_empty_context())
+        return report(compact_context)
 
     def _prioritize_claims(self, claims: list[Claim]) -> list[Claim]:
         sorted_claims = sorted(
@@ -187,11 +230,12 @@ class ContextAssembler:
         claims: list[Claim],
         projects: list[Project],
         contacts: list[Contact],
+        matches: list[ContactMatch],
         tasks_by_project: dict[str, list[ProjectTask]],
         compact_projects: bool,
         compact_contacts: bool,
     ) -> str:
-        if not claims and not projects and not contacts:
+        if not claims and not projects and not contacts and not matches:
             return self._render_empty_context()
 
         lines = ["<user_context>", ""]
@@ -223,8 +267,58 @@ class ContextAssembler:
             lines.append(self._render_contact_line(contact, compact=compact_contacts))
         lines.append("</contacts>")
         lines.append("")
+
+        if matches:
+            lines.extend(self._render_contact_details(matches))
+            lines.append("")
+
         lines.append("</user_context>")
         return "\n".join(lines)
+
+    def _render_contact_details(self, matches: list[ContactMatch]) -> list[str]:
+        """Everything stored about the people this message is about."""
+        lines = [
+            f'<contact_details count="{len(matches)}">',
+            "Stored entries for the people named in this message. Quote them when asked,",
+            "and say plainly when something is not stored.",
+        ]
+        for match in matches:
+            contact = match.contact
+            lines.append(
+                f'<contact name="{_escape(self._person_name(contact))}" '
+                f'matched_by="{match.reason}">'
+            )
+            lines.extend(self._contact_detail_lines(contact))
+            lines.append("</contact>")
+        lines.append("</contact_details>")
+        return lines
+
+    def _contact_detail_lines(self, contact: Contact) -> list[str]:
+        lines: list[str] = []
+        if contact.company:
+            lines.append(f"Company: {contact.company}")
+        if contact.role:
+            lines.append(f"Role: {contact.role}")
+        for entry in _entries(contact.phones):
+            number = entry.get("number")
+            if number:
+                lines.append(f"Phone ({entry.get('label') or 'no label'}): {number}")
+        for entry in _entries(contact.emails):
+            email = entry.get("email")
+            if email:
+                lines.append(f"Email ({entry.get('label') or 'no label'}): {email}")
+        if contact.address:
+            lines.append(f"Address: {' '.join(contact.address.split())}")
+        if contact.birthday:
+            lines.append(f"Birthday: {self._format_date(contact.birthday)}")
+        tags = [str(tag) for tag in contact.tags] if isinstance(contact.tags, list) else []
+        if tags:
+            lines.append(f"Tags: {', '.join(tags)}")
+        if contact.notes:
+            lines.append(f"Notes: {_shorten(contact.notes)}")
+        if not lines:
+            lines.append("Nothing stored beyond the name.")
+        return lines
 
     @staticmethod
     def _render_empty_context() -> str:
@@ -264,3 +358,25 @@ class ContextAssembler:
     @staticmethod
     def _format_date(value: date) -> str:
         return f"{value.day}.{value.month}.{value.year}"
+
+
+def _entries(value: object) -> list[dict[str, str]]:
+    """Phone and email rows as stored in JSONB, skipping anything malformed."""
+    if not isinstance(value, list):
+        return []
+    return [
+        {str(key): str(item_value) for key, item_value in item.items()}
+        for item in value
+        if isinstance(item, dict)
+    ]
+
+
+def _escape(value: str) -> str:
+    return value.replace('"', "'")
+
+
+def _shorten(value: str) -> str:
+    flattened = " ".join(value.split())
+    if len(flattened) <= _MAX_NOTE_CHARS:
+        return flattened
+    return flattened[:_MAX_NOTE_CHARS].rstrip() + "…"
