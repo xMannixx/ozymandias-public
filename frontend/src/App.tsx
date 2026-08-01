@@ -13,6 +13,7 @@ import ProjectsPage from "@/pages/ProjectsPage";
 import ProjectWorkspacePage from "@/pages/ProjectWorkspacePage";
 import ProposalsPage from "@/pages/ProposalsPage";
 import SettingsPage from "@/pages/SettingsPage";
+import UsagePage from "@/pages/UsagePage";
 
 function App(): JSX.Element {
   return (
@@ -27,6 +28,7 @@ function App(): JSX.Element {
           <Route path="audit" element={<AuditPage />} />
           <Route path="dashboard" element={<DashboardPage />} />
           <Route path="stats" element={<DashboardPage />} />
+          <Route path="usage" element={<UsagePage />} />
           <Route path="settings" element={<SettingsPage />} />
           <Route path="calendar" element={<CalendarPage />} />
           <Route path="mail" element={<MailPage />} />

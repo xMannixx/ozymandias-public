@@ -6,6 +6,7 @@ import {
   Brain,
   Calendar,
   FolderKanban,
+  Gauge,
   Inbox,
   LayoutDashboard,
   MessageSquare,
@@ -48,6 +49,7 @@ const navGroups: NavGroup[] = [
     label: "System",
     items: [
       { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+      { to: "/usage", label: "Usage", icon: Gauge },
       { to: "/settings", label: "Settings", icon: Settings },
     ],
   },

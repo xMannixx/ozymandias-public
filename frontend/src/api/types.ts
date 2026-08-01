@@ -126,6 +126,70 @@ export type DashboardStats = {
   contacts_total: number;
 };
 
+export type UsageRange = "24h" | "7d" | "30d" | "all";
+
+export type UsageTotals = {
+  messages_total: number;
+  messages_user: number;
+  messages_assistant: number;
+  sessions: number;
+  calls: number;
+  calls_failed: number;
+  error_rate: number;
+  tool_calls: number;
+  tokens_total: number;
+  tokens_input: number;
+  tokens_output: number;
+  tokens_cached: number;
+  tokens_per_minute: number | null;
+  avg_tokens_per_message: number | null;
+  cache_hit_rate: number | null;
+  avg_latency_ms: number | null;
+  cost_usd: number;
+  avg_cost_per_message: number | null;
+  unpriced_calls: number;
+  first_call_at: string | null;
+  last_call_at: string | null;
+};
+
+export type UsageBreakdownItem = {
+  key: string;
+  calls: number;
+  tokens: number;
+  cost_usd: number;
+  cost_share: number;
+};
+
+export type UsageCount = {
+  label: string;
+  count: number;
+};
+
+export type UsageBucket = {
+  bucket: string;
+  calls: number;
+  tokens: number;
+  cost_usd: number;
+  errors: number;
+};
+
+export type UsageReport = {
+  range: UsageRange;
+  since: string | null;
+  generated_at: string;
+  bucket_unit: "hour" | "day";
+  totals: UsageTotals;
+  top_models: UsageBreakdownItem[];
+  top_providers: UsageBreakdownItem[];
+  top_tools: UsageBreakdownItem[];
+  top_channels: UsageBreakdownItem[];
+  top_call_types: UsageBreakdownItem[];
+  errors_by_kind: UsageCount[];
+  errors_by_day: UsageCount[];
+  errors_by_hour: UsageCount[];
+  series: UsageBucket[];
+};
+
 export type HealthResponse = {
   status: string;
   database: string;
