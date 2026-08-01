@@ -9,6 +9,11 @@ describe("Toast", () => {
     expect(toast).toHaveClass("text-red-100");
   });
 
+  it("floats in the viewport so it stays visible on long pages", () => {
+    render(<Toast message="saved" type="success" />);
+    expect(screen.getByRole("status")).toHaveClass("fixed");
+  });
+
   it("hides after timeout", async () => {
     vi.useFakeTimers();
     render(<Toast message="temp" timeoutMs={50} />);
