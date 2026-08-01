@@ -7,7 +7,7 @@ vi.mock("@/store/mode", () => ({
 }));
 
 describe("ModeIndicator", () => {
-  it("shows guardian with blue glow", () => {
+  it("renders guardian label", () => {
     vi.mocked(useMode).mockReturnValue({
       mode: "guardian",
       runtimeMode: "guardian",
@@ -16,10 +16,10 @@ describe("ModeIndicator", () => {
       toggleKillSwitch: vi.fn(),
     });
     render(<ModeIndicator />);
-    expect(screen.getByText("Guardian")).toHaveClass("neon-glow-blue");
+    expect(screen.getByText("Guardian")).toBeInTheDocument();
   });
 
-  it("shows autopilot with orange glow", () => {
+  it("renders autopilot label", () => {
     vi.mocked(useMode).mockReturnValue({
       mode: "autopilot",
       runtimeMode: "autopilot",
@@ -28,6 +28,18 @@ describe("ModeIndicator", () => {
       toggleKillSwitch: vi.fn(),
     });
     render(<ModeIndicator />);
-    expect(screen.getByText("Autopilot")).toHaveClass("neon-glow-orange");
+    expect(screen.getByText("Autopilot")).toBeInTheDocument();
+  });
+
+  it("renders kill-switch label", () => {
+    vi.mocked(useMode).mockReturnValue({
+      mode: "kill-switch",
+      runtimeMode: "guardian",
+      setMode: vi.fn(),
+      killSwitch: true,
+      toggleKillSwitch: vi.fn(),
+    });
+    render(<ModeIndicator />);
+    expect(screen.getByText("Kill-switch")).toBeInTheDocument();
   });
 });

@@ -33,7 +33,9 @@ describe("Sidebar", () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByText("Dashboard").closest("a")).toHaveClass("bg-blue-700/50");
+    const activeLink = screen.getByText("Dashboard").closest("a");
+    expect(activeLink?.className).toContain("bg-white/[0.06]");
+    expect(activeLink?.className).toContain("text-white");
   });
 
   it("does not show a proposals badge when there are no pending proposals", () => {
