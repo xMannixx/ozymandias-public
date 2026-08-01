@@ -54,7 +54,7 @@ from app.services.live_web_service import (
 )
 from app.services.llm.base import LLMMessage, LLMResponse
 from app.services.llm.claim_extractor import ClaimExtractor
-from app.services.llm.context_assembler import ContextAssembler
+from app.services.llm.context_assembler import ContextAssembler, ContextResult
 from app.services.llm.router import get_llm_router
 from app.services.llm.sensitivity_classifier import (
     classify_sensitivity,
@@ -93,6 +93,9 @@ class _TurnPreparation:
     live_web_mode: str
     live_web_result: LiveWebContext | None = None
     live_web_error: str | None = None
+    #: Filled while the prompt is built, so the audit log can record which
+    #: contact entries reached the model and which stayed on this machine.
+    contact_context: ContextResult | None = None
     live_web_sources: list[dict[str, str]] = field(default_factory=list)
     #: Every model call of this turn, collected for the usage report.
     usage: list[LLMCallUsage] = field(default_factory=list)
@@ -634,6 +637,12 @@ class TurnService:
             audit_payload["project_forced_local"] = prep.project_context.force_local
             audit_payload["project_knowledge_files"] = prep.project_context.knowledge_files
             audit_payload["project_knowledge_chars"] = prep.project_context.knowledge_chars
+        if prep.contact_context is not None:
+            # Which address book entries the model saw, and how many stayed here.
+            audit_payload["contact_details_shown"] = prep.contact_context.detailed_contact_ids
+            audit_payload["contacts_withheld_private"] = (
+                prep.contact_context.withheld_private_contacts
+            )
         await self.audit.log(
             event_type=AuditEventType.turn_processed,
             result=AuditResult.success,
@@ -737,12 +746,15 @@ class TurnService:
         )
         # Inside a workspace the active project is rendered in depth, so the
         # shallow list of every other active project would only add noise.
-        context_block = await ContextAssembler(self.db).assemble(
+        context = await ContextAssembler(self.db).assemble_with_report(
             user_id=user_id,
             sensitivity=prep.payload_sensitivity,
             provider_is_local=provider_is_local,
             include_projects=prep.project_context is None,
+            query=prep.user_text,
         )
+        context_block = context.text
+        prep.contact_context = context
         history: list[LLMMessage] = []
         if prep.conversation is not None:
             recent = await self.conversation_service.recent_history(

@@ -38,6 +38,7 @@ from app.services.errors import (
 )
 from app.services.live_web_service import LiveWebContext
 from app.services.llm.base import LLMResponse
+from app.services.llm.context_assembler import ContextResult
 from app.services.llm.sensitivity_classifier import SensitivityClassification
 from app.services.llm.system_prompt import OZY_SYSTEM_PROMPT, build_system_prompt
 from app.services.llm.usage import LLMCallUsage
@@ -124,8 +125,10 @@ def _patch_context_assembler(
         "</user_context>"
     ),
 ) -> AsyncMock:
-    assemble_mock = AsyncMock(return_value=context_block)
-    monkeypatch.setattr("app.services.turn_service.ContextAssembler.assemble", assemble_mock)
+    assemble_mock = AsyncMock(return_value=ContextResult(text=context_block))
+    monkeypatch.setattr(
+        "app.services.turn_service.ContextAssembler.assemble_with_report", assemble_mock
+    )
     return assemble_mock
 
 
@@ -1237,6 +1240,57 @@ async def test_turn_audit_records_injected_workspace_knowledge(
     assert audit_payload["project_id"] == context.project_id
     assert audit_payload["project_knowledge_files"] == ["spec.md", "notes.txt"]
     assert audit_payload["project_knowledge_chars"] == 42
+
+
+@pytest.mark.asyncio
+async def test_turn_audit_records_which_contacts_the_model_saw(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Contact data leaving the machine has to be traceable afterwards."""
+    service = TurnService(cast(AsyncSession, FakeAsyncSession()))
+    _prepare_service(service)
+    monkeypatch.setattr(
+        "app.services.turn_service.ContextAssembler.assemble_with_report",
+        AsyncMock(
+            return_value=ContextResult(
+                text="<user_context></user_context>",
+                detailed_contact_ids=["11111111-1111-1111-1111-111111111111"],
+                withheld_private_contacts=2,
+            )
+        ),
+    )
+    _patch_default_rust(monkeypatch, claims=[])
+    service.llm_router.route = AsyncMock(  # type: ignore[method-assign]
+        return_value=LLMResponse(content="answer", model="llama3", provider="ollama", tokens_used=5)
+    )
+    service.claim_extractor.extract = AsyncMock(return_value=[])  # type: ignore[method-assign]
+
+    await service.process_turn(user_id="user-1", payload=TurnRequest(text="Schmidts Nummer?"))
+
+    audit_payload = service.audit.log.await_args.kwargs["payload"]
+    assert audit_payload["contact_details_shown"] == ["11111111-1111-1111-1111-111111111111"]
+    assert audit_payload["contacts_withheld_private"] == 2
+
+
+@pytest.mark.asyncio
+async def test_the_user_message_drives_contact_lookup(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = TurnService(cast(AsyncSession, FakeAsyncSession()))
+    _prepare_service(service)
+    assemble_mock = _patch_context_assembler(monkeypatch)
+    _patch_default_rust(monkeypatch, claims=[])
+    service.llm_router.route = AsyncMock(  # type: ignore[method-assign]
+        return_value=LLMResponse(content="answer", model="llama3", provider="ollama", tokens_used=5)
+    )
+    service.claim_extractor.extract = AsyncMock(return_value=[])  # type: ignore[method-assign]
+
+    await service.process_turn(
+        user_id="user-1", payload=TurnRequest(text="Hast du Schmidts Nummer?")
+    )
+
+    assert assemble_mock.await_args is not None
+    assert assemble_mock.await_args.kwargs["query"] == "Hast du Schmidts Nummer?"
 
 
 @pytest.mark.asyncio
