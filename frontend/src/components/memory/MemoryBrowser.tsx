@@ -125,7 +125,11 @@ function MemoryBrowser(): JSX.Element {
         </p>
       ) : (
         <div className="grid gap-4 md:grid-cols-[3fr_2fr]">
-          <div className="grid auto-rows-min gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          <div
+            className={`grid auto-rows-min gap-3 sm:grid-cols-2 xl:grid-cols-3 ${
+              selectedClaim ? "hidden md:grid" : ""
+            }`}
+          >
             {filteredClaims.map((claim) => (
               <ClaimCard
                 key={claim.claim_id}
@@ -138,26 +142,37 @@ function MemoryBrowser(): JSX.Element {
           </div>
 
           {selectedClaim ? (
-            versionsLoading ? (
-              <div className="glass-card flex items-center justify-center p-6">
-                <Spinner />
-              </div>
-            ) : (
-              <ClaimDetail
-                claim={selectedClaim}
-                versions={versions}
-                conflictGroupId={selectedConflict?.key ?? null}
-                conflictRelatedCount={selectedConflict?.count}
-                onConfirm={confirmClaim}
-                onRetract={retractClaim}
-                onArchive={archiveClaim}
-                onLock={lockClaim}
-                onUnlock={unlockClaim}
-                onSensitivityChange={updateSensitivity}
-              />
-            )
+            <div className="space-y-2">
+              <button
+                type="button"
+                className="rounded border border-cyan-500/30 bg-slate-900/40 px-3 py-1 text-xs text-gray-200 hover:border-cyan-400/60 md:hidden"
+                onClick={() => void selectClaim(null)}
+              >
+                ← Back to list
+              </button>
+              {versionsLoading ? (
+                <div className="glass-card flex items-center justify-center p-6" role="status" aria-live="polite">
+                  <Spinner />
+                </div>
+              ) : (
+                <ClaimDetail
+                  claim={selectedClaim}
+                  versions={versions}
+                  conflictGroupId={selectedConflict?.key ?? null}
+                  conflictRelatedCount={selectedConflict?.count}
+                  onConfirm={confirmClaim}
+                  onRetract={retractClaim}
+                  onArchive={archiveClaim}
+                  onLock={lockClaim}
+                  onUnlock={unlockClaim}
+                  onSensitivityChange={updateSensitivity}
+                />
+              )}
+            </div>
           ) : (
-            <div className="glass-card h-fit p-4 text-sm text-gray-400">Select a memory to see details.</div>
+            <div className="glass-card hidden h-fit p-4 text-sm text-gray-400 md:block">
+              Select a memory to see details.
+            </div>
           )}
         </div>
       )}

@@ -58,7 +58,11 @@ function DashboardView(): JSX.Element {
         </label>
       </div>
 
-      {error ? <p className="text-sm text-red-300">{error}</p> : null}
+      {error ? (
+        <p className="text-xs text-amber-300" role="status" aria-live="polite">
+          Latest refresh failed ({error}). Showing the last successful snapshot.
+        </p>
+      ) : null}
 
       {/* KPI Header Row */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
