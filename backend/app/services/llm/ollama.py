@@ -9,7 +9,13 @@ from typing import Any, cast
 from ollama import AsyncClient
 
 from app.config import get_settings
-from app.services.llm.base import LLMMessage, LLMProvider, LLMResponse, LLMStreamItem
+from app.services.llm.base import (
+    LLMMessage,
+    LLMProvider,
+    LLMResponse,
+    LLMStreamItem,
+    TokenDetail,
+)
 
 
 class OllamaProvider(LLMProvider):
@@ -92,11 +98,15 @@ class OllamaProvider(LLMProvider):
         content = str(message.get("content", ""))
         prompt_tokens = int(raw_response.get("prompt_eval_count", 0))
         completion_tokens = int(raw_response.get("eval_count", 0))
-        return LLMResponse(
+        return LLMResponse.from_tokens(
             content=content,
             model=selected_model,
             provider="ollama",
-            tokens_used=prompt_tokens + completion_tokens,
+            tokens=TokenDetail(
+                prompt_tokens=prompt_tokens,
+                completion_tokens=completion_tokens,
+                total_tokens=prompt_tokens + completion_tokens,
+            ),
             raw_response=raw_response,
         )
 
@@ -129,9 +139,13 @@ class OllamaProvider(LLMProvider):
                 prompt_tokens = int(part_dict.get("prompt_eval_count", 0))
                 completion_tokens = int(part_dict.get("eval_count", 0))
 
-        yield LLMResponse(
+        yield LLMResponse.from_tokens(
             content="".join(content_parts),
             model=selected_model,
             provider="ollama",
-            tokens_used=prompt_tokens + completion_tokens,
+            tokens=TokenDetail(
+                prompt_tokens=prompt_tokens,
+                completion_tokens=completion_tokens,
+                total_tokens=prompt_tokens + completion_tokens,
+            ),
         )

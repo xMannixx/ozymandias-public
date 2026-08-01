@@ -6,6 +6,8 @@ from types import SimpleNamespace
 
 import pytest
 
+from app.services.llm.anthropic_provider import AnthropicProvider
+from app.services.llm.base import token_detail_from_openai_usage
 from app.services.llm.deepseek import DeepSeekProvider
 from app.services.llm.gemini import GeminiProvider
 from app.services.llm.lmstudio import LMStudioProvider
@@ -274,3 +276,168 @@ async def test_lmstudio_provider_propagates_connection_error(
     provider = LMStudioProvider()
     with pytest.raises(RuntimeError, match="unreachable"):
         await provider.chat([{"role": "user", "content": "hello"}])
+
+
+def test_token_detail_reads_openai_cache_details() -> None:
+    usage = SimpleNamespace(
+        prompt_tokens=1000,
+        completion_tokens=200,
+        total_tokens=1200,
+        prompt_tokens_details=SimpleNamespace(cached_tokens=768),
+    )
+
+    detail = token_detail_from_openai_usage(usage)
+    assert detail.prompt_tokens == 1000
+    assert detail.completion_tokens == 200
+    assert detail.cached_prompt_tokens == 768
+    assert detail.total_tokens == 1200
+
+
+def test_token_detail_reads_deepseek_cache_hits() -> None:
+    usage = SimpleNamespace(
+        prompt_tokens=500,
+        completion_tokens=100,
+        total_tokens=600,
+        prompt_cache_hit_tokens=320,
+    )
+
+    assert token_detail_from_openai_usage(usage).cached_prompt_tokens == 320
+
+
+def test_token_detail_falls_back_to_sum_and_never_exceeds_prompt() -> None:
+    usage = {"prompt_tokens": 10, "completion_tokens": 5, "prompt_cache_hit_tokens": 99}
+
+    detail = token_detail_from_openai_usage(usage)
+    assert detail.total_tokens == 15
+    assert detail.cached_prompt_tokens == 10
+
+
+def test_token_detail_without_usage_is_zero() -> None:
+    detail = token_detail_from_openai_usage(None)
+    assert (detail.prompt_tokens, detail.completion_tokens, detail.total_tokens) == (0, 0, 0)
+
+
+@pytest.mark.asyncio
+async def test_openai_provider_reports_token_breakdown(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        "app.services.llm.openai_provider.get_settings",
+        lambda: SimpleNamespace(openai_api_key="key", openai_model="gpt-4o"),
+    )
+
+    class _Response:
+        def __init__(self) -> None:
+            self.choices = [SimpleNamespace(message=SimpleNamespace(content="answer"))]
+            self.usage = SimpleNamespace(
+                prompt_tokens=800,
+                completion_tokens=120,
+                total_tokens=920,
+                prompt_tokens_details=SimpleNamespace(cached_tokens=640),
+            )
+
+        def model_dump(self) -> dict[str, object]:
+            return {"ok": True}
+
+    class _FakeClient:
+        def __init__(self, **_: object) -> None:
+            self.chat = SimpleNamespace(completions=SimpleNamespace(create=self._create))
+
+        async def _create(self, **_: object) -> _Response:
+            return _Response()
+
+    monkeypatch.setattr("app.services.llm.openai_provider.AsyncOpenAI", _FakeClient)
+    result = await OpenAIProvider().chat([{"role": "user", "content": "hello"}])
+    assert result.tokens_used == 920
+    assert result.prompt_tokens == 800
+    assert result.completion_tokens == 120
+    assert result.cached_prompt_tokens == 640
+
+
+@pytest.mark.asyncio
+async def test_anthropic_provider_folds_cache_reads_into_prompt(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "app.services.llm.anthropic_provider.get_settings",
+        lambda: SimpleNamespace(anthropic_api_key="key", anthropic_model="claude-sonnet"),
+    )
+
+    class _FakeClient:
+        def __init__(self, **_: object) -> None:
+            self.messages = SimpleNamespace(create=self._create)
+
+        async def _create(self, **_: object) -> SimpleNamespace:
+            return SimpleNamespace(
+                content=[SimpleNamespace(text="claude-answer")],
+                usage=SimpleNamespace(
+                    input_tokens=100,
+                    output_tokens=40,
+                    cache_read_input_tokens=300,
+                ),
+            )
+
+    monkeypatch.setattr("app.services.llm.anthropic_provider.AsyncAnthropic", _FakeClient)
+    result = await AnthropicProvider().chat([{"role": "user", "content": "hello"}])
+    assert result.prompt_tokens == 400
+    assert result.cached_prompt_tokens == 300
+    assert result.tokens_used == 440
+
+
+@pytest.mark.asyncio
+async def test_gemini_provider_reports_token_breakdown(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        "app.services.llm.gemini.get_settings",
+        lambda: SimpleNamespace(gemini_api_key="key", gemini_model="gemini-2.0-flash"),
+    )
+
+    class _FakeGeminiResponse:
+        text = "gemini-answer"
+        usage_metadata = SimpleNamespace(
+            prompt_token_count=70,
+            candidates_token_count=30,
+            cached_content_token_count=20,
+            total_token_count=100,
+        )
+
+        def model_dump(self) -> dict[str, object]:
+            return {"ok": True}
+
+    class _FakeGeminiClient:
+        def __init__(self, **_: object) -> None:
+            self.aio = SimpleNamespace(
+                models=SimpleNamespace(generate_content=self._generate_content)
+            )
+
+        async def _generate_content(self, **_: object) -> _FakeGeminiResponse:
+            return _FakeGeminiResponse()
+
+    monkeypatch.setattr("app.services.llm.gemini.genai.Client", _FakeGeminiClient)
+    result = await GeminiProvider().chat([{"role": "user", "content": "hello"}])
+    assert result.prompt_tokens == 70
+    assert result.completion_tokens == 30
+    assert result.cached_prompt_tokens == 20
+    assert result.tokens_used == 100
+
+
+@pytest.mark.asyncio
+async def test_ollama_provider_reports_token_breakdown(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        "app.services.llm.ollama.get_settings",
+        lambda: SimpleNamespace(ollama_base_url="http://localhost:11434", ollama_model="llama3"),
+    )
+
+    class _FakeOllamaClient:
+        def __init__(self, **_: object) -> None:
+            pass
+
+        async def chat(self, **_: object) -> dict[str, object]:
+            return {
+                "message": {"content": "ollama-answer"},
+                "prompt_eval_count": 33,
+                "eval_count": 11,
+            }
+
+    monkeypatch.setattr("app.services.llm.ollama.AsyncClient", _FakeOllamaClient)
+    result = await OllamaProvider().chat([{"role": "user", "content": "hello"}])
+    assert result.prompt_tokens == 33
+    assert result.completion_tokens == 11
+    assert result.cached_prompt_tokens == 0

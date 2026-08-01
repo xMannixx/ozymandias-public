@@ -8,7 +8,7 @@ from google import genai
 
 from app.config import get_settings
 from app.services.errors import ServiceError
-from app.services.llm.base import LLMMessage, LLMProvider, LLMResponse
+from app.services.llm.base import LLMMessage, LLMProvider, LLMResponse, TokenDetail
 
 
 def _messages_to_prompt(messages: list[LLMMessage]) -> str:
@@ -16,6 +16,26 @@ def _messages_to_prompt(messages: list[LLMMessage]) -> str:
     for message in messages:
         chunks.append(f"{message['role'].upper()}: {message['content']}")
     return "\n\n".join(chunks)
+
+
+def _count(source: Any, name: str) -> int:
+    return int(getattr(source, name, 0) or 0)
+
+
+def _token_detail(usage_metadata: Any) -> TokenDetail:
+    """Map Gemini's usage metadata onto the shared token breakdown."""
+    if usage_metadata is None:
+        return TokenDetail()
+    prompt = _count(usage_metadata, "prompt_token_count")
+    completion = _count(usage_metadata, "candidates_token_count")
+    cached = _count(usage_metadata, "cached_content_token_count")
+    total = _count(usage_metadata, "total_token_count") or prompt + completion
+    return TokenDetail(
+        prompt_tokens=prompt,
+        completion_tokens=completion,
+        cached_prompt_tokens=min(cached, prompt) if prompt else cached,
+        total_tokens=total,
+    )
 
 
 class GeminiProvider(LLMProvider):
@@ -46,15 +66,11 @@ class GeminiProvider(LLMProvider):
             contents=_messages_to_prompt(messages),
         )
         content = response.text or ""
-        usage_metadata = getattr(response, "usage_metadata", None)
-        tokens_used = 0
-        if usage_metadata is not None:
-            tokens_used = int(getattr(usage_metadata, "total_token_count", 0) or 0)
         raw_response = response.model_dump() if hasattr(response, "model_dump") else None
-        return LLMResponse(
+        return LLMResponse.from_tokens(
             content=content,
             model=selected_model,
             provider="gemini",
-            tokens_used=tokens_used,
+            tokens=_token_detail(getattr(response, "usage_metadata", None)),
             raw_response=raw_response,
         )

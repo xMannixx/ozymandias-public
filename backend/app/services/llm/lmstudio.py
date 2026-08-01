@@ -14,6 +14,7 @@ from app.services.llm.base import (
     LLMResponse,
     LLMStreamItem,
     stream_openai_compatible,
+    token_detail_from_openai_usage,
 )
 
 
@@ -48,13 +49,12 @@ class LMStudioProvider(LLMProvider):
         content = ""
         if response.choices and response.choices[0].message.content is not None:
             content = str(response.choices[0].message.content)
-        tokens_used = response.usage.total_tokens if response.usage is not None else 0
         raw_response = response.model_dump() if hasattr(response, "model_dump") else None
-        return LLMResponse(
+        return LLMResponse.from_tokens(
             content=content,
             model=selected_model,
             provider="lmstudio",
-            tokens_used=tokens_used,
+            tokens=token_detail_from_openai_usage(response.usage),
             raw_response=raw_response,
         )
 

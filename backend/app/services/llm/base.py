@@ -16,6 +16,56 @@ class LLMMessage(TypedDict):
 
 
 @dataclass(frozen=True)
+class TokenDetail:
+    """Token counts of one provider call, split the way usage is billed."""
+
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
+    #: Subset of prompt_tokens that the provider served from its prompt cache.
+    cached_prompt_tokens: int = 0
+    total_tokens: int = 0
+
+
+def _int_field(source: Any, name: str) -> int:
+    """Read one integer from an SDK object or a plain dict, defaulting to zero."""
+    value = getattr(source, name, None)
+    if value is None and isinstance(source, dict):
+        value = source.get(name)
+    try:
+        return int(value or 0)
+    except TypeError, ValueError:
+        return 0
+
+
+def token_detail_from_openai_usage(usage: Any) -> TokenDetail:
+    """Read the token breakdown from an OpenAI-shaped usage object.
+
+    Cached input tokens sit in different places per vendor: OpenAI nests them
+    under `prompt_tokens_details`, DeepSeek reports `prompt_cache_hit_tokens`.
+    """
+    if usage is None:
+        return TokenDetail()
+    prompt = _int_field(usage, "prompt_tokens")
+    completion = _int_field(usage, "completion_tokens")
+    total = _int_field(usage, "total_tokens") or prompt + completion
+    cached = _int_field(usage, "prompt_cache_hit_tokens")
+    if not cached:
+        details = getattr(usage, "prompt_tokens_details", None)
+        if details is None and isinstance(usage, dict):
+            details = usage.get("prompt_tokens_details")
+        if details is not None:
+            cached = _int_field(details, "cached_tokens")
+    if prompt:
+        cached = min(cached, prompt)
+    return TokenDetail(
+        prompt_tokens=prompt,
+        completion_tokens=completion,
+        cached_prompt_tokens=cached,
+        total_tokens=total,
+    )
+
+
+@dataclass(frozen=True)
 class LLMResponse:
     """Normalized provider response consumed by the service layer."""
 
@@ -25,6 +75,33 @@ class LLMResponse:
     tokens_used: int
     raw_response: dict[str, Any] | None = None
     reasoning_content: str | None = None
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
+    cached_prompt_tokens: int = 0
+
+    @classmethod
+    def from_tokens(
+        cls,
+        *,
+        content: str,
+        model: str,
+        provider: str,
+        tokens: TokenDetail,
+        raw_response: dict[str, Any] | None = None,
+        reasoning_content: str | None = None,
+    ) -> LLMResponse:
+        """Build a response from a token breakdown, keeping tokens_used the total."""
+        return cls(
+            content=content,
+            model=model,
+            provider=provider,
+            tokens_used=tokens.total_tokens,
+            raw_response=raw_response,
+            reasoning_content=reasoning_content,
+            prompt_tokens=tokens.prompt_tokens,
+            completion_tokens=tokens.completion_tokens,
+            cached_prompt_tokens=tokens.cached_prompt_tokens,
+        )
 
 
 # Streaming convention: providers yield text deltas (str) and finish with
@@ -87,11 +164,11 @@ async def stream_openai_compatible(
     stream = await client.chat.completions.create(**request_payload)
     content_parts: list[str] = []
     reasoning_parts: list[str] = []
-    tokens_used = 0
+    tokens = TokenDetail()
     async for chunk in stream:
         usage = getattr(chunk, "usage", None)
         if usage is not None and getattr(usage, "total_tokens", None):
-            tokens_used = int(usage.total_tokens)
+            tokens = token_detail_from_openai_usage(usage)
         choices = getattr(chunk, "choices", None)
         if not choices:
             continue
@@ -106,10 +183,10 @@ async def stream_openai_compatible(
             content_parts.append(text)
             yield text
 
-    yield LLMResponse(
+    yield LLMResponse.from_tokens(
         content="".join(content_parts),
         model=model,
         provider=provider_name,
-        tokens_used=tokens_used,
+        tokens=tokens,
         reasoning_content="".join(reasoning_parts) or None,
     )
