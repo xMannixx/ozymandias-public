@@ -145,8 +145,8 @@ function DashboardView(): JSX.Element {
         <ProjectsSummary
           projectsActive={stats.projects_active}
           tasksOpen={stats.projects_tasks_open}
-          risksCritical={stats.projects_risks_critical}
-          nextMilestone={stats.projects_next_milestone}
+          knowledgeFiles={stats.projects_knowledge_files}
+          nextDueTask={stats.projects_next_due_task}
         />
         <ContactsSummary contactsTotal={stats.contacts_total} />
         <ProviderUsageChart usage={stats.provider_usage} />

@@ -279,8 +279,8 @@ export const mockDashboardStats: DashboardStats = {
   },
   projects_active: 3,
   projects_tasks_open: 11,
-  projects_risks_critical: 2,
-  projects_next_milestone: "Kickoff",
+  projects_knowledge_files: 4,
+  projects_next_due_task: "File the return (2026-05-31)",
   contacts_total: 0,
 };
 

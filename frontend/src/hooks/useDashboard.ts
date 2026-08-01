@@ -31,8 +31,8 @@ function isDashboardStats(value: unknown): value is DashboardStats {
     isRecord(value.provider_usage) &&
     typeof value.projects_active === "number" &&
     typeof value.projects_tasks_open === "number" &&
-    typeof value.projects_risks_critical === "number" &&
-    (typeof value.projects_next_milestone === "string" || value.projects_next_milestone === null) &&
+    typeof value.projects_knowledge_files === "number" &&
+    (typeof value.projects_next_due_task === "string" || value.projects_next_due_task === null) &&
     typeof value.contacts_total === "number"
   );
 }

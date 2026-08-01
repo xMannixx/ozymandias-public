@@ -98,13 +98,13 @@ function Modal({ open, onClose, title, children }: ModalProps): JSX.Element | nu
       <div
         ref={dialogRef}
         tabIndex={-1}
-        className="glass-card max-h-[90vh] w-full max-w-xl overflow-y-auto border border-blue-500/30 p-4 focus:outline-none"
+        className="glass-card max-h-[90vh] w-full max-w-xl overflow-y-auto p-5 focus:outline-none"
         role="dialog"
         aria-modal="true"
         aria-label={title ?? "Dialog"}
         onMouseDown={(event) => event.stopPropagation()}
       >
-        {title ? <h3 className="mb-3 text-lg font-semibold text-blue-200">{title}</h3> : null}
+        {title ? <h3 className="mb-4 text-base font-medium text-zinc-100">{title}</h3> : null}
         {children}
       </div>
     </div>
