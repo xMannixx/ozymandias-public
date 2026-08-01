@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import UTC, date, datetime
-from typing import cast
+from typing import Any, cast
 from unittest.mock import AsyncMock
 
 import pytest
@@ -122,6 +122,16 @@ async def test_delete_project_deletes_row() -> None:
     await service.delete_project(project_id=str(project.project_id), user_id="test-user")
     assert db.deleted == [project]
     assert db.commits == 1
+
+
+def test_project_children_cascade_on_delete() -> None:
+    """Child rows have a non-nullable project_id, so Postgres must do the cascade."""
+    mapper = cast(Any, Project).__mapper__
+    for name in ("tasks", "notes", "files", "links"):
+        relation = mapper.relationships[name]
+        assert relation.passive_deletes is True, name
+        assert relation.cascade.delete is True, name
+        assert relation.cascade.delete_orphan is True, name
 
 
 @pytest.mark.asyncio

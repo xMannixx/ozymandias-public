@@ -47,10 +47,28 @@ class Project(Base):
         server_default=text("now()"),
     )
 
-    tasks: Mapped[list[ProjectTask]] = relationship(back_populates="project")
-    notes: Mapped[list[ProjectNote]] = relationship(back_populates="project")
-    files: Mapped[list[ProjectFile]] = relationship(back_populates="project")
-    links: Mapped[list[ProjectLink]] = relationship(back_populates="project")
+    # Child rows have a non-nullable project_id, so deleting a project must let
+    # Postgres cascade instead of the ORM trying to null the foreign keys out.
+    tasks: Mapped[list[ProjectTask]] = relationship(
+        back_populates="project",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+    notes: Mapped[list[ProjectNote]] = relationship(
+        back_populates="project",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+    files: Mapped[list[ProjectFile]] = relationship(
+        back_populates="project",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+    links: Mapped[list[ProjectLink]] = relationship(
+        back_populates="project",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
 
 
 class ProjectTask(Base):
