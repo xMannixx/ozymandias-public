@@ -12,6 +12,7 @@ from app.schemas import Sensitivity
 from app.services.errors import ServiceError
 from app.services.llm.base import LLMMessage
 from app.services.llm.router import LLMRouter, get_llm_router
+from app.services.llm.usage import LLMCallUsage
 
 LiveWebMode = Literal["provider_native_first", "connector_only", "off"]
 
@@ -54,6 +55,7 @@ class LiveWebService:
         mode: LiveWebMode,
         preferred_provider: str | None = None,
         api_keys: dict[str, str | None] | None = None,
+        usage_sink: list[LLMCallUsage] | None = None,
     ) -> LiveWebContext:
         """Execute one live search flow according to configured mode."""
         cleaned_query = query.strip()
@@ -68,6 +70,7 @@ class LiveWebService:
             cleaned_query,
             preferred_provider=preferred_provider,
             api_keys=api_keys,
+            usage_sink=usage_sink,
         )
         if native_result is not None:
             return native_result
@@ -81,6 +84,7 @@ class LiveWebService:
         *,
         preferred_provider: str | None,
         api_keys: dict[str, str | None] | None = None,
+        usage_sink: list[LLMCallUsage] | None = None,
     ) -> LiveWebContext | None:
         provider_name = self._select_native_provider(preferred_provider, api_keys=api_keys)
         if provider_name is None:
@@ -106,6 +110,7 @@ class LiveWebService:
                 tools=tools,
                 preferred_provider=provider_name,
                 api_keys=api_keys,
+                usage_sink=usage_sink,
             )
         except Exception:
             return None
