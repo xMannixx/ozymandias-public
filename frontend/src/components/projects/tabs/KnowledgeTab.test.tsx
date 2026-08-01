@@ -70,6 +70,32 @@ describe("KnowledgeTab", () => {
     await user.type(screen.getByLabelText("new-link-url"), "https://example.org");
     await user.click(screen.getByRole("button", { name: "Add link" }));
 
-    expect(onCreateLink).toHaveBeenCalledWith({ name: "Guide", url: "https://example.org" });
+    expect(onCreateLink).toHaveBeenCalledWith({ name: "Guide", url: "https://example.org/" });
+  });
+
+  it("accepts a bare address and labels it with the domain", async () => {
+    const user = userEvent.setup();
+    const onCreateLink = vi.fn(async () => undefined);
+    renderKnowledge({ onCreateLink });
+
+    await user.type(screen.getByLabelText("new-link-url"), "www.pflanzcheck.de");
+    await user.click(screen.getByRole("button", { name: "Add link" }));
+
+    expect(onCreateLink).toHaveBeenCalledWith({
+      name: "pflanzcheck.de",
+      url: "https://www.pflanzcheck.de/",
+    });
+  });
+
+  it("explains an unusable address instead of doing nothing", async () => {
+    const user = userEvent.setup();
+    const onCreateLink = vi.fn(async () => undefined);
+    renderKnowledge({ onCreateLink });
+
+    await user.type(screen.getByLabelText("new-link-url"), "not a url");
+    await user.click(screen.getByRole("button", { name: "Add link" }));
+
+    expect(onCreateLink).not.toHaveBeenCalled();
+    expect(screen.getByRole("alert")).toHaveTextContent("Enter a web address");
   });
 });

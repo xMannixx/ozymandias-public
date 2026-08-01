@@ -64,6 +64,25 @@ function toFaviconUrl(link: string): string {
   }
 }
 
+/** Accepts what people actually paste, including a bare "example.com". */
+function parseLinkUrl(raw: string): URL | null {
+  const trimmed = raw.trim();
+  if (!trimmed) {
+    return null;
+  }
+  const candidate = /^[a-z][a-z\d+.-]*:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+  try {
+    const parsed = new URL(candidate);
+    return parsed.hostname.includes(".") ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function nameFromUrl(url: URL): string {
+  return url.hostname.replace(/^www\./, "");
+}
+
 /**
  * The workspace's knowledge: files whose text Ozy can quote, plus reference
  * links. Files whose text cannot be read are kept, but say so plainly.
@@ -81,6 +100,7 @@ function KnowledgeTab({
   const [uploading, setUploading] = useState(false);
   const [linkName, setLinkName] = useState("");
   const [linkUrl, setLinkUrl] = useState("");
+  const [linkError, setLinkError] = useState<string | null>(null);
 
   const files = useMemo(
     () =>
@@ -119,10 +139,16 @@ function KnowledgeTab({
 
   const submitLink = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault();
-    if (!linkName.trim() || !linkUrl.trim()) {
+    const parsed = parseLinkUrl(linkUrl);
+    if (!parsed) {
+      setLinkError("Enter a web address, for example example.com or https://example.com/page.");
       return;
     }
-    await onCreateLink({ name: linkName.trim(), url: linkUrl.trim() });
+    setLinkError(null);
+    await onCreateLink({
+      name: linkName.trim() || nameFromUrl(parsed),
+      url: parsed.toString(),
+    });
     setLinkName("");
     setLinkUrl("");
   };
@@ -271,24 +297,41 @@ function KnowledgeTab({
         )}
 
         <form
-          className="grid gap-2 rounded-lg border border-dashed border-white/[0.12] p-3 md:grid-cols-[1fr_2fr_auto]"
+          className="space-y-2 rounded-lg border border-dashed border-white/[0.12] p-3"
           onSubmit={(event) => void submitLink(event)}
         >
-          <input
-            aria-label="new-link-name"
-            value={linkName}
-            onChange={(event) => setLinkName(event.target.value)}
-            placeholder="Name"
-          />
-          <input
-            aria-label="new-link-url"
-            value={linkUrl}
-            onChange={(event) => setLinkUrl(event.target.value)}
-            placeholder="https://..."
-          />
-          <Button type="submit" disabled={loading}>
-            Add link
-          </Button>
+          <div className="grid gap-2 md:grid-cols-[2fr_1fr_auto]">
+            <input
+              type="text"
+              inputMode="url"
+              aria-label="new-link-url"
+              value={linkUrl}
+              onChange={(event) => {
+                setLinkUrl(event.target.value);
+                setLinkError(null);
+              }}
+              placeholder="pflanzcheck.de"
+            />
+            <input
+              type="text"
+              aria-label="new-link-name"
+              value={linkName}
+              onChange={(event) => setLinkName(event.target.value)}
+              placeholder="Label (optional)"
+            />
+            <Button type="submit" disabled={loading}>
+              Add link
+            </Button>
+          </div>
+          {linkError ? (
+            <p role="alert" className="text-xs text-red-300">
+              {linkError}
+            </p>
+          ) : (
+            <p className="text-xs text-zinc-500">
+              A web address is enough. Without a label Ozy uses the domain name.
+            </p>
+          )}
         </form>
       </section>
     </div>
