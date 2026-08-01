@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { Activity, Brain, RefreshCw, Sparkles } from "lucide-react";
 import CircuitBreakerCard from "@/components/dashboard/CircuitBreakerCard";
 import ClaimsSummary from "@/components/dashboard/ClaimsSummary";
@@ -5,9 +6,9 @@ import ContactsSummary from "@/components/dashboard/ContactsSummary";
 import ModeSwitch from "@/components/dashboard/ModeSwitch";
 import ProposalsSummary from "@/components/dashboard/ProposalsSummary";
 import ProjectsSummary from "@/components/dashboard/ProjectsSummary";
-import ProviderUsageChart from "@/components/dashboard/ProviderUsageChart";
 import RecentActionsCard from "@/components/dashboard/RecentActionsCard";
 import SystemHealth from "@/components/dashboard/SystemHealth";
+import UsageSummary from "@/components/dashboard/UsageSummary";
 import Spinner from "@/components/common/Spinner";
 import { useDashboard } from "@/hooks/useDashboard";
 import { useHealth } from "@/hooks/useHealth";
@@ -42,6 +43,24 @@ function KpiTile({ label, value, hint, icon, tone }: KpiTileProps): JSX.Element 
         {icon}
       </div>
     </div>
+  );
+}
+
+type DashboardSectionProps = {
+  title: string;
+  description: string;
+  children: ReactNode;
+};
+
+function DashboardSection({ title, description, children }: DashboardSectionProps): JSX.Element {
+  return (
+    <section className="space-y-3">
+      <div className="space-y-0.5">
+        <h3 className="text-sm font-medium text-zinc-300">{title}</h3>
+        <p className="text-xs text-zinc-500">{description}</p>
+      </div>
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-4">{children}</div>
+    </section>
   );
 }
 
@@ -130,18 +149,16 @@ function DashboardView(): JSX.Element {
         />
       </div>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
+      <DashboardSection
+        title="What Ozy knows"
+        description="Memories, workspaces and people, and what is waiting for your decision."
+      >
         <ClaimsSummary
           claimsTotal={stats.claims_total}
           verification={stats.claims_by_verification}
           sensitivity={stats.claims_by_sensitivity}
         />
-        <SystemHealth />
-
         <ProposalsSummary pending={stats.proposals_pending} total={stats.proposals_total} />
-        <CircuitBreakerCard status={stats.circuit_breaker} />
-        <ModeSwitch />
-
         <ProjectsSummary
           projectsActive={stats.projects_active}
           tasksOpen={stats.projects_tasks_open}
@@ -149,10 +166,19 @@ function DashboardView(): JSX.Element {
           nextDueTask={stats.projects_next_due_task}
         />
         <ContactsSummary contactsTotal={stats.contacts_total} />
-        <ProviderUsageChart usage={stats.provider_usage} />
+      </DashboardSection>
 
-        <RecentActionsCard entries={stats.recent_actions} />
-      </div>
+      <DashboardSection
+        title="How Ozy is running"
+        description="Services, the limit on how often Ozy may act, and what it costs to run."
+      >
+        <SystemHealth />
+        <CircuitBreakerCard status={stats.circuit_breaker} />
+        <ModeSwitch />
+        <UsageSummary />
+      </DashboardSection>
+
+      <RecentActionsCard entries={stats.recent_actions} />
     </section>
   );
 }

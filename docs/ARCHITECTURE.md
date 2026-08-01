@@ -193,7 +193,8 @@ frontend/
     │   ├── chat/                 # Chat-Bubbles, Input, Voice-Controls
     │   ├── memory/               # ClaimCard, ProposalCard, ConflictGroup
     │   ├── audit/                # AuditFeed, AuditEntry
-    │   ├── dashboard/            # BriefingWidget, StatsCard
+    │   ├── dashboard/            # ClaimsSummary, SystemHealth, UsageSummary
+    │   ├── usage/                # KPI-Tiles, Top-Listen, Trend-Chart
     │   ├── calendar/             # WeekView, EventCard
     │   ├── mail/                 # InboxList, MailDetail
     │   ├── projects/             # ProjectCard, MilestoneList, TaskBoard
@@ -207,6 +208,7 @@ frontend/
     │   ├── MemoryPage.tsx
     │   ├── ProposalsPage.tsx
     │   ├── AuditPage.tsx
+    │   ├── UsagePage.tsx
     │   ├── SettingsPage.tsx
     │   ├── CalendarPage.tsx
     │   ├── MailPage.tsx
