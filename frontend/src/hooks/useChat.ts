@@ -41,7 +41,15 @@ type PendingPrompt = {
   attachments?: TurnAttachment[];
 };
 
-type UseChatResult = {
+export type UseChatOptions = {
+  /**
+   * Scopes the chat to one workspace: only its conversations are listed and
+   * every turn carries the project's instructions and knowledge.
+   */
+  projectId?: string;
+};
+
+export type UseChatResult = {
   messages: ChatMessage[];
   isLoading: boolean;
   conversations: ConversationResponse[];
@@ -69,7 +77,7 @@ function randomId(): string {
   return Math.random().toString(36).slice(2, 12);
 }
 
-export function useChat(): UseChatResult {
+export function useChat({ projectId }: UseChatOptions = {}): UseChatResult {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [conversations, setConversations] = useState<ConversationResponse[]>([]);
@@ -87,12 +95,18 @@ export function useChat(): UseChatResult {
 
   const refreshConversations = useCallback(async (): Promise<void> => {
     try {
-      const items = await listConversations();
+      const items = await listConversations(projectId);
       setConversations(items);
     } catch {
       // Conversation list is non-critical; chat still works without it.
     }
-  }, []);
+  }, [projectId]);
+
+  // Switching workspace must not leave another project's chat on screen.
+  useEffect(() => {
+    setActiveConversationId(null);
+    setMessages([]);
+  }, [projectId]);
 
   useEffect(() => {
     let mounted = true;
@@ -311,6 +325,7 @@ export function useChat(): UseChatResult {
           useLiveWeb: liveWebEnabled && liveWebMode !== "off",
           allowS3LiveWeb,
           conversationId: activeConversationId ?? undefined,
+          projectId,
           attachments: attachments && attachments.length > 0 ? attachments : undefined,
         },
         controller.signal,

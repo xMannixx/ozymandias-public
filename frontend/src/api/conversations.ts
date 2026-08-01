@@ -1,8 +1,10 @@
 import { request } from "@/api/client";
 import type { ConversationMessageResponse, ConversationResponse } from "@/api/types";
 
-export async function listConversations(): Promise<ConversationResponse[]> {
-  return request<ConversationResponse[]>("/conversations");
+/** Lists chats, narrowed to one workspace when a project id is given. */
+export async function listConversations(projectId?: string): Promise<ConversationResponse[]> {
+  const query = projectId ? `?project_id=${encodeURIComponent(projectId)}` : "";
+  return request<ConversationResponse[]>(`/conversations${query}`);
 }
 
 export async function getConversationMessages(

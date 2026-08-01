@@ -2,19 +2,13 @@ import { useCallback, useEffect, useState } from "react";
 import { ApiError } from "@/api/client";
 import {
   createLink,
-  createMilestone,
   createNote,
-  createRisk,
   createTask,
   getProject,
-  updateMilestone,
   updateProject as updateProjectApi,
-  updateRisk,
   updateTask,
   deleteLink,
-  deleteMilestone,
   deleteNote,
-  deleteRisk,
   deleteTask,
 } from "@/api/projects";
 import {
@@ -24,14 +18,10 @@ import {
 } from "@/api/files";
 import type {
   CreateLinkRequest,
-  CreateMilestoneRequest,
   CreateNoteRequest,
-  CreateRiskRequest,
   CreateTaskRequest,
   ProjectDetailResponse,
-  UpdateMilestoneRequest,
   UpdateProjectRequest,
-  UpdateRiskRequest,
   UpdateTaskRequest,
 } from "@/api/types";
 
@@ -47,15 +37,9 @@ type UseProjectDetailResult = {
   toast: ToastMessage | null;
   refetch: () => Promise<void>;
   updateProject: (data: UpdateProjectRequest) => Promise<void>;
-  createMilestone: (data: CreateMilestoneRequest) => Promise<void>;
-  updateMilestone: (milestoneId: string, data: UpdateMilestoneRequest) => Promise<void>;
-  deleteMilestone: (milestoneId: string) => Promise<void>;
   createTask: (data: CreateTaskRequest) => Promise<void>;
   updateTask: (taskId: string, data: UpdateTaskRequest) => Promise<void>;
   deleteTask: (taskId: string) => Promise<void>;
-  createRisk: (data: CreateRiskRequest) => Promise<void>;
-  updateRisk: (riskId: string, data: UpdateRiskRequest) => Promise<void>;
-  deleteRisk: (riskId: string) => Promise<void>;
   createNote: (data: CreateNoteRequest) => Promise<void>;
   deleteNote: (noteId: string) => Promise<void>;
   createLink: (data: CreateLinkRequest) => Promise<void>;
@@ -139,42 +123,6 @@ export function useProjectDetail(projectId: string | null): UseProjectDetailResu
     [runMutation],
   );
 
-  const createMilestoneAction = useCallback(
-    async (data: CreateMilestoneRequest) => {
-      await runMutation(
-        async (activeProjectId) => {
-          await createMilestone(activeProjectId, data);
-        },
-        "Milestone created.",
-      );
-    },
-    [runMutation],
-  );
-
-  const updateMilestoneAction = useCallback(
-    async (milestoneId: string, data: UpdateMilestoneRequest) => {
-      await runMutation(
-        async (activeProjectId) => {
-          await updateMilestone(activeProjectId, milestoneId, data);
-        },
-        "Milestone updated.",
-      );
-    },
-    [runMutation],
-  );
-
-  const deleteMilestoneAction = useCallback(
-    async (milestoneId: string) => {
-      await runMutation(
-        async (activeProjectId) => {
-          await deleteMilestone(activeProjectId, milestoneId);
-        },
-        "Milestone deleted.",
-      );
-    },
-    [runMutation],
-  );
-
   const createTaskAction = useCallback(
     async (data: CreateTaskRequest) => {
       await runMutation(
@@ -206,42 +154,6 @@ export function useProjectDetail(projectId: string | null): UseProjectDetailResu
           await deleteTask(activeProjectId, taskId);
         },
         "Task deleted.",
-      );
-    },
-    [runMutation],
-  );
-
-  const createRiskAction = useCallback(
-    async (data: CreateRiskRequest) => {
-      await runMutation(
-        async (activeProjectId) => {
-          await createRisk(activeProjectId, data);
-        },
-        "Risk created.",
-      );
-    },
-    [runMutation],
-  );
-
-  const updateRiskAction = useCallback(
-    async (riskId: string, data: UpdateRiskRequest) => {
-      await runMutation(
-        async (activeProjectId) => {
-          await updateRisk(activeProjectId, riskId, data);
-        },
-        "Risk updated.",
-      );
-    },
-    [runMutation],
-  );
-
-  const deleteRiskAction = useCallback(
-    async (riskId: string) => {
-      await runMutation(
-        async (activeProjectId) => {
-          await deleteRisk(activeProjectId, riskId);
-        },
-        "Risk deleted.",
       );
     },
     [runMutation],
@@ -334,7 +246,7 @@ export function useProjectDetail(projectId: string | null): UseProjectDetailResu
       anchor.click();
       anchor.remove();
       window.URL.revokeObjectURL(objectUrl);
-      setToast({ type: "success", message: "Download gestartet." });
+      setToast({ type: "success", message: "Download started." });
     } catch (err) {
       const message = normalizeError(err);
       setError(message);
@@ -359,15 +271,9 @@ export function useProjectDetail(projectId: string | null): UseProjectDetailResu
     toast,
     refetch,
     updateProject,
-    createMilestone: createMilestoneAction,
-    updateMilestone: updateMilestoneAction,
-    deleteMilestone: deleteMilestoneAction,
     createTask: createTaskAction,
     updateTask: updateTaskAction,
     deleteTask: deleteTaskAction,
-    createRisk: createRiskAction,
-    updateRisk: updateRiskAction,
-    deleteRisk: deleteRiskAction,
     createNote: createNoteAction,
     deleteNote: deleteNoteAction,
     createLink: createLinkAction,

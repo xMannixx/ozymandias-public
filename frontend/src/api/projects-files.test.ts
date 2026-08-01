@@ -1,9 +1,6 @@
-import {
-  createProject,
-  listProjects,
-  listTasks,
-} from "@/api/projects";
+import { createProject, listProjectChats, listProjects, listTasks } from "@/api/projects";
 import { downloadFile, uploadFile } from "@/api/files";
+import { listConversations } from "@/api/conversations";
 
 function makeJsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -39,11 +36,35 @@ describe("api/projects-files", () => {
       .spyOn(window, "fetch")
       .mockResolvedValue(makeJsonResponse({ project_id: "p2" }, 201));
 
-    await createProject({ name: "Neu" });
+    await createProject({ name: "Tax return", instructions: "Be brief.", sensitivity: "S3" });
 
     const [url, options] = fetchMock.mock.calls[0];
     expect(url).toBe("/projects");
     expect(options?.method).toBe("POST");
+    expect(JSON.parse(String(options?.body))).toMatchObject({
+      instructions: "Be brief.",
+      sensitivity: "S3",
+    });
+  });
+
+  it("listProjectChats sends GET /projects/:id/chats", async () => {
+    const fetchMock = vi
+      .spyOn(window, "fetch")
+      .mockResolvedValue(makeJsonResponse([{ conversation_id: "c1" }]));
+
+    await listProjectChats("project-1");
+
+    expect(fetchMock.mock.calls[0][0]).toBe("/projects/project-1/chats");
+  });
+
+  it("listConversations narrows to one workspace", async () => {
+    const fetchMock = vi
+      .spyOn(window, "fetch")
+      .mockResolvedValue(makeJsonResponse([{ conversation_id: "c1" }]));
+
+    await listConversations("project-1");
+
+    expect(fetchMock.mock.calls[0][0]).toBe("/conversations?project_id=project-1");
   });
 
   it("listTasks sends GET with status query", async () => {

@@ -17,7 +17,7 @@ type UseVoiceOptions = {
   ttsModel?: "tts-1" | "tts-1-hd";
 };
 
-type UseVoiceResult = {
+export type UseVoiceResult = {
   voiceState: VoiceState;
   voiceMode: VoiceMode;
   setVoiceMode: (mode: VoiceMode) => void;
