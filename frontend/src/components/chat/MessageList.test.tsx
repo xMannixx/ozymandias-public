@@ -15,6 +15,6 @@ describe("MessageList", () => {
 
   it("shows placeholder when empty", () => {
     render(<MessageList messages={[]} />);
-    expect(screen.getByText("No messages yet. Ask Ozy anything to get started.")).toBeInTheDocument();
+    expect(screen.getByText("No messages yet.")).toBeInTheDocument();
   });
 });

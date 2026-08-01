@@ -6,30 +6,53 @@ type ProviderUsageChartProps = {
 };
 
 const providerColors: Record<string, string> = {
-  deepseek: "#58a6ff",
-  gemini: "#3fb950",
-  openai: "#f0883e",
-  ollama: "#bc8cff",
+  deepseek: "#818cf8",
+  gemini: "#34d399",
+  openai: "#fbbf24",
+  ollama: "#a78bfa",
+  mistral: "#60a5fa",
+  lmstudio: "#f472b6",
 };
 
 function ProviderUsageChart({ usage }: ProviderUsageChartProps): JSX.Element {
   const entries = Object.entries(usage).map(([provider, value]) => ({ provider, value }));
 
   return (
-    <GlassCard className="space-y-2">
-      <p className="text-sm font-medium text-gray-200">Provider Usage</p>
+    <GlassCard className="space-y-3 p-4">
+      <p className="text-xs font-medium uppercase tracking-wider text-zinc-500">Provider usage</p>
       {entries.length === 0 ? (
-        <p className="text-sm text-gray-400">No data</p>
+        <p className="text-sm text-zinc-500">No data yet.</p>
       ) : (
-        <ResponsiveContainer width="100%" height={220} initialDimension={{ width: 320, height: 220 }}>
-          <BarChart data={entries}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#30363d" />
-            <XAxis dataKey="provider" stroke="#8b949e" />
-            <YAxis stroke="#8b949e" />
-            <Tooltip />
-            <Bar dataKey="value">
+        <ResponsiveContainer width="100%" height={200} initialDimension={{ width: 320, height: 200 }}>
+          <BarChart data={entries} margin={{ top: 8, right: 8, bottom: 0, left: -12 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+            <XAxis
+              dataKey="provider"
+              stroke="#71717a"
+              tick={{ fontSize: 11 }}
+              axisLine={{ stroke: "rgba(255,255,255,0.05)" }}
+              tickLine={false}
+            />
+            <YAxis
+              stroke="#71717a"
+              tick={{ fontSize: 11 }}
+              axisLine={false}
+              tickLine={false}
+              allowDecimals={false}
+            />
+            <Tooltip
+              cursor={{ fill: "rgba(255,255,255,0.03)" }}
+              contentStyle={{
+                background: "#131318",
+                border: "1px solid rgba(255,255,255,0.1)",
+                borderRadius: 8,
+                fontSize: 12,
+                color: "#f4f4f5",
+              }}
+            />
+            <Bar dataKey="value" radius={[4, 4, 0, 0]}>
               {entries.map((entry) => (
-                <Cell key={entry.provider} fill={providerColors[entry.provider] ?? "#58a6ff"} />
+                <Cell key={entry.provider} fill={providerColors[entry.provider] ?? "#818cf8"} />
               ))}
             </Bar>
           </BarChart>

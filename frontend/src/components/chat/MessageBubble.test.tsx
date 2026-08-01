@@ -12,16 +12,18 @@ function renderWithRouter(message: ChatMessage): ReturnType<typeof render> {
 }
 
 describe("MessageBubble", () => {
-  it("renders user message with blue style", () => {
+  it("aligns user messages to the right", () => {
     const message: ChatMessage = { id: "1", role: "user", text: "hello" };
     renderWithRouter(message);
-    expect(screen.getByText("hello").closest("div")).toHaveClass("bg-blue-700");
+    const bubbleWrapper = screen.getByText("hello").closest(".flex");
+    expect(bubbleWrapper?.className).toContain("justify-end");
   });
 
-  it("renders assistant message with glass style", () => {
+  it("shows the Ozymandias avatar next to assistant messages", () => {
     const message: ChatMessage = { id: "2", role: "assistant", text: "hi" };
     renderWithRouter(message);
-    expect(screen.getByText("hi").closest(".glass-card")).not.toBeNull();
+    expect(screen.getByText("hi")).toBeInTheDocument();
+    expect(screen.getByText("O")).toBeInTheDocument();
   });
 
   it("renders assistant markdown as formatted content", () => {
@@ -109,7 +111,8 @@ describe("MessageBubble", () => {
       model: "gpt-4o",
     };
     renderWithRouter(message);
-    expect(screen.getByText("via openai / gpt-4o")).toBeInTheDocument();
+    expect(screen.getByText(/via openai/)).toBeInTheDocument();
+    expect(screen.getByText(/gpt-4o/)).toBeInTheDocument();
   });
 
   it("renders collapsible Reasoning section when reasoning_content is present", () => {
