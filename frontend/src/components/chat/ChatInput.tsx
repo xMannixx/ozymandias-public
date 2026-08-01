@@ -1,4 +1,4 @@
-import { useRef, useState, type DragEvent, type FormEvent, type KeyboardEvent } from "react";
+import { useEffect, useRef, useState, type DragEvent, type FormEvent, type KeyboardEvent } from "react";
 import { ApiError } from "@/api/client";
 import { extractAttachment } from "@/api/turns";
 import type { TurnAttachment, VoiceMode } from "@/api/types";
@@ -47,6 +47,17 @@ function ChatInput({
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+
+  useEffect(() => {
+    const textarea = textareaRef.current;
+    if (!textarea) {
+      return;
+    }
+    textarea.style.height = "auto";
+    const nextHeight = Math.min(textarea.scrollHeight, 200);
+    textarea.style.height = `${nextHeight.toString()}px`;
+  }, [text]);
 
   const trimmed = text.trim();
   const isBlocked = disabled || !trimmed || isExtracting;
@@ -107,8 +118,8 @@ function ChatInput({
     await performSend();
   }
 
-  function onKeyDown(event: KeyboardEvent<HTMLInputElement>): void {
-    if (event.key === "Enter") {
+  function onKeyDown(event: KeyboardEvent<HTMLTextAreaElement>): void {
+    if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
       event.preventDefault();
       void performSend();
     }
@@ -189,10 +200,12 @@ function ChatInput({
         >
           +
         </button>
-        <input
+        <textarea
+          ref={textareaRef}
           aria-label="chat-input"
-          className="w-full rounded-md border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-gray-100"
-          placeholder="Message Ozy... (drop a file to attach)"
+          className="w-full resize-none rounded-md border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-gray-100 leading-6"
+          placeholder="Message Ozy... (Enter to send, Shift+Enter for a new line)"
+          rows={1}
           value={text}
           onChange={(event) => setText(event.target.value)}
           onKeyDown={onKeyDown}

@@ -68,7 +68,7 @@ describe("ChatInput", () => {
   it("clears input after send", async () => {
     const onSend = vi.fn();
     render(<ChatInput onSend={onSend} {...baseVoiceProps} />);
-    const input = screen.getByLabelText("chat-input") as HTMLInputElement;
+    const input = screen.getByLabelText("chat-input") as HTMLTextAreaElement;
 
     await userEvent.type(input, "to clear");
     await userEvent.click(screen.getByRole("button", { name: "Send" }));
