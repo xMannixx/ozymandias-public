@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import uuid
+from decimal import Decimal
 from types import SimpleNamespace
 from typing import cast
 from unittest.mock import AsyncMock
@@ -10,6 +11,7 @@ from unittest.mock import AsyncMock
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.usage import LLMUsageEvent
 from app.schemas import (
     ClaimData,
     G2Result,
@@ -38,6 +40,7 @@ from app.services.live_web_service import LiveWebContext
 from app.services.llm.base import LLMResponse
 from app.services.llm.sensitivity_classifier import SensitivityClassification
 from app.services.llm.system_prompt import OZY_SYSTEM_PROMPT, build_system_prompt
+from app.services.llm.usage import LLMCallUsage
 from app.services.project_context_service import ProjectContext
 from app.services.turn_service import TurnService
 from tests.conftest import FakeAsyncSession
@@ -303,6 +306,82 @@ async def test_process_turn_logs_failure_and_reraises(monkeypatch: pytest.Monkey
     with pytest.raises(CircuitBreakerTrippedError):
         await service.process_turn(user_id="user-1", payload=TurnRequest(text="hello", claims=[]))
     assert service.audit.log.await_count >= 1  # type: ignore[attr-defined]
+
+
+@pytest.mark.asyncio
+async def test_process_turn_persists_what_the_llm_calls_consumed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    session = FakeAsyncSession()
+    service = TurnService(cast(AsyncSession, session))
+    _prepare_service(service)
+    _patch_context_assembler(monkeypatch)
+    _patch_default_rust(monkeypatch, claims=[])
+
+    async def _route(**kwargs: object) -> LLMResponse:
+        sink = cast(list[LLMCallUsage] | None, kwargs["usage_sink"])
+        assert sink is not None
+        sink.append(
+            LLMCallUsage(
+                call_type="chat",
+                provider="openai",
+                model="gpt-4o",
+                status="ok",
+                latency_ms=900,
+                prompt_tokens=1_000_000,
+                completion_tokens=100_000,
+                cached_prompt_tokens=500_000,
+                total_tokens=1_100_000,
+            )
+        )
+        return LLMResponse(content="ok", model="gpt-4o", provider="openai", tokens_used=1_100_000)
+
+    service.llm_router.route = AsyncMock(side_effect=_route)  # type: ignore[method-assign]
+    service.claim_extractor.extract = AsyncMock(return_value=[])  # type: ignore[method-assign]
+
+    await service.process_turn(user_id="user-1", payload=TurnRequest(text="hello"))
+
+    events = [row for row in session.added if isinstance(row, LLMUsageEvent)]
+    assert len(events) == 1
+    assert events[0].provider == "openai"
+    assert events[0].total_tokens == 1_100_000
+    assert events[0].cost_usd == Decimal("2.875000")
+    assert events[0].turn_id is not None
+
+
+@pytest.mark.asyncio
+async def test_process_turn_persists_usage_even_when_the_turn_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A crashed turn still burned tokens, so the failed attempt must be visible."""
+    session = FakeAsyncSession()
+    service = TurnService(cast(AsyncSession, session))
+    _prepare_service(service)
+    _patch_context_assembler(monkeypatch)
+    _patch_default_rust(monkeypatch, claims=[])
+
+    async def _route(**kwargs: object) -> LLMResponse:
+        sink = cast(list[LLMCallUsage] | None, kwargs["usage_sink"])
+        assert sink is not None
+        sink.append(
+            LLMCallUsage(
+                call_type="chat",
+                provider="openai",
+                model="gpt-4o",
+                status="error",
+                latency_ms=300,
+                error_kind="ConnectionError",
+            )
+        )
+        raise ConnectionError("connection refused")
+
+    service.llm_router.route = AsyncMock(side_effect=_route)  # type: ignore[method-assign]
+
+    with pytest.raises(ConnectionError):
+        await service.process_turn(user_id="user-1", payload=TurnRequest(text="hello"))
+
+    events = [row for row in session.added if isinstance(row, LLMUsageEvent)]
+    assert [(event.status, event.error_kind) for event in events] == [("error", "ConnectionError")]
 
 
 @pytest.mark.asyncio

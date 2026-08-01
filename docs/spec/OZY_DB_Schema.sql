@@ -356,6 +356,42 @@ CREATE INDEX IF NOT EXISTS idx_audit_payload_provider_turn_processed
     WHERE event_type = 'turn_processed' AND payload IS NOT NULL;
 
 
+-- === LLM USAGE EVENTS ===
+-- Ein Datensatz pro Modell-Aufruf: Tokens, Latenz, Kosten, Fehlerklasse.
+-- Enthaelt bewusst keinen Prompt- oder Antworttext, damit auch S3/S4-Traffic
+-- messbar bleibt, ohne Inhalte aus seiner Grenze zu tragen.
+CREATE TABLE IF NOT EXISTS llm_usage_events (
+    usage_id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id              UUID NOT NULL,
+    turn_id              TEXT,
+    conversation_id      UUID REFERENCES conversations(conversation_id) ON DELETE SET NULL,
+    project_id           UUID REFERENCES projects(project_id) ON DELETE SET NULL,
+    call_type            TEXT NOT NULL,           -- chat | claim_extraction | tool_call
+    tool_name            TEXT,
+    channel              TEXT NOT NULL,
+    provider             TEXT NOT NULL,
+    model                TEXT NOT NULL,
+    sensitivity          TEXT NOT NULL DEFAULT 'S0'
+                         CHECK (sensitivity IN ('S0', 'S1', 'S2', 'S3', 'S4')),
+    prompt_tokens        INTEGER NOT NULL DEFAULT 0,
+    completion_tokens    INTEGER NOT NULL DEFAULT 0,
+    cached_prompt_tokens INTEGER NOT NULL DEFAULT 0,
+    total_tokens         INTEGER NOT NULL DEFAULT 0,
+    latency_ms           INTEGER NOT NULL DEFAULT 0,
+    cost_usd             NUMERIC(12, 6),          -- NULL = Modell ohne bekannten Preis
+    status               TEXT NOT NULL DEFAULT 'ok'
+                         CHECK (status IN ('ok', 'error')),
+    error_kind           TEXT,                    -- Exception-Klassenname, nie die Meldung
+    created_at           TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_llm_usage_user_created
+    ON llm_usage_events(user_id, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_llm_usage_user_provider_created
+    ON llm_usage_events(user_id, provider, created_at DESC);
+
+
 -- === USER SETTINGS ===
 -- Runtime-Settings pro User fuer Guardian/Autopilot und Kill-Switch.
 -- user_id als TEXT, da Auth aktuell String-Sub liefert (inkl. dev-user).

@@ -29,6 +29,7 @@ from app.models.project import (  # noqa: E402
 )
 from app.models.proposal import MemoryProposal  # noqa: E402
 from app.models.settings import UserSettings  # noqa: E402
+from app.models.usage import LLMUsageEvent  # noqa: E402
 from app.models.user import Episode, ProceduralRule  # noqa: E402
 
 __all__ = [
@@ -47,6 +48,7 @@ __all__ = [
     "ConversationMessage",
     "Episode",
     "GoogleToken",
+    "LLMUsageEvent",
     "MemoryEntity",
     "MemoryEntityRelation",
     "MemoryProposal",
