@@ -4,7 +4,7 @@ import Toast from "@/components/common/Toast";
 describe("Toast", () => {
   it("renders message with error style", () => {
     render(<Toast message="boom" type="error" />);
-    const toast = screen.getByRole("status");
+    const toast = screen.getByRole("alert");
     expect(toast).toHaveTextContent("boom");
     expect(toast).toHaveClass("text-red-100");
   });

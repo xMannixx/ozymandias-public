@@ -15,7 +15,7 @@ const variantClass: Record<ButtonVariant, string> = {
 function Button({ variant = "primary", className = "", ...props }: ButtonProps): JSX.Element {
   return (
     <button
-      className={`rounded-md px-3 py-2 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50 ${variantClass[variant]} ${className}`.trim()}
+      className={`rounded-md px-3 py-2 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/80 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 ${variantClass[variant]} ${className}`.trim()}
       {...props}
     />
   );

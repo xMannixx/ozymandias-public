@@ -87,14 +87,14 @@ function ApiKeysSettings({ settings, saving, onSave }: ApiKeysSettingsProps): JS
             value={value}
             onChange={(e) => onChange(e.target.value)}
             placeholder={placeholder}
-            className="w-full pr-20 py-2 bg-gray-900 border border-gray-700 rounded text-sm text-gray-100 focus:outline-none"
+            className="w-full pr-20 py-2 bg-gray-900 border border-gray-700 rounded text-sm text-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/80"
             autoComplete="new-password"
           />
           <div className="absolute right-2 flex items-center gap-1.5">
             <button
               type="button"
               onClick={toggleShow}
-              className="p-1 hover:text-gray-100 text-gray-400 focus:outline-none transition-colors cursor-pointer"
+              className="p-1 hover:text-gray-100 text-gray-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/80 rounded transition-colors cursor-pointer"
               title={show ? "Hide" : "Show"}
             >
               {show ? (
@@ -112,7 +112,7 @@ function ApiKeysSettings({ settings, saving, onSave }: ApiKeysSettingsProps): JS
               <button
                 type="button"
                 onClick={() => onChange("")}
-                className="p-1 hover:text-red-400 text-gray-400 focus:outline-none transition-colors cursor-pointer"
+                className="p-1 hover:text-red-400 text-gray-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/80 rounded transition-colors cursor-pointer"
                 title="Delete"
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">

@@ -171,11 +171,17 @@ function ProjectWindow({ projectId }: ProjectWindowProps): JSX.Element {
       ) : null}
       {error ? <p className="text-sm text-red-300">{error}</p> : null}
 
-      <nav className="flex flex-wrap gap-2 border-b border-gray-700 pb-2">
+      <div
+        className="flex flex-wrap gap-2 border-b border-gray-700 pb-2"
+        role="tablist"
+        aria-label="Project sections"
+      >
         {tabs.map((tab) => (
           <button
             key={tab.id}
             type="button"
+            role="tab"
+            aria-selected={activeTab === tab.id}
             className={`rounded px-3 py-1 text-sm ${
               activeTab === tab.id
                 ? "border border-blue-500/40 bg-blue-900/35 text-blue-100"
@@ -186,7 +192,7 @@ function ProjectWindow({ projectId }: ProjectWindowProps): JSX.Element {
             {tab.label}
           </button>
         ))}
-      </nav>
+      </div>
 
       {tabContent}
     </section>

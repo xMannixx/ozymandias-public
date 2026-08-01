@@ -1,4 +1,4 @@
-import { ReactNode, useEffect } from "react";
+import { ReactNode, useEffect, useRef } from "react";
 
 type ModalProps = {
   open: boolean;
@@ -7,18 +7,77 @@ type ModalProps = {
   children: ReactNode;
 };
 
+const FOCUSABLE_SELECTOR =
+  'a[href], area[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), ' +
+  'select:not([disabled]), textarea:not([disabled]), iframe, [tabindex]:not([tabindex="-1"]), [contenteditable="true"]';
+
 function Modal({ open, onClose, title, children }: ModalProps): JSX.Element | null {
+  const dialogRef = useRef<HTMLDivElement | null>(null);
+  const previouslyFocusedRef = useRef<HTMLElement | null>(null);
+
   useEffect(() => {
     if (!open) {
       return undefined;
     }
+
+    previouslyFocusedRef.current = (document.activeElement as HTMLElement | null) ?? null;
+
+    const focusFirst = (): void => {
+      const container = dialogRef.current;
+      if (!container) {
+        return;
+      }
+      const focusable = container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR);
+      const first = focusable.item(0);
+      if (first) {
+        first.focus();
+      } else {
+        container.focus();
+      }
+    };
+    const focusTimeout = window.setTimeout(focusFirst, 0);
+
     const onKey = (event: KeyboardEvent): void => {
       if (event.key === "Escape") {
         onClose();
+        return;
+      }
+      if (event.key !== "Tab") {
+        return;
+      }
+      const container = dialogRef.current;
+      if (!container) {
+        return;
+      }
+      const focusable = Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).filter(
+        (element) => !element.hasAttribute("data-focus-trap-ignore"),
+      );
+      if (focusable.length === 0) {
+        event.preventDefault();
+        container.focus();
+        return;
+      }
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      const active = document.activeElement as HTMLElement | null;
+      if (event.shiftKey && active === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && active === last) {
+        event.preventDefault();
+        first.focus();
       }
     };
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+
+    return () => {
+      window.clearTimeout(focusTimeout);
+      window.removeEventListener("keydown", onKey);
+      const previous = previouslyFocusedRef.current;
+      if (previous && typeof previous.focus === "function") {
+        previous.focus();
+      }
+    };
   }, [open, onClose]);
 
   if (!open) {
@@ -37,7 +96,9 @@ function Modal({ open, onClose, title, children }: ModalProps): JSX.Element | nu
       data-testid="modal-overlay"
     >
       <div
-        className="glass-card max-h-[90vh] w-full max-w-xl overflow-y-auto border border-blue-500/30 p-4"
+        ref={dialogRef}
+        tabIndex={-1}
+        className="glass-card max-h-[90vh] w-full max-w-xl overflow-y-auto border border-blue-500/30 p-4 focus:outline-none"
         role="dialog"
         aria-modal="true"
         aria-label={title ?? "Dialog"}

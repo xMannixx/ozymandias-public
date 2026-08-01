@@ -26,8 +26,15 @@ function Toast({ message, type = "info", timeoutMs = 3000 }: ToastProps): JSX.El
     return null;
   }
 
+  const role = type === "error" ? "alert" : "status";
+  const ariaLive = type === "error" ? "assertive" : "polite";
+
   return (
-    <div role="status" className={`rounded-md border px-3 py-2 text-sm ${toneClass[type]}`}>
+    <div
+      role={role}
+      aria-live={ariaLive}
+      className={`rounded-md border px-3 py-2 text-sm ${toneClass[type]}`}
+    >
       {message}
     </div>
   );

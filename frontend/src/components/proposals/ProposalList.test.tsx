@@ -25,16 +25,16 @@ vi.mock("@/hooks/useProposals", () => ({
 describe("ProposalList", () => {
   it("renders tab buttons with counts", () => {
     render(<ProposalList />);
-    expect(screen.getByRole("button", { name: "Pending (1)" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Confirmed (1)" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Rejected (0)" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Pending (1)" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Confirmed (1)" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Rejected (0)" })).toBeInTheDocument();
   });
 
   it("calls setActiveTab when tab is clicked", async () => {
     hookState.setActiveTab.mockClear();
     render(<ProposalList />);
 
-    await userEvent.click(screen.getByRole("button", { name: "Confirmed (1)" }));
+    await userEvent.click(screen.getByRole("tab", { name: "Confirmed (1)" }));
     expect(hookState.setActiveTab).toHaveBeenCalledWith("confirmed");
   });
 

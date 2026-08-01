@@ -44,11 +44,17 @@ function ProposalList(): JSX.Element {
         </p>
       </header>
 
-      <div className="glass-card flex flex-wrap items-center gap-2 p-2">
+      <div
+        className="glass-card flex flex-wrap items-center gap-2 p-2"
+        role="tablist"
+        aria-label="Proposal status"
+      >
         {tabs.map((tab) => (
           <button
             key={tab.id}
             type="button"
+            role="tab"
+            aria-selected={activeTab === tab.id}
             onClick={() => setActiveTab(tab.id)}
             className={`rounded px-3 py-1 text-sm ${
               activeTab === tab.id ? "bg-blue-700/50 text-blue-100" : "text-gray-300 hover:bg-gray-800"
