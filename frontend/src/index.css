@@ -116,12 +116,17 @@ pre,
   border-color: rgba(248, 113, 113, 0.35);
 }
 
-/* Inputs — flat, subtle, no cyan glow */
+/* Inputs — flat, subtle, no cyan glow.
+   `input:not([type])` matters: an input without an explicit type behaves like
+   text but is not matched by input[type="text"], and would stay unstyled. */
+input:not([type]),
 input[type="text"],
 input[type="number"],
 input[type="password"],
 input[type="email"],
 input[type="search"],
+input[type="url"],
+input[type="date"],
 textarea,
 select {
   background: var(--bg-elevated) !important;
@@ -137,30 +142,38 @@ select {
     background-color 120ms ease !important;
 }
 
+input:not([type])::placeholder,
 input[type="text"]::placeholder,
 input[type="number"]::placeholder,
 input[type="password"]::placeholder,
 input[type="email"]::placeholder,
 input[type="search"]::placeholder,
+input[type="url"]::placeholder,
 textarea::placeholder {
   color: var(--text-tertiary);
 }
 
+input:not([type]):hover,
 input[type="text"]:hover,
 input[type="number"]:hover,
 input[type="password"]:hover,
 input[type="email"]:hover,
 input[type="search"]:hover,
+input[type="url"]:hover,
+input[type="date"]:hover,
 textarea:hover,
 select:hover {
   border-color: var(--border-strong) !important;
 }
 
+input:not([type]):focus,
 input[type="text"]:focus,
 input[type="number"]:focus,
 input[type="password"]:focus,
 input[type="email"]:focus,
 input[type="search"]:focus,
+input[type="url"]:focus,
+input[type="date"]:focus,
 textarea:focus,
 select:focus {
   border-color: var(--accent) !important;
