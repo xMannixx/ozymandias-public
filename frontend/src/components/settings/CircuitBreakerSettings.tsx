@@ -69,7 +69,7 @@ function CircuitBreakerSettings({
   return (
     <GlassCard className="space-y-3">
       <p className="text-sm font-medium text-gray-200">Circuit Breaker</p>
-      <p className="text-xs text-gray-300">Leer lassen, um die Server-Defaults zu verwenden.</p>
+      <p className="text-xs text-gray-300">Leave a field blank to use the server default.</p>
 
       <div className="grid gap-2 md:grid-cols-3">
         <label className="text-xs text-gray-300" htmlFor="cb-max-actions">

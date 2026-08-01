@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import CreateContactDialog from "@/components/contacts/CreateContactDialog";
 
 describe("CreateContactDialog", () => {
-  it("Vorname ist Pflichtfeld", async () => {
+  it("first name is required", async () => {
     const user = userEvent.setup();
     const onCreate = vi.fn(async () => undefined);
 
@@ -15,7 +15,7 @@ describe("CreateContactDialog", () => {
     expect(screen.getByText("First name is required.")).toBeInTheDocument();
   });
 
-  it("Erstellen ruft onCreate mit Tags auf", async () => {
+  it("Create calls onCreate with tags", async () => {
     const user = userEvent.setup();
     const onCreate = vi.fn(async () => undefined);
 

@@ -33,7 +33,7 @@ function ModeSettings(): JSX.Element {
         className="w-full rounded border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-gray-100 hover:bg-gray-800"
         onClick={() => setConfirmOpen(true)}
       >
-        Zu {targetMode === "autopilot" ? "Autopilot" : "Guardian"} wechseln
+        Switch to {targetMode === "autopilot" ? "Autopilot" : "Guardian"}
       </button>
 
       {confirmOpen ? (

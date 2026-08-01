@@ -25,7 +25,7 @@ describe("ProjectsSummary", () => {
 
     expect(screen.getByText("3 active projects")).toBeInTheDocument();
     expect(screen.getByText("7 open tasks")).toBeInTheDocument();
-    expect(screen.getByText("2 kritische Risiken")).toBeInTheDocument();
+    expect(screen.getByText("2 critical risks")).toBeInTheDocument();
   });
 
   it("klick navigiert zu /projects", async () => {

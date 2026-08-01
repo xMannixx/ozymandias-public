@@ -304,7 +304,7 @@ function ProviderSelect({
   return (
     <GlassCard className="space-y-3">
       <div className="flex items-center justify-between">
-        <p className="text-sm font-medium text-gray-200">LLM Auswahl</p>
+        <p className="text-sm font-medium text-gray-200">LLM selection</p>
         {loading ? <Spinner /> : null}
       </div>
 

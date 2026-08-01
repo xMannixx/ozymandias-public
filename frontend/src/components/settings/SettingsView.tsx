@@ -41,7 +41,7 @@ function SettingsView(): JSX.Element {
           className="rounded border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-gray-100 hover:bg-gray-800"
           onClick={() => void refetch()}
         >
-          Neu laden
+          Reload
         </button>
       </GlassCard>
 

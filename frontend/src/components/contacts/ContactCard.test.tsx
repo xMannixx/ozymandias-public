@@ -26,7 +26,7 @@ describe("ContactCard", () => {
     expect(screen.getByText("VIP")).toBeInTheDocument();
   });
 
-  it("Klick ruft onSelect mit contact_id auf", async () => {
+  it("click calls onSelect with contact_id", async () => {
     const user = userEvent.setup();
     const onSelect = vi.fn();
     render(

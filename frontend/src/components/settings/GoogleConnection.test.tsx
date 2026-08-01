@@ -35,7 +35,7 @@ describe("GoogleConnection", () => {
     expect(screen.getByText("Not connected")).toBeInTheDocument();
   });
 
-  it("zeigt E-Mail wenn connected", () => {
+  it("shows email when connected", () => {
     useGoogleStatusMock.mockReturnValue({
       connected: true,
       email: "owner@example.com",
@@ -45,7 +45,7 @@ describe("GoogleConnection", () => {
       refetch: vi.fn(async () => null),
     });
     render(<GoogleConnection />);
-    expect(screen.getByText("E-Mail: owner@example.com")).toBeInTheDocument();
+    expect(screen.getByText("Email: owner@example.com")).toBeInTheDocument();
   });
 
   it('"Verbinden" Button ruft getGoogleAuthUrl auf', async () => {

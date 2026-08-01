@@ -58,7 +58,7 @@ function GoogleConnection(): JSX.Element {
 
       {connected ? (
         <>
-          <p className="text-xs text-gray-400">E-Mail: {email ?? "unbekannt"}</p>
+          <p className="text-xs text-gray-400">Email: {email ?? "unknown"}</p>
           {scopes.length > 0 ? (
             <ul className="list-disc space-y-1 pl-5 text-xs text-gray-400">
               {scopes.map((scope) => (

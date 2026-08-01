@@ -72,11 +72,14 @@ describe("AuditFeed", () => {
     ).toBeGreaterThan(0);
   });
 
-  it("shows loading spinner", () => {
+  it("shows loading spinner on initial load (no entries yet)", () => {
     hookState.loading = true;
+    const previousEntries = hookState.entries;
+    hookState.entries = [];
     renderWithRouter();
     expect(screen.getByLabelText("loading")).toBeInTheDocument();
     hookState.loading = false;
+    hookState.entries = previousEntries;
   });
 
   it("pagination previous and next call setPage", async () => {

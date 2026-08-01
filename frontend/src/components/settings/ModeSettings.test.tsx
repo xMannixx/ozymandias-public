@@ -27,7 +27,7 @@ describe("ModeSettings", () => {
 
   it("opens confirmation dialog", async () => {
     render(<ModeSettings />);
-    await userEvent.click(screen.getByRole("button", { name: "Zu Autopilot wechseln" }));
+    await userEvent.click(screen.getByRole("button", { name: "Switch to Autopilot" }));
     expect(screen.getByRole("dialog", { name: "mode-settings-confirm" })).toBeInTheDocument();
   });
 
@@ -42,7 +42,7 @@ describe("ModeSettings", () => {
     });
     render(<ModeSettings />);
 
-    await userEvent.click(screen.getByRole("button", { name: "Zu Autopilot wechseln" }));
+    await userEvent.click(screen.getByRole("button", { name: "Switch to Autopilot" }));
     await userEvent.click(screen.getByRole("button", { name: "Confirm" }));
     expect(setMode).toHaveBeenCalledWith("autopilot");
   });

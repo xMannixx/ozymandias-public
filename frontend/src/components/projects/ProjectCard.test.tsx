@@ -21,7 +21,7 @@ describe("ProjectCard", () => {
 
   it("zeigt Risiko-Warnung", () => {
     render(<ProjectCard project={mockProject} onOpen={vi.fn()} onDelete={vi.fn()} />);
-    expect(screen.getByText("2 offene Risiken")).toBeInTheDocument();
+    expect(screen.getByText("2 open risks")).toBeInTheDocument();
   });
 
   it("klick auf karte ruft onOpen auf", async () => {

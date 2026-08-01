@@ -52,11 +52,15 @@ describe("MemoryBrowser", () => {
     expect(screen.getByLabelText("memory-search")).toBeInTheDocument();
   });
 
-  it("renders loading state with spinner", () => {
+  it("renders loading spinner on initial load (no claims yet)", () => {
     hookState.loading = true;
+    hookState.claims = [];
+    hookState.filteredClaims = [];
     renderWithRouter();
     expect(screen.getByLabelText("loading")).toBeInTheDocument();
     hookState.loading = false;
+    hookState.claims = [mockClaimTentative];
+    hookState.filteredClaims = [mockClaimTentative];
   });
 
   it("renders empty state when no claims match filters", () => {

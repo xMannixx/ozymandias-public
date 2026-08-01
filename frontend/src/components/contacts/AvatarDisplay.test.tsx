@@ -7,7 +7,7 @@ vi.mock("@/store/auth", () => ({
 }));
 
 describe("AvatarDisplay", () => {
-  it("zeigt Initialen wenn kein Avatar", () => {
+  it("shows initials when no avatar", () => {
     render(<AvatarDisplay contactId="c1" hasAvatar={false} label="Ada Lovelace" className="h-8 w-8" />);
     expect(screen.getByTestId("avatar-fallback")).toHaveTextContent("AL");
   });

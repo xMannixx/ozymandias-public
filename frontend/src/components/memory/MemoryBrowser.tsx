@@ -66,6 +66,7 @@ function MemoryBrowser(): JSX.Element {
     unlockClaim,
     updateSensitivity,
     clearToast,
+    refetch,
   } = useClaims();
 
   const [searchParams] = useSearchParams();
@@ -102,15 +103,22 @@ function MemoryBrowser(): JSX.Element {
         </div>
       ) : null}
 
-      {loading ? (
-        <div className="glass-card flex items-center justify-center p-6">
+      {loading && claims.length === 0 ? (
+        <div className="glass-card flex items-center justify-center p-6" role="status" aria-live="polite">
           <Spinner />
         </div>
-      ) : null}
-
-      {error ? <p className="text-sm text-red-300">{error}</p> : null}
-
-      {!loading && filteredClaims.length === 0 ? (
+      ) : error && claims.length === 0 ? (
+        <div className="glass-card flex flex-col items-start gap-2 p-4" role="alert">
+          <p className="text-sm text-red-300">Could not load memories. {error}</p>
+          <button
+            type="button"
+            onClick={() => void refetch()}
+            className="rounded border border-blue-500/40 px-3 py-1 text-xs text-blue-200 hover:bg-blue-900/40"
+          >
+            Retry
+          </button>
+        </div>
+      ) : filteredClaims.length === 0 ? (
         <p className="glass-card p-4 text-sm text-gray-400">
           No memories match these filters yet. Memories appear here once you approve a proposal or Ozymandias
           confirms something automatically.

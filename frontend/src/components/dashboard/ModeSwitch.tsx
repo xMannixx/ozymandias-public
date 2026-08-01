@@ -15,7 +15,7 @@ function ModeSwitch(): JSX.Element {
   return (
     <GlassCard className="space-y-4 border border-slate-800/80 bg-slate-950/30 backdrop-blur-md">
       <div className="flex items-center justify-between border-b border-slate-800/60 pb-2">
-        <p className="text-xs uppercase tracking-wider text-gray-400 font-semibold">Governance-Modus</p>
+        <p className="text-xs uppercase tracking-wider text-gray-400 font-semibold">Governance mode</p>
         <span data-testid="mode-status" className={`rounded-full border px-3 py-0.5 text-[10px] font-bold tracking-wider transition-all duration-300 ${modeClass}`}>
           {mode === "autopilot" ? "Autopilot" : "Guardian"}
         </span>

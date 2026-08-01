@@ -23,6 +23,7 @@ function AuditFeed(): JSX.Element {
     setPage,
     setLimit,
     setShowS4,
+    refetch,
   } = useAudit();
   const [category, setCategory] = useState<AuditCategory | "all">("all");
   const [searchParams, setSearchParams] = useSearchParams();
@@ -79,15 +80,22 @@ function AuditFeed(): JSX.Element {
         </div>
       ) : null}
 
-      {loading ? (
-        <div className="glass-card flex justify-center p-6">
+      {loading && entries.length === 0 ? (
+        <div className="glass-card flex justify-center p-6" role="status" aria-live="polite">
           <Spinner />
         </div>
-      ) : null}
-
-      {error ? <p className="text-sm text-red-300">{error}</p> : null}
-
-      {!loading && visibleEntries.length === 0 ? (
+      ) : error && entries.length === 0 ? (
+        <div className="glass-card flex flex-col items-start gap-2 p-4" role="alert">
+          <p className="text-sm text-red-300">Could not load audit entries. {error}</p>
+          <button
+            type="button"
+            onClick={() => void refetch()}
+            className="rounded border border-blue-500/40 px-3 py-1 text-xs text-blue-200 hover:bg-blue-900/40"
+          >
+            Retry
+          </button>
+        </div>
+      ) : visibleEntries.length === 0 ? (
         <p className="glass-card p-4 text-sm text-gray-400">No audit entries match these filters.</p>
       ) : (
         <div className="space-y-4">

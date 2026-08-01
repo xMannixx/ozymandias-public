@@ -12,21 +12,34 @@ import { useDashboard } from "@/hooks/useDashboard";
 import { useHealth } from "@/hooks/useHealth";
 
 function DashboardView(): JSX.Element {
-  const { stats, loading, error, autoRefresh, setAutoRefresh } = useDashboard();
+  const { stats, loading, error, autoRefresh, setAutoRefresh, refetch } = useDashboard();
   const { health } = useHealth();
   const systemHealthy = health !== null && health.status === "ok";
   const healthLabel = health === null ? "..." : systemHealthy ? "Healthy" : "Degraded";
 
   if (loading && !stats) {
     return (
-      <div className="glass-card flex justify-center p-6">
+      <div className="glass-card flex justify-center p-6" role="status" aria-live="polite">
         <Spinner />
       </div>
     );
   }
 
   if (!stats) {
-    return <p className="glass-card p-4 text-sm text-red-300">{error ?? "Dashboard unavailable"}</p>;
+    return (
+      <div className="glass-card flex flex-col items-start gap-2 p-4" role="alert">
+        <p className="text-sm text-red-300">
+          Dashboard unavailable. {error ?? "Could not load dashboard data."}
+        </p>
+        <button
+          type="button"
+          onClick={() => void refetch()}
+          className="rounded border border-blue-500/40 px-3 py-1 text-xs text-blue-200 hover:bg-blue-900/40"
+        >
+          Retry
+        </button>
+      </div>
+    );
   }
 
   return (
@@ -41,7 +54,7 @@ function DashboardView(): JSX.Element {
             onChange={(event) => setAutoRefresh(event.target.checked)}
             className="h-4 w-4 accent-blue-500"
           />
-          Auto-Refresh (30s)
+          Auto-refresh (30s)
         </label>
       </div>
 

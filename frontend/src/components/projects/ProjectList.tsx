@@ -43,7 +43,7 @@ function ProjectList({
             New project
           </Button>
           <Button type="button" variant="ghost" onClick={() => void refetch()}>
-            Neu laden
+            Reload
           </Button>
         </div>
         <select
@@ -52,11 +52,11 @@ function ProjectList({
           onChange={(event) => setStatusFilter(event.target.value || null)}
           className="rounded border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-gray-100"
         >
-          <option value="">Alle</option>
-          <option value="active">Aktiv</option>
-          <option value="paused">Pausiert</option>
+          <option value="">All</option>
+          <option value="active">Active</option>
+          <option value="paused">Paused</option>
           <option value="completed">Completed</option>
-          <option value="cancelled">Abgebrochen</option>
+          <option value="cancelled">Cancelled</option>
         </select>
       </div>
 
@@ -66,15 +66,13 @@ function ProjectList({
         </div>
       ) : null}
 
-      {error ? <p className="text-sm text-red-300">{error}</p> : null}
-
       {loading && projects.length === 0 ? (
-        <div className="glass-card flex justify-center p-6">
+        <div className="glass-card flex justify-center p-6" role="status" aria-live="polite">
           <Spinner />
         </div>
-      ) : null}
-
-      {projects.length === 0 && !loading ? (
+      ) : error && projects.length === 0 ? (
+        <p className="glass-card p-4 text-sm text-red-300" role="alert">Could not load projects. {error}</p>
+      ) : projects.length === 0 ? (
         <div className="glass-card p-6 text-sm text-gray-300">
           No projects yet. Create your first project.
         </div>

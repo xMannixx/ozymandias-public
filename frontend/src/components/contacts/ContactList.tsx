@@ -54,7 +54,7 @@ function ContactList({
             className={`rounded-full px-3 py-1 text-xs ${!tagFilter ? "bg-blue-700/60 text-white" : "bg-gray-800 text-gray-300"}`}
             onClick={() => onTagFilter(null)}
           >
-            Alle Tags
+            All tags
           </button>
           {allTags.map((tag) => (
             <button
@@ -71,15 +71,13 @@ function ContactList({
         </div>
       ) : null}
 
-      {error ? <p className="text-sm text-red-300">{error}</p> : null}
-
-      {loading ? (
-        <div className="glass-card flex justify-center p-6">
+      {loading && contacts.length === 0 ? (
+        <div className="glass-card flex justify-center p-6" role="status" aria-live="polite">
           <Spinner />
         </div>
-      ) : null}
-
-      {!loading && contacts.length === 0 ? (
+      ) : error && contacts.length === 0 ? (
+        <p className="glass-card p-4 text-sm text-red-300" role="alert">Could not load contacts. {error}</p>
+      ) : contacts.length === 0 ? (
         <p className="glass-card p-4 text-sm text-gray-400">No contacts found.</p>
       ) : (
         <div className="grid auto-rows-min gap-3 sm:grid-cols-2 xl:grid-cols-3">

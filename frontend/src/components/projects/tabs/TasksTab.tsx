@@ -65,7 +65,7 @@ function TasksTab({ project, loading, onCreateTask, onUpdateTask, onDeleteTask }
   return (
     <div className="space-y-3">
       {sortedTasks.length === 0 ? (
-        <p className="text-sm text-gray-400">Noch keine Aufgaben vorhanden.</p>
+        <p className="text-sm text-gray-400">No tasks yet.</p>
       ) : (
         <div className="space-y-2">
           {sortedTasks.map((task) => (

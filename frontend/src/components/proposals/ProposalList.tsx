@@ -21,8 +21,8 @@ const emptyStateByTab: Record<ProposalTab, string> = {
 function ProposalList(): JSX.Element {
   const {
     visibleProposals,
-    loading,
     error,
+    loadState,
     activeTab,
     counts,
     toast,
@@ -30,6 +30,7 @@ function ProposalList(): JSX.Element {
     approve,
     reject,
     clearToast,
+    refetch,
   } = useProposals();
   const [selectedProposal, setSelectedProposal] = useState<ProposalResponse | null>(null);
 
@@ -64,15 +65,24 @@ function ProposalList(): JSX.Element {
         </div>
       ) : null}
 
-      {loading ? (
-        <div className="glass-card flex justify-center p-6">
+      {loadState === "loading" && visibleProposals.length === 0 ? (
+        <div className="glass-card flex justify-center p-6" role="status" aria-live="polite">
           <Spinner />
         </div>
-      ) : null}
-
-      {error ? <p className="text-sm text-red-300">{error}</p> : null}
-
-      {!loading && visibleProposals.length === 0 ? (
+      ) : loadState === "error" ? (
+        <div className="glass-card flex flex-col items-start gap-2 p-4" role="alert">
+          <p className="text-sm text-red-300">
+            Could not load proposals. {error ?? ""}
+          </p>
+          <button
+            type="button"
+            onClick={() => void refetch()}
+            className="rounded border border-blue-500/40 px-3 py-1 text-xs text-blue-200 hover:bg-blue-900/40"
+          >
+            Retry
+          </button>
+        </div>
+      ) : visibleProposals.length === 0 ? (
         <p className="glass-card p-4 text-sm text-gray-400">{emptyStateByTab[activeTab]}</p>
       ) : (
         <div className="grid gap-4 md:grid-cols-[3fr_2fr]">

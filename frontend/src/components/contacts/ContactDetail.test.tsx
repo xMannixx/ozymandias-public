@@ -38,7 +38,7 @@ describe("ContactDetail", () => {
       />,
     );
 
-    expect(screen.getByTestId("contact-detail-empty")).toHaveTextContent("Kontakt auswaehlen");
+    expect(screen.getByTestId("contact-detail-empty")).toHaveTextContent("Select a contact");
   });
 
   it("zeigt Ladezustand", () => {
@@ -86,7 +86,7 @@ describe("ContactDetail", () => {
     expect(screen.getByTestId("linked-projects")).toHaveTextContent("Projekt Alpha");
   });
 
-  it("Speichern ruft onSave auf", async () => {
+  it("Save calls onSave", async () => {
     const user = userEvent.setup();
     const onSave = vi.fn(async () => undefined);
 

@@ -3,7 +3,7 @@ import { MemoryRouter } from "react-router-dom";
 import GoogleNotConnected from "@/components/mail/GoogleNotConnected";
 
 describe("GoogleNotConnected", () => {
-  it("zeigt Warnung wenn nicht verbunden", () => {
+  it("shows warning when not connected", () => {
     render(
       <MemoryRouter>
         <GoogleNotConnected />

@@ -54,7 +54,7 @@ function MilestonesTab({
     <div className="space-y-3">
       <div className="space-y-2">
         {milestones.length === 0 ? (
-          <p className="text-sm text-gray-400">Noch keine Meilensteine vorhanden.</p>
+          <p className="text-sm text-gray-400">No milestones yet.</p>
         ) : (
           milestones.map((milestone) => (
             <div

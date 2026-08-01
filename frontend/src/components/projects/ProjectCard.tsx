@@ -9,9 +9,9 @@ type ProjectCardProps = {
 
 const statusLabel: Record<ProjectStatus, string> = {
   active: "Active",
-  paused: "Pausiert",
+  paused: "Paused",
   completed: "Completed",
-  cancelled: "Abgebrochen",
+  cancelled: "Cancelled",
 };
 
 const statusClass: Record<ProjectStatus, string> = {
@@ -93,7 +93,7 @@ function ProjectCard({ project, onOpen, onDelete }: ProjectCardProps): JSX.Eleme
       </div>
 
       <p className={`text-xs ${project.risk_open_count > 0 ? "text-red-300" : "text-gray-300"}`}>
-        {project.risk_open_count} offene Risiken
+        {project.risk_open_count} open risks
       </p>
 
       <p className="text-xs text-gray-300">

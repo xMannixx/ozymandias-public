@@ -35,7 +35,7 @@ function LinksTab({ project, loading, onCreateLink, onDeleteLink }: LinksTabProp
   return (
     <div className="space-y-3">
       {project.links.length === 0 ? (
-        <p className="text-sm text-gray-400">Noch keine Links vorhanden.</p>
+        <p className="text-sm text-gray-400">No links yet.</p>
       ) : (
         <div className="space-y-2">
           {project.links.map((link) => (

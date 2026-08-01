@@ -31,7 +31,7 @@ describe("EventDetail", () => {
     );
   });
 
-  it("Loeschen zeigt Bestaetigung", async () => {
+  it("Delete shows confirmation", async () => {
     const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
     const onDelete = vi.fn(async () => undefined);
     render(<EventDetail event={event} onClose={vi.fn()} onDelete={onDelete} />);

@@ -18,7 +18,7 @@ function formatRelativeDate(value: string): string {
   const hour = 60 * minute;
   const day = 24 * hour;
 
-  const formatter = new Intl.RelativeTimeFormat("de", { numeric: "auto" });
+  const formatter = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
   if (Math.abs(diffMs) < hour) {
     return formatter.format(Math.round(diffMs / minute), "minute");
   }
@@ -63,7 +63,7 @@ function MailInbox(): JSX.Element {
             Search
           </Button>
           <Button type="button" variant="ghost" onClick={() => void refetch()}>
-            Neu laden
+            Reload
           </Button>
           <Button type="button" onClick={() => setComposeOpen((prev) => !prev)}>
             {composeOpen ? "Close compose" : "New email"}
@@ -77,12 +77,12 @@ function MailInbox(): JSX.Element {
         </div>
       ) : null}
 
-      {error ? <p className="text-sm text-red-300">{error}</p> : null}
-
       {loading && messages.length === 0 ? (
-        <div className="glass-card flex justify-center p-6">
+        <div className="glass-card flex justify-center p-6" role="status" aria-live="polite">
           <Spinner />
         </div>
+      ) : error && messages.length === 0 ? (
+        <p className="glass-card p-4 text-sm text-red-300" role="alert">Could not load emails. {error}</p>
       ) : null}
 
       <div className="grid gap-4 md:grid-cols-[2fr_3fr]">
@@ -105,7 +105,7 @@ function MailInbox(): JSX.Element {
                   <p className="truncate text-sm font-medium text-gray-100">{mail.sender}</p>
                   {!mail.is_read ? (
                     <span className="rounded-full bg-blue-700 px-2 py-0.5 text-xs font-semibold text-blue-100">
-                      Neu
+                      New
                     </span>
                   ) : null}
                 </div>

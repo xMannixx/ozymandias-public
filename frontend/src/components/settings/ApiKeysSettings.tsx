@@ -77,7 +77,7 @@ function ApiKeysSettings({ settings, saving, onSave }: ApiKeysSettingsProps): JS
           {isConfigured && (
             <span className="inline-flex items-center gap-1 text-[10px] font-medium text-green-400 bg-green-500/10 px-2 py-0.5 rounded-full border border-green-500/20">
               <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse" />
-              Aktiv
+              Active
             </span>
           )}
         </div>

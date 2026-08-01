@@ -80,7 +80,7 @@ function ContactDetail({
   if (!contact) {
     return (
       <div className="glass-card p-4 text-sm text-gray-400" data-testid="contact-detail-empty">
-        Kontakt auswaehlen.
+        Select a contact.
       </div>
     );
   }
@@ -128,7 +128,7 @@ function ContactDetail({
         <AvatarDisplay contactId={contact.contact_id} hasAvatar={contact.has_avatar} label={name} className="h-24 w-24" />
         <div className="flex flex-wrap justify-center gap-2">
           <label className="cursor-pointer rounded-md bg-gray-800 px-3 py-1 text-xs text-gray-200">
-            Avatar hochladen
+            Upload avatar
             <input
               type="file"
               accept="image/*"
@@ -240,7 +240,7 @@ function ContactDetail({
         </div>
         <div>
           <label className="mb-1 block text-xs text-gray-400" htmlFor="cd-tags">
-            Tags (kommagetrennt)
+            Tags (comma-separated)
           </label>
           <input
             id="cd-tags"
@@ -267,7 +267,7 @@ function ContactDetail({
               />
               <input
                 aria-label={`Phone number ${String(index + 1)}`}
-                placeholder="Nummer"
+                placeholder="Number"
                 value={row.number}
                 onChange={(event) => {
                   const next = [...phones];
@@ -284,16 +284,16 @@ function ContactDetail({
             className="text-xs"
             onClick={() => setPhones([...phones, { label: "", number: "" }])}
           >
-            + Nummer
+            + Number
           </Button>
         </div>
 
         <div className="space-y-2">
-          <p className="text-xs font-semibold text-gray-400">E-Mail</p>
+          <p className="text-xs font-semibold text-gray-400">Email</p>
           {emails.map((row, index) => (
             <div key={`email-${String(index)}`} className="flex gap-2">
               <input
-                aria-label={`E-Mail-Label ${String(index + 1)}`}
+                aria-label={`Email label ${String(index + 1)}`}
                 placeholder="Label"
                 value={row.label}
                 onChange={(event) => {
@@ -322,7 +322,7 @@ function ContactDetail({
             className="text-xs"
             onClick={() => setEmails([...emails, { label: "", email: "" }])}
           >
-            + E-Mail
+            + Email
           </Button>
         </div>
 
@@ -339,7 +339,7 @@ function ContactDetail({
       </form>
 
       <div className="border-t border-gray-700 pt-4">
-        <h4 className="mb-2 text-sm font-semibold text-blue-200">Verknuepfte Projekte</h4>
+        <h4 className="mb-2 text-sm font-semibold text-blue-200">Linked projects</h4>
         <ul className="space-y-2" data-testid="linked-projects">
           {contact.linked_projects.map((p) => (
             <li key={p.project_id} className="flex items-center justify-between gap-2 text-sm text-gray-200">
@@ -367,7 +367,7 @@ function ContactDetail({
               onChange={(event) => setLinkProjectId(event.target.value)}
               className="rounded border border-gray-700 bg-gray-900 px-2 py-1 text-sm text-gray-100"
             >
-              <option value="">Projekt waehlen...</option>
+              <option value="">Choose project...</option>
               {linkableProjects.map((p) => (
                 <option key={p.project_id} value={p.project_id}>
                   {p.name}
