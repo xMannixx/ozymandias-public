@@ -643,6 +643,7 @@ class TurnService:
             audit_payload["contacts_withheld_private"] = (
                 prep.contact_context.withheld_private_contacts
             )
+            audit_payload["recalled_episodes"] = prep.contact_context.recalled_episodes
         await self.audit.log(
             event_type=AuditEventType.turn_processed,
             result=AuditResult.success,
@@ -752,6 +753,9 @@ class TurnService:
             provider_is_local=provider_is_local,
             include_projects=prep.project_context is None,
             query=prep.user_text,
+            conversation_id=(
+                str(prep.conversation.conversation_id) if prep.conversation is not None else None
+            ),
         )
         context_block = context.text
         prep.contact_context = context

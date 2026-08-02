@@ -13,6 +13,34 @@ from httpx import ASGITransport, AsyncClient
 from app.auth.jwt import get_current_user
 from app.database import get_db, get_redis
 from app.main import create_app
+from app.services import episode_index_service, episode_recall_service
+from app.services.llm import embeddings as embeddings_module
+
+
+class OfflineEmbeddings:
+    """Embedding client that behaves like a stopped Ollama."""
+
+    model = "offline"
+
+    async def embed_texts(self, texts: list[str]) -> list[list[float]] | None:
+        del texts
+        return None
+
+    async def embed_text(self, text: str) -> list[float] | None:
+        del text
+        return None
+
+
+@pytest.fixture(autouse=True)
+def offline_embeddings(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Keep the suite off the network.
+
+    Services reach for the shared embedding client by default, and a developer
+    machine with Ollama running would otherwise produce different results than
+    CI, where nothing answers on port 11434.
+    """
+    for module in (embeddings_module, episode_index_service, episode_recall_service):
+        monkeypatch.setattr(module, "get_embedding_client", OfflineEmbeddings)
 
 
 def await_kwargs(mock: object) -> dict[str, Any]:
