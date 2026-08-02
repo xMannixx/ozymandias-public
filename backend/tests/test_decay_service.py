@@ -140,6 +140,52 @@ async def test_run_decay_archive(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.mark.asyncio
+async def test_run_decay_applies_actions_from_a_shared_source_ref(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The engine reports the source_ref, which whole turns share, so position rules."""
+    first = _claim_model()
+    second = _claim_model()
+    db = FakeAsyncSession()
+    db.queue_execute_result(FakeQueryResult(values=[first, second]))
+    service = DecayService(cast(AsyncSession, db))
+    service.audit.log = AsyncMock()  # type: ignore[method-assign]
+    monkeypatch.setattr(
+        "app.services.decay_service.rust_bridge.evaluate_decay",
+        lambda _claims, _now: [
+            DecayAction(claim_ref="turn-1", action="Keep"),
+            DecayAction(claim_ref="turn-1", action="Expire"),
+        ],
+    )
+
+    result = await service.run_decay(user_id="user-1")
+
+    assert result == {"keep": 1, "reduce_confidence": 0, "expire": 1, "archive": 0}
+    assert first.verification_state == "tentative"
+    assert second.verification_state == "retracted"
+
+
+@pytest.mark.asyncio
+async def test_run_decay_refuses_a_mismatched_action_count(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Fewer actions than claims means the pairing is guesswork; fail before commit."""
+    db = FakeAsyncSession()
+    db.queue_execute_result(FakeQueryResult(values=[_claim_model(), _claim_model()]))
+    service = DecayService(cast(AsyncSession, db))
+    service.audit.log = AsyncMock()  # type: ignore[method-assign]
+    monkeypatch.setattr(
+        "app.services.decay_service.rust_bridge.evaluate_decay",
+        lambda _claims, _now: [DecayAction(claim_ref="turn-1", action="Keep")],
+    )
+
+    with pytest.raises(ValueError):
+        await service.run_decay(user_id="user-1")
+
+    assert db.commits == 0
+
+
+@pytest.mark.asyncio
 async def test_run_decay_mixed_actions(monkeypatch: pytest.MonkeyPatch) -> None:
     claim_a = _claim_model()
     claim_b = _claim_model()

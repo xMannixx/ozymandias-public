@@ -52,13 +52,12 @@ class DecayService:
 
         claim_data = [_claim_model_to_data(claim) for claim in claims]
         actions = rust_bridge.evaluate_decay(claim_data, datetime.now(tz=UTC).isoformat())
-        claims_by_id = {str(claim.claim_id): claim for claim in claims}
         counters: Counter[str] = Counter()
 
-        for action in actions:
-            claim = claims_by_id.get(action.claim_ref)
-            if claim is None:
-                continue
+        # The engine answers one action per claim in input order. Pairing by
+        # position is the only correct mapping: DecayAction.claim_ref carries the
+        # source_ref, which every claim from the same turn shares.
+        for claim, action in zip(claims, actions, strict=True):
             await self._apply_action(claim, action)
             counters[_action_name(action)] += 1
 
