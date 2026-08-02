@@ -29,7 +29,21 @@ Redis wird sowohl als Celery-Broker (Task-Queue) als auch als Result-Backend ver
 
 ### Celery-App-Konfiguration
 
-Die Celery-Applikation wird in `backend/app/` konfiguriert (Celery-App-Instanz + Autodiscovery der Tasks in `services/`).
+Die Celery-Applikation liegt in `backend/app/celery_app.py`. Sie nutzt `settings.redis_url` als Broker und Result-Backend, serialisiert JSON, arbeitet in UTC und importiert die Task-Module über `include`:
+
+```python
+celery_app = Celery(
+    "ozymandias",
+    broker=settings.redis_url,
+    backend=settings.redis_url,
+    include=[
+        "app.services.decay_service",
+        "app.services.memory_lifecycle_service",
+    ],
+)
+```
+
+Weitere Defaults: `task_time_limit=1800`, `task_soft_time_limit=1500`, `task_acks_late=True`, `worker_max_tasks_per_child=100`, `result_expires=86400`.
 
 ### Worker starten
 
@@ -46,7 +60,13 @@ celery -A app.celery_app worker --beat --loglevel=info
 
 ### In Docker Compose
 
-Der Backend-Container startet automatisch den Celery-Worker zusammen mit dem FastAPI-Server. Für Produktionsumgebungen empfiehlt sich ein separater Container für Worker und Beat.
+Der Service `worker` in `docker-compose.yaml` baut dasselbe Image wie `backend`, startet aber Worker und Beat in einem Prozessbaum:
+
+```yaml
+command: celery -A app.celery_app worker --beat --loglevel=info
+```
+
+Der Backend-Container startet **keinen** Worker. Bei der Single-Owner-Architektur genügt ein Worker-Container; er hängt an `db-init` (abgeschlossen) sowie `redis` und `minio`.
 
 ---
 
@@ -95,8 +115,26 @@ def run_decay_task(user_id: str) -> dict[str, int]:
 - `decay_confidence_threshold`: Unter welcher Schwelle Claims archiviert werden (Standard: 0.1)
 
 **Trigger:**
-- Periodisch via Celery Beat (konfiguriertes Intervall per User)
-- Manuell über Admin-Endpoint (für Tests/Debugging)
+- Über `ozy.decay.run_all` durch Celery Beat
+- Manuell per `celery -A app.celery_app call ozy.decay.run --args='["<user_id>"]'`
+
+### `ozy.memory.cleanup` — Lane-Decay und Ablauf-Aufräumen
+
+**Datei:** `backend/app/services/memory_lifecycle_service.py`
+
+**Zweck:** Konfidenz pro Lane abklingen lassen, abgelaufene Claims zurückziehen, abgelaufene Recall-Snippets und Entity-Graph-Zeilen löschen, abgelaufene Behavioral Rules zurück auf `pending` setzen.
+
+**Eingabe:** `user_id: str`
+
+**Ausgabe:** Zähler pro Kategorie, Decay-Zähler mit Präfix `decay_`.
+
+### `ozy.decay.run_all` und `ozy.memory.cleanup_all` — Beat-Einstiegspunkte
+
+**Dateien:** dieselben Service-Module
+
+Beat kennt keine `user_id`. Beide Tasks ermitteln die Zielnutzer selbst über `user_ids_with_claims` in `backend/app/services/job_targets.py` (`SELECT DISTINCT user_id FROM claims`) und rufen dann den jeweiligen Ein-User-Job auf.
+
+**Ausgabe:** `{user_id: <Ergebnis des Ein-User-Jobs>}`
 
 ---
 
@@ -170,19 +208,27 @@ celery -A app.celery_app flower --port=5555
 
 ### Logs
 
-Celery-Logs erscheinen im Backend-Container-Log:
 ```bash
-docker compose logs -f backend | grep "celery\|ozy.decay\|ozy.extract"
+docker compose logs -f worker
 ```
 
 ### Task manuell triggern (Entwicklung)
+
+```bash
+# Alle User (wie Beat es nachts tut)
+docker compose exec worker celery -A app.celery_app call ozy.decay.run_all
+docker compose exec worker celery -A app.celery_app call ozy.memory.cleanup_all
+
+# Ein einzelner User
+docker compose exec worker celery -A app.celery_app call ozy.decay.run --args='["<user_id>"]'
+```
 
 ```python
 # In Python-Shell oder Test
 from app.services.decay_service import run_decay_task
 
 # Asynchron (Celery-Queue)
-run_decay_task.delay(user_id="dev-user")
+run_decay_task.delay("dev-user")
 
 # Synchron (ohne Celery-Worker)
 run_decay_task.apply(args=["dev-user"])
@@ -208,21 +254,21 @@ run_decay_task.apply(args=["dev-user"])
 
 ## Celery Beat — Periodische Tasks
 
-Celery Beat plant und triggert periodische Tasks. Die Beat-Konfiguration definiert den Zeitplan:
+Beat läuft eingebettet im `worker`-Container. Der aktive Zeitplan in `backend/app/celery_app.py`:
 
 ```python
-# app/celery_app.py (geplante Konfiguration)
-app.conf.beat_schedule = {
+celery_app.conf.beat_schedule = {
     "decay-all-users": {
-        "task": "ozy.decay.run",
-        "schedule": crontab(hour=3, minute=0),  # Täglich um 3 Uhr
-        "args": (DEFAULT_USER_ID,),
+        "task": "ozy.decay.run_all",
+        "schedule": crontab(hour="3", minute="0"),
     },
-    "extract-claims-nightly": {
-        "task": "ozy.extract.claims",
-        "schedule": crontab(hour=2, minute=0),  # Täglich um 2 Uhr
+    "memory-cleanup-all-users": {
+        "task": "ozy.memory.cleanup_all",
+        "schedule": crontab(hour="3", minute="30"),
     },
 }
 ```
 
-**Hinweis:** Da Ozymandias Single-Owner-Architektur hat, gibt es aktuell nur einen User-Kontext für Celery-Tasks.
+Zeiten sind UTC (`enable_utc=True`). Der Versatz von 30 Minuten verhindert, dass beide Jobs gleichzeitig dieselben Claims schreiben.
+
+**Hinweis:** Die `run_all`-Tasks lösen die Zielnutzer selbst aus den Daten auf, statt eine feste `DEFAULT_USER_ID` zu setzen — das funktioniert auch bei der Single-Owner-Architektur ohne zusätzliche Konfiguration.
