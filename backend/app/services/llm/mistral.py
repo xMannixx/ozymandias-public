@@ -15,6 +15,7 @@ from app.services.llm.base import (
     LLMResponse,
     LLMStreamItem,
     stream_openai_compatible,
+    token_detail_from_openai_usage,
 )
 
 
@@ -66,13 +67,12 @@ class MistralProvider(LLMProvider):
         content = ""
         if message is not None and message.content is not None:
             content = str(message.content)
-        tokens_used = response.usage.total_tokens if response.usage is not None else 0
         raw_response = response.model_dump() if hasattr(response, "model_dump") else None
-        return LLMResponse(
+        return LLMResponse.from_tokens(
             content=content,
             model=selected_model,
             provider="mistral",
-            tokens_used=tokens_used,
+            tokens=token_detail_from_openai_usage(response.usage),
             raw_response=raw_response,
         )
 

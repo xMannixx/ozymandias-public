@@ -86,6 +86,7 @@ def _contact_response(contact: Contact) -> ContactResponse:
         emails=emails,
         tags=tags,
         has_avatar=bool(contact.avatar_minio_key),
+        sensitivity=contact.sensitivity,
         created_at=contact.created_at,
         updated_at=contact.updated_at,
     )

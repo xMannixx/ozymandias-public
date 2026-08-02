@@ -31,6 +31,7 @@ def _contact() -> Contact:
         notes="Hi",
         tags=["Kunde"],
         avatar_minio_key=None,
+        sensitivity="S2",
         created_at=now,
         updated_at=now,
     )
@@ -59,6 +60,49 @@ async def test_post_contacts_returns_201(
     response = await client.post("/contacts", json={"first_name": "Max"})
     assert response.status_code == 201
     assert response.json()["contact_id"] == str(c.contact_id)
+
+
+@pytest.mark.asyncio
+async def test_post_contacts_defaults_to_s2(
+    client: AsyncClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Contact data is personal, so a new contact starts at S2 without being asked."""
+    create = AsyncMock(return_value=_contact())
+    monkeypatch.setattr(ContactService, "create_contact", create)
+    monkeypatch.setattr(AuditService, "log", AsyncMock())
+
+    response = await client.post("/contacts", json={"first_name": "Max"})
+
+    assert response.status_code == 201
+    assert create.await_args is not None
+    assert create.await_args.kwargs["sensitivity"] == "S2"
+    assert response.json()["sensitivity"] == "S2"
+
+
+@pytest.mark.asyncio
+async def test_patch_contacts_rejects_an_unknown_privacy_level(
+    client: AsyncClient,
+) -> None:
+    response = await client.patch(f"/contacts/{uuid.uuid4()}", json={"sensitivity": "S9"})
+
+    assert response.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_patch_contacts_marks_a_contact_private(
+    client: AsyncClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    c = _contact()
+    c.sensitivity = "S3"
+    monkeypatch.setattr(ContactService, "update_contact", AsyncMock(return_value=c))
+    monkeypatch.setattr(AuditService, "log", AsyncMock())
+
+    response = await client.patch(f"/contacts/{c.contact_id}", json={"sensitivity": "S3"})
+
+    assert response.status_code == 200
+    assert response.json()["sensitivity"] == "S3"
 
 
 @pytest.mark.asyncio

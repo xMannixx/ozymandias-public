@@ -41,8 +41,8 @@ def _stats_payload() -> DashboardStats:
         provider_usage={"deepseek": 1},
         projects_active=2,
         projects_tasks_open=5,
-        projects_risks_critical=1,
-        projects_next_milestone="Release v1 (2026-04-12)",
+        projects_knowledge_files=1,
+        projects_next_due_task="Release v1 (2026-04-12)",
         contacts_total=0,
     )
 

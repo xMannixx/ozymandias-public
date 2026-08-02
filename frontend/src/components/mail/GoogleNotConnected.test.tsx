@@ -3,21 +3,23 @@ import { MemoryRouter } from "react-router-dom";
 import GoogleNotConnected from "@/components/mail/GoogleNotConnected";
 
 describe("GoogleNotConnected", () => {
-  it("zeigt Warnung wenn nicht verbunden", () => {
+  it("shows warning when not connected", () => {
     render(
       <MemoryRouter>
         <GoogleNotConnected />
       </MemoryRouter>,
     );
-    expect(screen.getByText("Google not connected")).toBeInTheDocument();
+    expect(screen.getByText(/Google is not connected yet/)).toBeInTheDocument();
   });
 
-  it("Link zu /settings vorhanden", () => {
+  it("provides a link back to the settings integrations section", () => {
     render(
       <MemoryRouter>
         <GoogleNotConnected />
       </MemoryRouter>,
     );
-    expect(screen.getByRole("link", { name: "Go to Settings" })).toHaveAttribute("href", "/settings");
+    expect(
+      screen.getByRole("link", { name: "Open Settings to connect Google" }),
+    ).toHaveAttribute("href", "/settings#settings-integrations");
   });
 });

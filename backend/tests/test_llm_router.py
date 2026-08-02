@@ -11,6 +11,7 @@ import pytest
 from app.schemas import Sensitivity
 from app.services.llm.base import LLMMessage, LLMResponse, LLMStreamItem
 from app.services.llm.router import LLMRouter
+from app.services.llm.usage import LLMCallUsage
 
 
 class _FakeProvider:
@@ -32,7 +33,10 @@ class _FakeProvider:
             content="ok",
             model="fake",
             provider=self.provider_name,
-            tokens_used=1,
+            tokens_used=6,
+            prompt_tokens=4,
+            completion_tokens=2,
+            cached_prompt_tokens=3,
         )
 
     async def chat_stream(
@@ -427,6 +431,89 @@ async def test_route_does_not_fall_back_on_auth_error(monkeypatch: pytest.Monkey
         )
 
 
+@pytest.mark.asyncio
+async def test_route_records_usage_for_the_successful_call(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _patch_router_dependencies(monkeypatch)
+    router = LLMRouter()
+    sink: list[LLMCallUsage] = []
+
+    await router.route(
+        intent="general_turn",
+        sensitivity=Sensitivity.S1,
+        messages=[{"role": "user", "content": "test"}],
+        usage_sink=sink,
+    )
+
+    assert len(sink) == 1
+    record = sink[0]
+    assert record.call_type == "chat"
+    assert record.provider == "mistral"
+    assert record.model == "fake"
+    assert record.status == "ok"
+    assert record.prompt_tokens == 4
+    assert record.completion_tokens == 2
+    assert record.cached_prompt_tokens == 3
+    assert record.total_tokens == 6
+    assert record.error_kind is None
+    assert record.latency_ms >= 0
+
+
+@pytest.mark.asyncio
+async def test_route_records_failed_attempts_so_the_error_rate_is_honest(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _patch_router_dependencies(monkeypatch)
+    router = LLMRouter()
+    mistral_provider = router._providers["mistral"]
+    assert isinstance(mistral_provider, _FakeProvider)
+
+    async def _failing_chat(
+        messages: list[LLMMessage],
+        *,
+        tools: object = None,
+        model: object = None,
+        api_key: object = None,
+    ) -> LLMResponse:
+        raise ConnectionError("connection refused")
+
+    mistral_provider.chat = _failing_chat  # type: ignore[method-assign]
+    sink: list[LLMCallUsage] = []
+
+    await router.route(
+        intent="general_turn",
+        sensitivity=Sensitivity.S1,
+        messages=[{"role": "user", "content": "test"}],
+        usage_sink=sink,
+    )
+
+    assert [(r.provider, r.status) for r in sink] == [
+        ("mistral", "error"),
+        ("deepseek", "ok"),
+    ]
+    assert sink[0].error_kind == "ConnectionError"
+    assert sink[0].total_tokens == 0
+
+
+@pytest.mark.asyncio
+async def test_route_names_the_requested_tool_in_usage(monkeypatch: pytest.MonkeyPatch) -> None:
+    _patch_router_dependencies(monkeypatch)
+    router = LLMRouter()
+    sink: list[LLMCallUsage] = []
+
+    await router.route(
+        intent="tool_call",
+        sensitivity=Sensitivity.S1,
+        messages=[{"role": "user", "content": "test"}],
+        tools=[{"type": "web_search_preview"}],
+        usage_sink=sink,
+    )
+
+    assert sink[0].call_type == "tool_call"
+    assert sink[0].tool_name == "web_search_preview"
+
+
 # ---------------------------------------------------------------------------
 # route_stream tests
 # ---------------------------------------------------------------------------
@@ -451,6 +538,28 @@ async def test_route_stream_yields_deltas_then_final_response(
     final = items[-1]
     assert isinstance(final, LLMResponse)
     assert final.provider == "mistral"
+
+
+@pytest.mark.asyncio
+async def test_route_stream_records_usage_after_the_final_response(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _patch_router_dependencies(monkeypatch)
+    router = LLMRouter()
+    sink: list[LLMCallUsage] = []
+
+    async for _ in router.route_stream(
+        intent="general_turn",
+        sensitivity=Sensitivity.S1,
+        messages=[{"role": "user", "content": "test"}],
+        usage_sink=sink,
+    ):
+        pass
+
+    assert len(sink) == 1
+    assert sink[0].provider == "mistral"
+    assert sink[0].status == "ok"
+    assert sink[0].total_tokens == 6
 
 
 @pytest.mark.asyncio

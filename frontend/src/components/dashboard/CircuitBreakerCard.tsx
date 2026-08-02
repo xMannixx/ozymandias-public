@@ -100,7 +100,7 @@ function CircuitBreakerCard({ status }: CircuitBreakerCardProps): JSX.Element {
       </div>
 
       <div className="flex items-center justify-between text-[10px] text-gray-400 pt-1 border-t border-slate-800/40">
-        <span>Zeitfenster: <strong className="text-gray-300">{status.window_seconds}s</strong></span>
+        <span>Window: <strong className="text-gray-300">{status.window_seconds}s</strong></span>
         <span>Cooldown: <strong className="text-gray-300">{status.cooldown_seconds}s</strong></span>
       </div>
     </GlassCard>

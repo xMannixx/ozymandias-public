@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import uuid
 from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
@@ -53,16 +54,21 @@ from app.services.live_web_service import (
 )
 from app.services.llm.base import LLMMessage, LLMResponse
 from app.services.llm.claim_extractor import ClaimExtractor
-from app.services.llm.context_assembler import ContextAssembler
+from app.services.llm.context_assembler import ContextAssembler, ContextResult
 from app.services.llm.router import get_llm_router
 from app.services.llm.sensitivity_classifier import (
     classify_sensitivity,
     normalize_classification,
 )
 from app.services.llm.system_prompt import build_system_prompt
+from app.services.llm.usage import LLMCallUsage
+from app.services.project_context_service import ProjectContext, ProjectContextService
 from app.services.proposal_service import ProposalService
 from app.services.settings_service import SettingsService
+from app.services.usage_service import UsageService
 from app.services.utils import normalize_user_id
+
+LOGGER = logging.getLogger(__name__)
 
 
 @dataclass
@@ -82,11 +88,17 @@ class _TurnPreparation:
     api_keys: dict[str, str | None]
     is_chat_turn: bool
     conversation: Conversation | None
+    project_context: ProjectContext | None
     live_web_requested: bool
     live_web_mode: str
     live_web_result: LiveWebContext | None = None
     live_web_error: str | None = None
+    #: Filled while the prompt is built, so the audit log can record which
+    #: contact entries reached the model and which stayed on this machine.
+    contact_context: ContextResult | None = None
     live_web_sources: list[dict[str, str]] = field(default_factory=list)
+    #: Every model call of this turn, collected for the usage report.
+    usage: list[LLMCallUsage] = field(default_factory=list)
 
 
 class TurnService:
@@ -107,8 +119,11 @@ class TurnService:
         """Run full turn pipeline with write gates, taint checks and auditing."""
         turn_id = str(uuid.uuid4())
         channel = payload.channel
+        # Owned here, not in prep, so a turn that fails during preparation still
+        # reports the calls it already burned.
+        usage: list[LLMCallUsage] = []
         try:
-            prep = await self._prepare_turn(user_id=user_id, payload=payload)
+            prep = await self._prepare_turn(user_id=user_id, payload=payload, usage_sink=usage)
             (
                 extracted_claims,
                 provider_used,
@@ -128,7 +143,13 @@ class TurnService:
                 reasoning_content=reasoning_content,
             )
         except Exception as exc:
-            await self._audit_failure(user_id=user_id, channel=channel, turn_id=turn_id, exc=exc)
+            await self._audit_failure(
+                user_id=user_id,
+                channel=channel,
+                turn_id=turn_id,
+                exc=exc,
+                usage=usage,
+            )
             raise
 
     async def process_turn_stream(
@@ -137,8 +158,9 @@ class TurnService:
         """Stream one chat turn as events: delta, result and error."""
         turn_id = str(uuid.uuid4())
         channel = payload.channel
+        usage: list[LLMCallUsage] = []
         try:
-            prep = await self._prepare_turn(user_id=user_id, payload=payload)
+            prep = await self._prepare_turn(user_id=user_id, payload=payload, usage_sink=usage)
             messages = await self._build_llm_messages(payload, user_id=user_id, prep=prep)
             final_response: LLMResponse | None = None
             stream = self.llm_router.route_stream(
@@ -151,6 +173,7 @@ class TurnService:
                 preferred_local_provider=prep.preferred_local_provider,
                 preferred_local_model=prep.preferred_local_model,
                 api_keys=prep.api_keys,
+                usage_sink=prep.usage,
             )
             async for item in stream:
                 if isinstance(item, LLMResponse):
@@ -166,6 +189,7 @@ class TurnService:
                 sensitivity=prep.payload_sensitivity,
                 turn_id=turn_id,
                 api_keys=prep.api_keys,
+                usage_sink=prep.usage,
             )
             result = await self._finalize_turn(
                 prep,
@@ -180,10 +204,22 @@ class TurnService:
             )
             yield {"event": "result", "data": result.model_dump(mode="json")}
         except Exception as exc:
-            await self._audit_failure(user_id=user_id, channel=channel, turn_id=turn_id, exc=exc)
+            await self._audit_failure(
+                user_id=user_id,
+                channel=channel,
+                turn_id=turn_id,
+                exc=exc,
+                usage=usage,
+            )
             yield {"event": "error", "data": _error_event_payload(exc)}
 
-    async def _prepare_turn(self, *, user_id: str, payload: TurnRequest) -> _TurnPreparation:
+    async def _prepare_turn(
+        self,
+        *,
+        user_id: str,
+        payload: TurnRequest,
+        usage_sink: list[LLMCallUsage] | None = None,
+    ) -> _TurnPreparation:
         """Run pre-flight checks and resolve routing preferences for one turn."""
         settings = await SettingsService(self.db).get_or_create(user_id)
         if settings.kill_switch:
@@ -197,8 +233,27 @@ class TurnService:
             await classify_sensitivity(user_text, payload.channel)
         )
         payload_sensitivity = classification.sensitivity
-        enforce_local = payload_sensitivity is Sensitivity.S4 or (
-            payload_sensitivity is Sensitivity.S3 and not payload.allow_s3_cloud_fallback
+
+        # Chat turns (no claim override) run against a persisted conversation.
+        # It is resolved before routing because a workspace can force local-only.
+        is_chat_turn = payload.claims is None
+        conversation = None
+        if is_chat_turn and payload.conversation_id:
+            conversation = await self.conversation_service.get_conversation(
+                conversation_id=payload.conversation_id,
+                user_id=user_id,
+            )
+
+        project_context = await self._resolve_project_context(
+            user_id=user_id,
+            payload=payload,
+            conversation=conversation,
+        )
+
+        enforce_local = (
+            payload_sensitivity is Sensitivity.S4
+            or (payload_sensitivity is Sensitivity.S3 and not payload.allow_s3_cloud_fallback)
+            or (project_context is not None and project_context.force_local)
         )
         preferred_provider = payload.provider or settings.preferred_provider
         preferred_model = payload.model or settings.preferred_model
@@ -235,15 +290,6 @@ class TurnService:
             "anthropic": getattr(settings, "anthropic_api_key", None),
         }
 
-        # Chat turns (no claim override) run against a persisted conversation.
-        is_chat_turn = payload.claims is None
-        conversation = None
-        if is_chat_turn and payload.conversation_id:
-            conversation = await self.conversation_service.get_conversation(
-                conversation_id=payload.conversation_id,
-                user_id=user_id,
-            )
-
         live_web_requested = payload.use_live_web
         if live_web_requested is None:
             live_web_requested = bool(getattr(settings, "live_web_enabled", False))
@@ -265,8 +311,10 @@ class TurnService:
             api_keys=api_keys,
             is_chat_turn=is_chat_turn,
             conversation=conversation,
+            project_context=project_context,
             live_web_requested=bool(live_web_requested),
             live_web_mode=live_web_mode,
+            usage=usage_sink if usage_sink is not None else [],
         )
 
         if live_web_requested and live_web_mode != "off":
@@ -280,8 +328,8 @@ class TurnService:
                     raise LiveWebPermissionRequiredError(
                         sensitivity=payload_sensitivity.value,
                         detail=(
-                            "S3-Inhalt erkannt. Bitte Live-Web-Zugriff fuer diese Nachricht "
-                            "explizit bestaetigen."
+                            "This message contains S3 content. Confirm live web access for it "
+                            "explicitly before Ozymandias may search."
                         ),
                     )
             if payload_sensitivity in {
@@ -299,11 +347,31 @@ class TurnService:
                         ),
                         preferred_provider=preferred_provider,
                         api_keys=api_keys,
+                        usage_sink=prep.usage,
                     )
                 except ServiceError as exc:
                     prep.live_web_error = str(exc)
 
         return prep
+
+    async def _resolve_project_context(
+        self,
+        *,
+        user_id: str,
+        payload: TurnRequest,
+        conversation: Conversation | None,
+    ) -> ProjectContext | None:
+        """Load the workspace for this turn, explicit request beating the chat's own."""
+        project_id = payload.project_id
+        if project_id is None and conversation is not None and conversation.project_id is not None:
+            project_id = str(conversation.project_id)
+        if project_id is None:
+            return None
+        return await ProjectContextService(self.db).build(
+            user_id=user_id,
+            project_id=project_id,
+            query=payload.text,
+        )
 
     async def _finalize_turn(
         self,
@@ -502,6 +570,11 @@ class TurnService:
                 conversation = await self.conversation_service.create_conversation(
                     user_id=user_id,
                     title=payload.text,
+                    project_id=(
+                        prep.project_context.project_id
+                        if prep.project_context is not None
+                        else None
+                    ),
                 )
                 prep.conversation = conversation
             await self.conversation_service.append_message(
@@ -557,6 +630,19 @@ class TurnService:
         )
         if prep.live_web_error is not None:
             audit_payload["live_web_error"] = prep.live_web_error
+        if prep.project_context is not None:
+            # Record exactly which workspace knowledge reached the model.
+            audit_payload["project_id"] = prep.project_context.project_id
+            audit_payload["project_sensitivity"] = prep.project_context.sensitivity
+            audit_payload["project_forced_local"] = prep.project_context.force_local
+            audit_payload["project_knowledge_files"] = prep.project_context.knowledge_files
+            audit_payload["project_knowledge_chars"] = prep.project_context.knowledge_chars
+        if prep.contact_context is not None:
+            # Which address book entries the model saw, and how many stayed here.
+            audit_payload["contact_details_shown"] = prep.contact_context.detailed_contact_ids
+            audit_payload["contacts_withheld_private"] = (
+                prep.contact_context.withheld_private_contacts
+            )
         await self.audit.log(
             event_type=AuditEventType.turn_processed,
             result=AuditResult.success,
@@ -569,6 +655,17 @@ class TurnService:
             source_ref=turn_id,
             sensitivity=taint_summary.effective_sensitivity,
         )
+        await self._record_usage(
+            prep.usage,
+            user_id=user_id,
+            channel=payload.channel,
+            sensitivity=payload_sensitivity,
+            turn_id=turn_id,
+            conversation_id=conversation_id,
+            project_id=(
+                prep.project_context.project_id if prep.project_context is not None else None
+            ),
+        )
         return result_payload
 
     async def _audit_failure(
@@ -578,6 +675,7 @@ class TurnService:
         channel: Channel,
         turn_id: str,
         exc: Exception,
+        usage: list[LLMCallUsage] | None = None,
     ) -> None:
         # A prior flush/commit in this turn may have failed and left the
         # session unusable; roll back first so the failure audit entry can
@@ -595,6 +693,42 @@ class TurnService:
             source_ref=turn_id,
             sensitivity=Sensitivity.S0,
         )
+        # A crashed turn still burned tokens, so report them.
+        await self._record_usage(
+            usage or [],
+            user_id=user_id,
+            channel=channel,
+            sensitivity=Sensitivity.S0,
+            turn_id=turn_id,
+        )
+
+    async def _record_usage(
+        self,
+        usage: list[LLMCallUsage],
+        *,
+        user_id: str,
+        channel: Channel,
+        sensitivity: Sensitivity,
+        turn_id: str,
+        conversation_id: str | None = None,
+        project_id: str | None = None,
+    ) -> None:
+        """Persist collected calls without letting metrics break the turn."""
+        if not usage:
+            return
+        try:
+            await UsageService(self.db).record_calls(
+                usage,
+                user_id=user_id,
+                channel=channel,
+                sensitivity=sensitivity,
+                turn_id=turn_id,
+                conversation_id=conversation_id,
+                project_id=project_id,
+            )
+        except Exception:
+            LOGGER.warning("Could not persist LLM usage for turn %s", turn_id, exc_info=True)
+            await self.db.rollback()
 
     async def _build_llm_messages(
         self,
@@ -610,11 +744,17 @@ class TurnService:
             prep.preferred_provider is not None
             and prep.preferred_provider in {"ollama", "lmstudio"}
         )
-        context_block = await ContextAssembler(self.db).assemble(
+        # Inside a workspace the active project is rendered in depth, so the
+        # shallow list of every other active project would only add noise.
+        context = await ContextAssembler(self.db).assemble_with_report(
             user_id=user_id,
             sensitivity=prep.payload_sensitivity,
             provider_is_local=provider_is_local,
+            include_projects=prep.project_context is None,
+            query=prep.user_text,
         )
+        context_block = context.text
+        prep.contact_context = context
         history: list[LLMMessage] = []
         if prep.conversation is not None:
             recent = await self.conversation_service.recent_history(
@@ -633,21 +773,21 @@ class TurnService:
                 "role": "system",
                 "content": prep.system_prompt,
             },
-            {
-                "role": "system",
-                "content": context_block,
-            },
-            *history,
-            {"role": "user", "content": prep.user_text},
         ]
+        # Workspace instructions sit directly behind the system prompt so they
+        # outrank general memory for the duration of this chat.
+        if prep.project_context is not None:
+            messages.append({"role": "system", "content": prep.project_context.text})
+        messages.append({"role": "system", "content": context_block})
         if prep.live_web_result is not None:
-            messages.insert(
-                2,
+            messages.append(
                 {
                     "role": "system",
                     "content": format_live_web_context_block(prep.live_web_result),
-                },
+                }
             )
+        messages.extend(history)
+        messages.append({"role": "user", "content": prep.user_text})
         return messages
 
     async def _extract_claims(
@@ -671,6 +811,7 @@ class TurnService:
                 preferred_local_provider=prep.preferred_local_provider,
                 preferred_local_model=prep.preferred_local_model,
                 api_keys=prep.api_keys,
+                usage_sink=prep.usage,
             )
             claims = await self.claim_extractor.extract(
                 llm_response_text=llm_response.content,
@@ -678,6 +819,7 @@ class TurnService:
                 sensitivity=prep.payload_sensitivity,
                 turn_id=turn_id,
                 api_keys=prep.api_keys,
+                usage_sink=prep.usage,
             )
             return (
                 claims,

@@ -10,6 +10,7 @@ export const mockContact: ContactResponse = {
   emails: [{ label: "Work", email: "ada@example.com" }],
   tags: ["Arbeit", "VIP"],
   has_avatar: true,
+  sensitivity: "S2",
   created_at: "2024-01-01T10:00:00Z",
   updated_at: "2024-01-02T10:00:00Z",
 };

@@ -86,7 +86,7 @@ describe("MailInbox", () => {
 
   it("Ungelesene Mails haben Badge", () => {
     renderInbox();
-    expect(screen.getByText("Neu")).toBeInTheDocument();
+    expect(screen.getByText("New")).toBeInTheDocument();
   });
 
   it("Klick auf Mail laedt Detail", async () => {

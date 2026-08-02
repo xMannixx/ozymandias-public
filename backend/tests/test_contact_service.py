@@ -33,6 +33,7 @@ def _contact(*, user_id: str = "test-user") -> Contact:
         notes="Notes",
         tags=["Arbeit", "Tech"],
         avatar_minio_key=None,
+        sensitivity="S2",
         created_at=now,
         updated_at=now,
     )
@@ -82,6 +83,19 @@ async def test_create_contact_stores_phones_emails_jsonb() -> None:
     assert isinstance(row, Contact)
     assert row.phones == [{"label": "a", "number": "+1"}]
     assert row.emails == [{"label": "b", "email": "b@x.de"}]
+
+
+@pytest.mark.asyncio
+async def test_update_contact_can_mark_a_contact_private() -> None:
+    """S3 is what keeps a contact away from cloud models, so it must be settable."""
+    c = _contact()
+    db = FakeAsyncSession()
+    db.queue_execute_result(FakeQueryResult(single=c))
+    service = ContactService(cast(AsyncSession, db))
+
+    updated = await service.update_contact(str(c.contact_id), "test-user", sensitivity="S3")
+
+    assert updated.sensitivity == "S3"
 
 
 @pytest.mark.asyncio

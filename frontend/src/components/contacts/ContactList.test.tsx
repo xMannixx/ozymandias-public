@@ -28,7 +28,7 @@ describe("ContactList", () => {
     expect(screen.getByLabelText("contacts-search")).toBeInTheDocument();
   });
 
-  it("zeigt Tag-Filter wenn allTags nicht leer", () => {
+  it("shows tag filter when allTags is not empty", () => {
     render(<ContactList {...baseProps} />);
     expect(screen.getByTestId("contact-tag-filters")).toBeInTheDocument();
     const filterRow = screen.getByTestId("contact-tag-filters");

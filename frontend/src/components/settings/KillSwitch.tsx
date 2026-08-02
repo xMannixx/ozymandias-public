@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
+import { OctagonX } from "lucide-react";
 import Button from "@/components/common/Button";
-import GlassCard from "@/components/common/GlassCard";
+import SettingsCard from "@/components/settings/SettingsCard";
 import { useMode } from "@/store/mode";
 
 const CONFIRMATION_TEXT = "KILL SWITCH";
@@ -12,7 +13,10 @@ function KillSwitch(): JSX.Element {
   const [submitting, setSubmitting] = useState(false);
 
   const target = !killSwitch;
-  const isValid = useMemo(() => confirmationValue.trim().toUpperCase() === CONFIRMATION_TEXT, [confirmationValue]);
+  const isValid = useMemo(
+    () => confirmationValue.trim().toUpperCase() === CONFIRMATION_TEXT,
+    [confirmationValue],
+  );
 
   const reset = (): void => {
     setConfirmOpen(false);
@@ -21,33 +25,58 @@ function KillSwitch(): JSX.Element {
   };
 
   return (
-    <GlassCard className="space-y-3">
-      <div className="flex items-center justify-between">
-        <p className="text-sm font-medium text-gray-200">Kill-Switch</p>
-        <span className={`rounded-full px-3 py-1 text-xs font-semibold ${killSwitch ? "neon-glow-red" : "border border-gray-700 text-gray-300"}`}>
-          {killSwitch ? "AKTIV" : "INAKTIV"}
+    <SettingsCard
+      title="Kill switch"
+      description="An emergency stop. While it is on, Ozymandias will not answer messages or touch your data at all."
+      badge={
+        <span
+          className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium ${
+            killSwitch
+              ? "border-rose-500/30 bg-rose-500/[0.08] text-rose-200"
+              : "border-white/10 bg-white/[0.03] text-zinc-300"
+          }`}
+        >
+          <OctagonX
+            className={`h-3.5 w-3.5 ${killSwitch ? "text-rose-400" : "text-zinc-500"}`}
+            aria-hidden="true"
+          />
+          {killSwitch ? "On — everything paused" : "Off — running normally"}
         </span>
+      }
+    >
+      <div className="rounded-md border border-white/[0.06] bg-white/[0.02] p-3">
+        <p className="text-xs leading-relaxed text-zinc-400">
+          {killSwitch
+            ? "Chat, memory writes and background jobs are all stopped on the server. Nothing is lost — turning "
+              + "the switch off resumes normal operation with your settings intact."
+            : "Use this if Ozymandias behaves in a way you did not expect and you want it to stop immediately. "
+              + "It stops chat replies, memory writes and background jobs on the server. Your data and settings "
+              + "stay untouched."}
+        </p>
       </div>
 
-      <p className="text-xs text-gray-300">
-        Stops all turn processing on the server. Manual confirmation is required for safety.
-      </p>
-
-      <Button variant={killSwitch ? "ghost" : "danger"} onClick={() => setConfirmOpen(true)}>
-        {killSwitch ? "Disable kill switch" : "Enable kill switch"}
-      </Button>
-
       {confirmOpen ? (
-        <div role="dialog" aria-label="kill-switch-confirm" className="space-y-2 rounded border border-gray-700 bg-black/30 p-3">
-          <p className="text-sm text-gray-200">
-            Type <span className="font-semibold">{CONFIRMATION_TEXT}</span> to continue.
-          </p>
+        <div
+          role="dialog"
+          aria-label="kill-switch-confirm"
+          className="space-y-3 rounded-md border border-white/[0.08] bg-black/30 p-3"
+        >
+          <div>
+            <p className="text-sm font-medium text-zinc-100">
+              {target ? "Stop Ozymandias completely?" : "Resume normal operation?"}
+            </p>
+            <p className="mt-1 text-xs leading-relaxed text-zinc-400">
+              To avoid hitting this by accident, type <span className="font-semibold text-zinc-200">{CONFIRMATION_TEXT}</span>{" "}
+              below to confirm.
+            </p>
+          </div>
           <input
             aria-label="kill-switch-confirm-input"
             type="text"
             value={confirmationValue}
+            placeholder={CONFIRMATION_TEXT}
             onChange={(event) => setConfirmationValue(event.target.value)}
-            className="w-full rounded border border-gray-700 bg-gray-950 px-3 py-2 text-sm text-gray-100"
+            className="w-full text-sm"
           />
           <div className="flex gap-2">
             <Button
@@ -66,8 +95,12 @@ function KillSwitch(): JSX.Element {
             </Button>
           </div>
         </div>
-      ) : null}
-    </GlassCard>
+      ) : (
+        <Button variant={killSwitch ? "ghost" : "danger"} onClick={() => setConfirmOpen(true)}>
+          {killSwitch ? "Disable kill switch" : "Enable kill switch"}
+        </Button>
+      )}
+    </SettingsCard>
   );
 }
 

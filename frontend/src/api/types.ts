@@ -121,9 +121,73 @@ export type DashboardStats = {
   provider_usage: Record<string, number>;
   projects_active: number;
   projects_tasks_open: number;
-  projects_risks_critical: number;
-  projects_next_milestone: string | null;
+  projects_knowledge_files: number;
+  projects_next_due_task: string | null;
   contacts_total: number;
+};
+
+export type UsageRange = "24h" | "7d" | "30d" | "all";
+
+export type UsageTotals = {
+  messages_total: number;
+  messages_user: number;
+  messages_assistant: number;
+  sessions: number;
+  calls: number;
+  calls_failed: number;
+  error_rate: number;
+  tool_calls: number;
+  tokens_total: number;
+  tokens_input: number;
+  tokens_output: number;
+  tokens_cached: number;
+  tokens_per_minute: number | null;
+  avg_tokens_per_message: number | null;
+  cache_hit_rate: number | null;
+  avg_latency_ms: number | null;
+  cost_usd: number;
+  avg_cost_per_message: number | null;
+  unpriced_calls: number;
+  first_call_at: string | null;
+  last_call_at: string | null;
+};
+
+export type UsageBreakdownItem = {
+  key: string;
+  calls: number;
+  tokens: number;
+  cost_usd: number;
+  cost_share: number;
+};
+
+export type UsageCount = {
+  label: string;
+  count: number;
+};
+
+export type UsageBucket = {
+  bucket: string;
+  calls: number;
+  tokens: number;
+  cost_usd: number;
+  errors: number;
+};
+
+export type UsageReport = {
+  range: UsageRange;
+  since: string | null;
+  generated_at: string;
+  bucket_unit: "hour" | "day";
+  totals: UsageTotals;
+  top_models: UsageBreakdownItem[];
+  top_providers: UsageBreakdownItem[];
+  top_tools: UsageBreakdownItem[];
+  top_channels: UsageBreakdownItem[];
+  top_call_types: UsageBreakdownItem[];
+  errors_by_kind: UsageCount[];
+  errors_by_day: UsageCount[];
+  errors_by_hour: UsageCount[];
+  series: UsageBucket[];
 };
 
 export type HealthResponse = {
@@ -234,6 +298,7 @@ export type TurnRequest = {
   use_live_web?: boolean;
   allow_s3_live_web?: boolean;
   conversation_id?: string;
+  project_id?: string;
   attachments?: TurnAttachment[];
 };
 
@@ -259,6 +324,8 @@ export type TurnResult = {
 export type ConversationResponse = {
   conversation_id: string;
   title: string;
+  /** Workspace this chat belongs to; null for general chats. */
+  project_id: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -348,14 +415,16 @@ export type CreateEventRequest = {
 export type ProjectStatus = "active" | "paused" | "completed" | "cancelled";
 export type ProjectPriority = "low" | "medium" | "high" | "critical";
 export type TaskStatus = "open" | "in_progress" | "done";
-export type RiskSeverity = "low" | "medium" | "high" | "critical";
-export type RiskStatus = "open" | "watching" | "occurred" | "resolved";
 export type NoteSource = "user" | "chat" | "system";
+/** Whether a file's text could be read and used as workspace knowledge. */
+export type ExtractStatus = "pending" | "ok" | "unsupported" | "failed";
 
 export type ProjectResponse = {
   project_id: string;
   name: string;
   description: string | null;
+  instructions: string | null;
+  sensitivity: Sensitivity;
   status: ProjectStatus;
   priority: ProjectPriority;
   color: string | null;
@@ -364,24 +433,33 @@ export type ProjectResponse = {
   completed_date: string | null;
   task_count: number;
   task_done_count: number;
-  risk_open_count: number;
-  next_milestone: string | null;
+  knowledge_count: number;
+  chat_count: number;
+  next_due_task: string | null;
   created_at: string;
   updated_at: string;
 };
 
 export type ProjectDetailResponse = ProjectResponse & {
-  milestones: MilestoneResponse[];
   tasks: TaskResponse[];
-  risks: RiskResponse[];
   notes: NoteResponse[];
   files: ProjectFileResponse[];
   links: LinkResponse[];
+  chats: ProjectChatResponse[];
+};
+
+export type ProjectChatResponse = {
+  conversation_id: string;
+  title: string;
+  created_at: string;
+  updated_at: string;
 };
 
 export type CreateProjectRequest = {
   name: string;
   description?: string;
+  instructions?: string;
+  sensitivity?: Sensitivity;
   status?: ProjectStatus;
   priority?: ProjectPriority;
   color?: string;
@@ -392,36 +470,14 @@ export type CreateProjectRequest = {
 export type UpdateProjectRequest = {
   name?: string;
   description?: string;
+  instructions?: string;
+  sensitivity?: Sensitivity;
   status?: ProjectStatus;
   priority?: ProjectPriority;
   color?: string;
   start_date?: string;
   target_date?: string;
   completed_date?: string;
-};
-
-export type MilestoneResponse = {
-  milestone_id: string;
-  project_id: string;
-  name: string;
-  due_date: string | null;
-  completed: boolean;
-  completed_at: string | null;
-  sort_order: number;
-  created_at: string;
-};
-
-export type CreateMilestoneRequest = {
-  name: string;
-  due_date?: string;
-  sort_order?: number;
-};
-
-export type UpdateMilestoneRequest = {
-  name?: string;
-  due_date?: string;
-  completed?: boolean;
-  sort_order?: number;
 };
 
 export type TaskResponse = {
@@ -455,31 +511,6 @@ export type UpdateTaskRequest = {
   sort_order?: number;
 };
 
-export type RiskResponse = {
-  risk_id: string;
-  project_id: string;
-  name: string;
-  description: string | null;
-  severity: RiskSeverity;
-  status: RiskStatus;
-  created_at: string;
-  updated_at: string;
-};
-
-export type CreateRiskRequest = {
-  name: string;
-  description?: string;
-  severity?: RiskSeverity;
-  status?: RiskStatus;
-};
-
-export type UpdateRiskRequest = {
-  name?: string;
-  description?: string;
-  severity?: RiskSeverity;
-  status?: RiskStatus;
-};
-
 export type NoteResponse = {
   note_id: string;
   project_id: string;
@@ -500,6 +531,8 @@ export type ProjectFileResponse = {
   original_name: string;
   content_type: string;
   size_bytes: number;
+  extract_status: ExtractStatus;
+  text_chars: number;
   created_at: string;
 };
 
@@ -538,6 +571,7 @@ export type ContactResponse = {
   emails: EmailEntry[];
   tags: string[];
   has_avatar: boolean;
+  sensitivity: Sensitivity;
   created_at: string;
   updated_at: string;
 };
@@ -566,6 +600,7 @@ export type CreateContactRequest = {
   birthday?: string | null;
   notes?: string | null;
   tags?: string[];
+  sensitivity?: Sensitivity;
 };
 
 export type UpdateContactRequest = {
@@ -579,6 +614,7 @@ export type UpdateContactRequest = {
   birthday?: string | null;
   notes?: string | null;
   tags?: string[];
+  sensitivity?: Sensitivity;
 };
 
 export type LinkProjectRequest = {

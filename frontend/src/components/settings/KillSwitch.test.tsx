@@ -22,7 +22,12 @@ describe("KillSwitch", () => {
 
   it("renders inactive status by default", () => {
     render(<KillSwitch />);
-    expect(screen.getByText("INAKTIV")).toBeInTheDocument();
+    expect(screen.getByText(/Off — running normally/)).toBeInTheDocument();
+  });
+
+  it("explains what the kill switch actually stops", () => {
+    render(<KillSwitch />);
+    expect(screen.getByText(/stops chat replies, memory writes and background jobs/i)).toBeInTheDocument();
   });
 
   it("opens confirmation dialog on click", async () => {

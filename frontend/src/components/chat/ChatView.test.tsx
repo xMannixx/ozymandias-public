@@ -1,13 +1,16 @@
-import { fireEvent, render, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import ChatView from "@/components/chat/ChatView";
+import { mockProject } from "@/test/projects-fixtures";
 
 const useChatMock = vi.fn();
 const useSettingsMock = vi.fn();
 const useVoiceMock = vi.fn();
 const playResponseMock = vi.fn();
+const listProjectsMock = vi.fn();
 
 vi.mock("@/hooks/useChat", () => ({
-  useChat: () => useChatMock(),
+  useChat: (...args: unknown[]) => useChatMock(...args),
 }));
 
 vi.mock("@/hooks/useSettings", () => ({
@@ -16,6 +19,10 @@ vi.mock("@/hooks/useSettings", () => ({
 
 vi.mock("@/hooks/useVoice", () => ({
   useVoice: (...args: unknown[]) => useVoiceMock(...args),
+}));
+
+vi.mock("@/api/projects", () => ({
+  listProjects: (...args: unknown[]) => listProjectsMock(...args),
 }));
 
 vi.mock("@/components/chat/MessageList", () => ({
@@ -43,6 +50,7 @@ function baseChatMockValue(): Record<string, unknown> {
     setSelectedProvider: vi.fn(),
     setSelectedModel: vi.fn(),
     sendMessage: vi.fn(async () => undefined),
+    stopStreaming: vi.fn(),
     selectConversation: vi.fn(async () => undefined),
     startNewConversation: vi.fn(),
     removeConversation: vi.fn(async () => undefined),
@@ -54,14 +62,25 @@ function baseChatMockValue(): Record<string, unknown> {
   };
 }
 
+function renderChatView(): void {
+  render(
+    <MemoryRouter>
+      <ChatView />
+    </MemoryRouter>,
+  );
+}
+
 describe("ChatView", () => {
   beforeEach(() => {
     useChatMock.mockReset();
     useSettingsMock.mockReset();
     useVoiceMock.mockReset();
     playResponseMock.mockReset();
+    listProjectsMock.mockReset();
+    localStorage.clear();
 
     useChatMock.mockReturnValue(baseChatMockValue());
+    listProjectsMock.mockResolvedValue([mockProject]);
 
     useSettingsMock.mockReturnValue({
       settings: {
@@ -85,7 +104,7 @@ describe("ChatView", () => {
   });
 
   it("autoplays assistant response even when voice toggle is off", async () => {
-    render(<ChatView />);
+    renderChatView();
 
     await waitFor(() => {
       expect(playResponseMock).toHaveBeenCalledWith("Hallo, ich bin Ozy.");
@@ -97,20 +116,21 @@ describe("ChatView", () => {
     useChatMock.mockReturnValueOnce({
       ...baseChatMockValue(),
       messages: [{ id: "user-1", role: "user", text: "Hallo" }],
-      s3FallbackPrompt: { text: "Hallo", message: "Lokaler Provider down." },
+      s3FallbackPrompt: { text: "Hallo", message: "The local model is down." },
       confirmS3Fallback: confirmMock,
     });
 
-    const { getByText } = render(<ChatView />);
-    fireEvent.click(getByText("Allow cloud fallback"));
+    renderChatView();
+    fireEvent.click(screen.getByRole("button", { name: "Allow once" }));
+
     await waitFor(() => {
       expect(confirmMock).toHaveBeenCalled();
     });
   });
 
   it("renders conversation history sidebar with new chat button", () => {
-    const { getByText } = render(<ChatView />);
-    expect(getByText("New chat")).toBeInTheDocument();
+    renderChatView();
+    expect(screen.getByText("New chat")).toBeInTheDocument();
   });
 
   it("selects a conversation from the sidebar", async () => {
@@ -121,6 +141,7 @@ describe("ChatView", () => {
         {
           conversation_id: "c1",
           title: "Trip planning",
+          project_id: null,
           created_at: "2026-07-01T10:00:00Z",
           updated_at: "2026-07-01T10:05:00Z",
         },
@@ -128,10 +149,43 @@ describe("ChatView", () => {
       selectConversation: selectMock,
     });
 
-    const { getByText } = render(<ChatView />);
-    fireEvent.click(getByText("Trip planning"));
+    renderChatView();
+    fireEvent.click(screen.getByText("Trip planning"));
+
     await waitFor(() => {
       expect(selectMock).toHaveBeenCalledWith("c1");
     });
+  });
+
+  it("chats outside a workspace by default", () => {
+    renderChatView();
+
+    expect(useChatMock).toHaveBeenCalledWith({ projectId: undefined });
+    expect(screen.queryByText(/In workspace/)).not.toBeInTheDocument();
+  });
+
+  it("scopes the chat to the remembered workspace", async () => {
+    localStorage.setItem("ozy-chat-project", "project-1");
+
+    renderChatView();
+
+    expect(useChatMock).toHaveBeenCalledWith({ projectId: "project-1" });
+    expect(await screen.findByText("In workspace: Tax return 2026")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Open workspace" })).toHaveAttribute(
+      "href",
+      "/projects/project-1",
+    );
+  });
+
+  it("leaves the workspace on request", async () => {
+    localStorage.setItem("ozy-chat-project", "project-1");
+
+    renderChatView();
+    fireEvent.click(screen.getByRole("button", { name: "Leave" }));
+
+    await waitFor(() => {
+      expect(localStorage.getItem("ozy-chat-project")).toBeNull();
+    });
+    expect(screen.queryByText(/In workspace/)).not.toBeInTheDocument();
   });
 });

@@ -45,6 +45,8 @@ class Contact(Base):
         JSONB, nullable=False, server_default=text("'[]'::jsonb")
     )
     avatar_minio_key: Mapped[str | None] = mapped_column(Text)
+    #: S3 and S4 keep this contact away from cloud models entirely.
+    sensitivity: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'S2'"))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,

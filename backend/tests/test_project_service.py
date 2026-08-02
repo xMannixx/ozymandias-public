@@ -4,19 +4,18 @@ from __future__ import annotations
 
 import uuid
 from datetime import UTC, date, datetime
-from typing import cast
+from typing import Any, cast
 from unittest.mock import AsyncMock
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.conversation import Conversation
 from app.models.project import (
     Project,
     ProjectFile,
     ProjectLink,
-    ProjectMilestone,
     ProjectNote,
-    ProjectRisk,
     ProjectTask,
 )
 from app.services.errors import NotFoundError
@@ -31,6 +30,8 @@ def _project(*, user_id: str = "test-user") -> Project:
         user_id=user_id,
         name="Ozy",
         description="desc",
+        instructions=None,
+        sensitivity="S1",
         status="active",
         priority="medium",
         color="#58a6ff",
@@ -123,6 +124,16 @@ async def test_delete_project_deletes_row() -> None:
     assert db.commits == 1
 
 
+def test_project_children_cascade_on_delete() -> None:
+    """Child rows have a non-nullable project_id, so Postgres must do the cascade."""
+    mapper = cast(Any, Project).__mapper__
+    for name in ("tasks", "notes", "files", "links"):
+        relation = mapper.relationships[name]
+        assert relation.passive_deletes is True, name
+        assert relation.cascade.delete is True, name
+        assert relation.cascade.delete_orphan is True, name
+
+
 @pytest.mark.asyncio
 async def test_create_task_creates_task() -> None:
     project = _project()
@@ -165,61 +176,82 @@ async def test_update_task_changes_status() -> None:
 
 
 @pytest.mark.asyncio
-async def test_create_milestone_creates_row() -> None:
+async def test_update_project_stores_instructions() -> None:
     project = _project()
     db = FakeAsyncSession()
     service = ProjectService(cast(AsyncSession, db))
     service.get_project = AsyncMock(return_value=project)  # type: ignore[method-assign]
 
-    milestone = await service.create_milestone(
+    updated = await service.update_project(
         project_id=str(project.project_id),
         user_id="test-user",
-        name="M1",
+        instructions="Always answer in bullet points.",
     )
-    assert milestone.name == "M1"
-    assert db.commits == 1
+    assert updated.instructions == "Always answer in bullet points."
 
 
 @pytest.mark.asyncio
-async def test_update_milestone_sets_completed_timestamp() -> None:
-    milestone = ProjectMilestone(
-        milestone_id=uuid.uuid4(),
-        project_id=uuid.uuid4(),
-        user_id="test-user",
-        name="M1",
-        due_date=None,
-        completed=False,
-        completed_at=None,
-        sort_order=0,
-        created_at=datetime.now(tz=UTC),
-    )
+async def test_update_project_clears_instructions_when_set_to_none() -> None:
+    project = _project()
+    project.instructions = "old"
     db = FakeAsyncSession()
     service = ProjectService(cast(AsyncSession, db))
-    service._get_milestone = AsyncMock(return_value=milestone)  # type: ignore[method-assign]
+    service.get_project = AsyncMock(return_value=project)  # type: ignore[method-assign]
 
-    updated = await service.update_milestone(
-        milestone_id=str(milestone.milestone_id),
+    updated = await service.update_project(
+        project_id=str(project.project_id),
         user_id="test-user",
-        completed=True,
+        instructions=None,
     )
-    assert updated.completed is True
-    assert updated.completed_at is not None
+    assert updated.instructions is None
 
 
 @pytest.mark.asyncio
-async def test_create_risk_creates_row() -> None:
+async def test_list_conversations_returns_project_chats() -> None:
+    project = _project()
+    now = datetime.now(tz=UTC)
+    chat = Conversation(
+        conversation_id=uuid.uuid4(),
+        user_id=uuid.uuid4(),
+        title="Kickoff",
+        project_id=project.project_id,
+        created_at=now,
+        updated_at=now,
+    )
+    db = FakeAsyncSession()
+    db.queue_execute_result(FakeQueryResult(values=[chat]))
+    service = ProjectService(cast(AsyncSession, db))
+    service.get_project = AsyncMock(return_value=project)  # type: ignore[method-assign]
+
+    chats = await service.list_conversations(
+        project_id=str(project.project_id), user_id="test-user"
+    )
+    assert [item.title for item in chats] == ["Kickoff"]
+
+
+@pytest.mark.asyncio
+async def test_create_file_stores_extracted_knowledge() -> None:
     project = _project()
     db = FakeAsyncSession()
     service = ProjectService(cast(AsyncSession, db))
     service.get_project = AsyncMock(return_value=project)  # type: ignore[method-assign]
 
-    risk = await service.create_risk(
+    created = await service.create_file(
         project_id=str(project.project_id),
         user_id="test-user",
-        name="API risk",
+        filename="spec.md",
+        original_name="spec.md",
+        content_type="text/markdown",
+        size_bytes=12,
+        minio_bucket="ozy-files",
+        minio_key="projects/p/spec.md",
+        extracted_text="The API returns JSON.",
+        extract_status="ok",
+        text_chars=21,
     )
-    assert risk.name == "API risk"
-    assert db.commits == 1
+    assert created.extract_status == "ok"
+    assert created.extracted_text == "The API returns JSON."
+    assert created.text_chars == 21
 
 
 @pytest.mark.asyncio
@@ -257,54 +289,6 @@ async def test_delete_task_deletes_row() -> None:
 
     await service.delete_task(task_id=str(task.task_id), user_id="test-user")
     assert db.deleted == [task]
-
-
-@pytest.mark.asyncio
-async def test_update_risk_sets_fields() -> None:
-    now = datetime.now(tz=UTC)
-    risk = ProjectRisk(
-        risk_id=uuid.uuid4(),
-        project_id=uuid.uuid4(),
-        user_id="test-user",
-        name="Risk",
-        description=None,
-        severity="medium",
-        status="open",
-        created_at=now,
-        updated_at=now,
-    )
-    db = FakeAsyncSession()
-    service = ProjectService(cast(AsyncSession, db))
-    service._get_risk = AsyncMock(return_value=risk)  # type: ignore[method-assign]
-
-    updated = await service.update_risk(
-        risk_id=str(risk.risk_id),
-        user_id="test-user",
-        severity="critical",
-    )
-    assert updated.severity == "critical"
-
-
-@pytest.mark.asyncio
-async def test_delete_risk_deletes_row() -> None:
-    now = datetime.now(tz=UTC)
-    risk = ProjectRisk(
-        risk_id=uuid.uuid4(),
-        project_id=uuid.uuid4(),
-        user_id="test-user",
-        name="Risk",
-        description=None,
-        severity="medium",
-        status="open",
-        created_at=now,
-        updated_at=now,
-    )
-    db = FakeAsyncSession()
-    service = ProjectService(cast(AsyncSession, db))
-    service._get_risk = AsyncMock(return_value=risk)  # type: ignore[method-assign]
-
-    await service.delete_risk(risk_id=str(risk.risk_id), user_id="test-user")
-    assert db.deleted == [risk]
 
 
 @pytest.mark.asyncio
@@ -388,6 +372,9 @@ async def test_create_file_and_delete_file_record() -> None:
         size_bytes=7,
         minio_bucket="ozy-files",
         minio_key="projects/p/safe.pdf",
+        extracted_text=None,
+        extract_status="unsupported",
+        text_chars=0,
         created_at=datetime.now(tz=UTC),
     )
     db = FakeAsyncSession()

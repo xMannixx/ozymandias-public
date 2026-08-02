@@ -38,7 +38,7 @@ describe("ContactDetail", () => {
       />,
     );
 
-    expect(screen.getByTestId("contact-detail-empty")).toHaveTextContent("Kontakt auswaehlen");
+    expect(screen.getByTestId("contact-detail-empty")).toHaveTextContent("Select a contact");
   });
 
   it("zeigt Ladezustand", () => {
@@ -86,7 +86,7 @@ describe("ContactDetail", () => {
     expect(screen.getByTestId("linked-projects")).toHaveTextContent("Projekt Alpha");
   });
 
-  it("Speichern ruft onSave auf", async () => {
+  it("Save calls onSave", async () => {
     const user = userEvent.setup();
     const onSave = vi.fn(async () => undefined);
 
@@ -118,6 +118,42 @@ describe("ContactDetail", () => {
     expect(onSave).toHaveBeenCalledWith(
       mockContactDetail.contact_id,
       expect.objectContaining({ first_name: "Charles" }),
+    );
+  });
+
+  it("saves the privacy level and explains what it means", async () => {
+    const user = userEvent.setup();
+    const onSave = vi.fn(async () => undefined);
+
+    render(
+      <ContactDetail
+        contact={{ ...mockContactDetail, linked_projects: [] }}
+        loading={false}
+        busy={false}
+        onSave={onSave}
+        onDelete={vi.fn()}
+        onUploadAvatar={vi.fn()}
+        onDeleteAvatar={vi.fn()}
+        onLinkProject={vi.fn()}
+        onUnlinkProject={vi.fn()}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(listProjectsMock).toHaveBeenCalled();
+    });
+
+    expect(screen.getByText(/Ozy sees the full entry/)).toBeInTheDocument();
+
+    await user.selectOptions(screen.getByLabelText("Privacy level"), "S3");
+
+    expect(screen.getByText(/only uses this contact when answering on a local model/)).toBeInTheDocument();
+
+    await user.click(screen.getByText("Save"));
+
+    expect(onSave).toHaveBeenCalledWith(
+      mockContactDetail.contact_id,
+      expect.objectContaining({ sensitivity: "S3" }),
     );
   });
 

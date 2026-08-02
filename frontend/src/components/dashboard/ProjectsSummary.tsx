@@ -4,32 +4,32 @@ import GlassCard from "@/components/common/GlassCard";
 type ProjectsSummaryProps = {
   projectsActive: number;
   tasksOpen: number;
-  risksCritical: number;
-  nextMilestone: string | null;
+  knowledgeFiles: number;
+  nextDueTask: string | null;
 };
 
 function ProjectsSummary({
   projectsActive,
   tasksOpen,
-  risksCritical,
-  nextMilestone,
+  knowledgeFiles,
+  nextDueTask,
 }: ProjectsSummaryProps): JSX.Element {
   const navigate = useNavigate();
 
   return (
     <GlassCard
-      className="cursor-pointer space-y-2 transition hover:border-blue-500/60"
+      className="cursor-pointer space-y-2"
       onClick={() => navigate("/projects")}
       data-testid="projects-summary-card"
     >
-      <h3 className="text-sm font-semibold text-blue-200">Projekte</h3>
-      <p className="text-3xl font-semibold text-blue-100">{projectsActive} active projects</p>
-      <p className="text-sm text-gray-300">{tasksOpen} open tasks</p>
-      <p className={`text-sm ${risksCritical > 0 ? "text-red-300" : "text-gray-300"}`}>
-        {risksCritical} kritische Risiken
+      <h3 className="text-sm font-medium text-zinc-400">Workspaces</h3>
+      <p className="text-3xl font-semibold text-zinc-100">{projectsActive} active</p>
+      <p className="text-sm text-zinc-400">{tasksOpen} open tasks</p>
+      <p className="text-sm text-zinc-400">
+        {knowledgeFiles} {knowledgeFiles === 1 ? "file" : "files"} Ozy can quote
       </p>
-      <p className="text-xs text-gray-400">
-        Next milestone: {nextMilestone ? nextMilestone : "none"}
+      <p className="text-xs text-zinc-500">
+        {nextDueTask ? `Next up: ${nextDueTask}` : "Nothing with a deadline"}
       </p>
     </GlassCard>
   );

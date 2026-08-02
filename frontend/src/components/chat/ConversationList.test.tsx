@@ -6,12 +6,14 @@ const conversations: ConversationResponse[] = [
   {
     conversation_id: "c1",
     title: "Trip planning",
+    project_id: null,
     created_at: "2026-07-01T10:00:00Z",
     updated_at: "2026-07-01T10:05:00Z",
   },
   {
     conversation_id: "c2",
     title: "Groceries",
+    project_id: null,
     created_at: "2026-07-02T09:00:00Z",
     updated_at: "2026-07-02T09:10:00Z",
   },

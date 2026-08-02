@@ -10,8 +10,10 @@ import LoginPage from "@/pages/LoginPage";
 import MailPage from "@/pages/MailPage";
 import MemoryPage from "@/pages/MemoryPage";
 import ProjectsPage from "@/pages/ProjectsPage";
+import ProjectWorkspacePage from "@/pages/ProjectWorkspacePage";
 import ProposalsPage from "@/pages/ProposalsPage";
 import SettingsPage from "@/pages/SettingsPage";
+import UsagePage from "@/pages/UsagePage";
 
 function App(): JSX.Element {
   return (
@@ -26,10 +28,12 @@ function App(): JSX.Element {
           <Route path="audit" element={<AuditPage />} />
           <Route path="dashboard" element={<DashboardPage />} />
           <Route path="stats" element={<DashboardPage />} />
+          <Route path="usage" element={<UsagePage />} />
           <Route path="settings" element={<SettingsPage />} />
           <Route path="calendar" element={<CalendarPage />} />
           <Route path="mail" element={<MailPage />} />
           <Route path="projects" element={<ProjectsPage />} />
+          <Route path="projects/:projectId" element={<ProjectWorkspacePage />} />
           <Route path="contacts" element={<ContactsPage />} />
         </Route>
       </Route>

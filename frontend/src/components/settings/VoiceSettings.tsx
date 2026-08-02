@@ -1,7 +1,10 @@
 import { useEffect, useRef, useState } from "react";
+import { Play } from "lucide-react";
 import { getVoices, synthesizeSpeech } from "@/api/voice";
-import GlassCard from "@/components/common/GlassCard";
+import Button from "@/components/common/Button";
 import Spinner from "@/components/common/Spinner";
+import SettingField from "@/components/settings/SettingField";
+import SettingsCard from "@/components/settings/SettingsCard";
 import type { VoiceMode } from "@/api/types";
 
 type VoiceSettingsProps = {
@@ -38,6 +41,7 @@ function VoiceSettings({
   const [loadingVoices, setLoadingVoices] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [testBusy, setTestBusy] = useState(false);
+  const [saved, setSaved] = useState(false);
   const testAudioRef = useRef<HTMLAudioElement | null>(null);
   const testUrlRef = useRef<string | null>(null);
 
@@ -105,7 +109,7 @@ function VoiceSettings({
     setTestBusy(true);
     setError(null);
     try {
-      const blob = await synthesizeSpeech("Hallo, ich bin Ozy.", voice, model);
+      const blob = await synthesizeSpeech("Hi, I am Ozy. This is how I sound.", voice, model);
       if (testAudioRef.current) {
         testAudioRef.current.pause();
       }
@@ -124,49 +128,105 @@ function VoiceSettings({
     }
   }
 
-  return (
-    <GlassCard className="space-y-3">
-      <p className="text-sm font-medium text-gray-200">Speech / Voice</p>
+  async function handleSave(): Promise<void> {
+    await onSave(enabled, mode, voice, model, autoplay);
+    setSaved(true);
+    window.setTimeout(() => setSaved(false), 3000);
+  }
 
-      <label className="inline-flex items-center gap-2 text-sm text-gray-300">
+  return (
+    <SettingsCard
+      title="Voice"
+      description="Speak to Ozymandias instead of typing, and have its replies read out loud."
+      footer={
+        <>
+          <Button onClick={() => void handleSave()} disabled={saving || loadingVoices}>
+            Save changes
+          </Button>
+          <Button
+            variant="ghost"
+            onClick={() => void onTestVoice()}
+            disabled={!enabled || testBusy || loadingVoices}
+          >
+            <span className="inline-flex items-center gap-1.5">
+              <Play className="h-3.5 w-3.5" aria-hidden="true" />
+              Test voice
+            </span>
+          </Button>
+          {loadingVoices ? <Spinner /> : null}
+          {saved ? (
+            <span className="text-xs text-emerald-300" role="status" aria-live="polite">
+              Saved.
+            </span>
+          ) : null}
+          {error ? (
+            <span className="text-xs text-rose-300" role="alert">
+              {error}
+            </span>
+          ) : null}
+        </>
+      }
+    >
+      <label className="flex items-start gap-2 text-sm text-zinc-200">
         <input
           aria-label="settings-voice-enabled"
           type="checkbox"
           checked={enabled}
+          className="mt-0.5 h-3.5 w-3.5 accent-indigo-500"
           onChange={(event) => setEnabled(event.target.checked)}
         />
-        Enable voice
+        <span>
+          Turn voice on
+          <span className="mt-0.5 block text-xs text-zinc-400">
+            Adds a microphone button to the chat. Everything below only applies while this is on.
+          </span>
+        </span>
       </label>
 
-      <fieldset className="space-y-2" disabled={!enabled}>
-        <legend className="text-xs text-gray-400">Voice-Modus</legend>
-        <label className="inline-flex items-center gap-2 text-sm text-gray-300">
+      <fieldset className="space-y-2 disabled:opacity-50" disabled={!enabled}>
+        <legend className="text-sm font-medium text-zinc-200">How to start recording</legend>
+        <label className="flex items-start gap-2 text-sm text-zinc-200">
           <input
             type="radio"
             name="voice-mode"
             value="push_to_talk"
             checked={mode === "push_to_talk"}
             onChange={() => setMode("push_to_talk")}
+            className="mt-0.5 accent-indigo-500"
           />
-          Push-to-Talk
+          <span>
+            Push-to-Talk
+            <span className="mt-0.5 block text-xs text-zinc-400">
+              Hold the spacebar or the microphone button while you speak, release to send.
+            </span>
+          </span>
         </label>
-        <label className="ml-4 inline-flex items-center gap-2 text-sm text-gray-300">
+        <label className="flex items-start gap-2 text-sm text-zinc-200">
           <input
             type="radio"
             name="voice-mode"
             value="hands_free"
             checked={mode === "hands_free"}
             onChange={() => setMode("hands_free")}
+            className="mt-0.5 accent-indigo-500"
           />
-          Hands-free
+          <span>
+            Hands-free
+            <span className="mt-0.5 block text-xs text-zinc-400">
+              Ozymandias listens continuously and sends when you stop speaking. Convenient, but the microphone
+              stays active.
+            </span>
+          </span>
         </label>
       </fieldset>
 
-      <label className="flex flex-col gap-1 text-xs text-gray-400">
-        TTS voice
+      <SettingField
+        label="Reply voice"
+        description="The voice used when Ozymandias reads answers out loud. Use Test voice below to hear it."
+      >
         <select
           aria-label="settings-voice-select"
-          className="rounded border border-gray-700 bg-gray-900 px-2 py-2 text-sm text-gray-100"
+          className="w-full text-sm"
           value={voice}
           onChange={(event) => setVoice(event.target.value)}
           disabled={!enabled || loadingVoices}
@@ -177,59 +237,61 @@ function VoiceSettings({
             </option>
           ))}
         </select>
-      </label>
+      </SettingField>
 
-      <fieldset className="space-y-2" disabled={!enabled}>
-        <legend className="text-xs text-gray-400">TTS-Modell</legend>
-        <label className="inline-flex items-center gap-2 text-sm text-gray-300">
-          <input type="radio" name="tts-model" value="tts-1" checked={model === "tts-1"} onChange={() => setModel("tts-1")} />
-          tts-1
+      <fieldset className="space-y-2 disabled:opacity-50" disabled={!enabled}>
+        <legend className="text-sm font-medium text-zinc-200">Audio quality</legend>
+        <label className="flex items-start gap-2 text-sm text-zinc-200">
+          <input
+            type="radio"
+            name="tts-model"
+            value="tts-1"
+            checked={model === "tts-1"}
+            onChange={() => setModel("tts-1")}
+            className="mt-0.5 accent-indigo-500"
+          />
+          <span>
+            Standard
+            <span className="mt-0.5 block text-xs text-zinc-400">
+              Faster and cheaper. Good enough for everyday use. (tts-1)
+            </span>
+          </span>
         </label>
-        <label className="ml-4 inline-flex items-center gap-2 text-sm text-gray-300">
+        <label className="flex items-start gap-2 text-sm text-zinc-200">
           <input
             type="radio"
             name="tts-model"
             value="tts-1-hd"
             checked={model === "tts-1-hd"}
             onChange={() => setModel("tts-1-hd")}
+            className="mt-0.5 accent-indigo-500"
           />
-          tts-1-hd
+          <span>
+            Higher quality
+            <span className="mt-0.5 block text-xs text-zinc-400">
+              Clearer and more natural, but slower to generate and more expensive. (tts-1-hd)
+            </span>
+          </span>
         </label>
       </fieldset>
 
-      <label className="inline-flex items-center gap-2 text-sm text-gray-300">
+      <label className="flex items-start gap-2 text-sm text-zinc-200">
         <input
           aria-label="settings-voice-autoplay"
           type="checkbox"
           checked={autoplay}
           onChange={(event) => setAutoplay(event.target.checked)}
           disabled={!enabled}
+          className="mt-0.5 h-3.5 w-3.5 accent-indigo-500"
         />
-        Auto-play response
+        <span>
+          Read replies out loud automatically
+          <span className="mt-0.5 block text-xs text-zinc-400">
+            When off, replies stay silent until you press play on a message.
+          </span>
+        </span>
       </label>
-
-      <div className="flex items-center gap-2">
-        <button
-          type="button"
-          className="rounded border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-gray-100 hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
-          onClick={() => void onTestVoice()}
-          disabled={!enabled || testBusy || loadingVoices}
-        >
-          Test voice
-        </button>
-        <button
-          type="button"
-          className="rounded border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-gray-100 hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
-          onClick={() => void onSave(enabled, mode, voice, model, autoplay)}
-          disabled={saving || loadingVoices}
-        >
-          Save voice
-        </button>
-        {loadingVoices ? <Spinner /> : null}
-      </div>
-
-      {error ? <p className="text-xs text-red-300">{error}</p> : null}
-    </GlassCard>
+    </SettingsCard>
   );
 }
 

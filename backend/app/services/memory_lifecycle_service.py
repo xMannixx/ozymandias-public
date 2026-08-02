@@ -9,7 +9,6 @@ fresh guardian re-approval. Deterministic verdicts come from
 
 from __future__ import annotations
 
-import asyncio
 from collections import Counter
 from datetime import UTC, datetime
 from typing import Any
@@ -18,7 +17,7 @@ from celery import shared_task
 from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.database import AsyncSessionLocal
+from app.database import AsyncSessionLocal, run_db_job
 from app.memory.lanes import AuthorityClass
 from app.memory.lifecycle import evaluate_lane_decay
 from app.models.claim import Claim
@@ -30,6 +29,7 @@ from app.models.memory import (
 )
 from app.schemas import AuditEventType, AuditResult, Channel, Sensitivity, VerificationState
 from app.services.audit_service import AuditService
+from app.services.job_targets import user_ids_with_claims
 from app.services.utils import normalize_user_id
 
 
@@ -138,7 +138,19 @@ async def _run_memory_cleanup_job(user_id: str) -> dict[str, int]:
         return {**{f"decay_{k}": v for k, v in decay.items()}, **cleanup}
 
 
+async def _run_memory_cleanup_job_for_all() -> dict[str, dict[str, int]]:
+    async with AsyncSessionLocal() as db:
+        user_ids = await user_ids_with_claims(db)
+    return {user_id: await _run_memory_cleanup_job(user_id) for user_id in user_ids}
+
+
 @shared_task(name="ozy.memory.cleanup")  # type: ignore[untyped-decorator,misc,unused-ignore]
 def run_memory_cleanup_task(user_id: str) -> dict[str, int]:
     """Celery task: lane decay + expiry cleanup for one user."""
-    return asyncio.run(_run_memory_cleanup_job(user_id))
+    return run_db_job(_run_memory_cleanup_job(user_id))
+
+
+@shared_task(name="ozy.memory.cleanup_all")  # type: ignore[untyped-decorator,misc,unused-ignore]
+def run_memory_cleanup_all_task() -> dict[str, dict[str, int]]:
+    """Beat entrypoint: lane decay + expiry cleanup for every user with claims."""
+    return run_db_job(_run_memory_cleanup_job_for_all())

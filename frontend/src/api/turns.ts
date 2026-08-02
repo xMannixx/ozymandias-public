@@ -11,6 +11,8 @@ export type PostTurnOptions = {
   useLiveWeb?: boolean;
   allowS3LiveWeb?: boolean;
   conversationId?: string;
+  /** Workspace this turn belongs to; pulls its instructions and knowledge into context. */
+  projectId?: string;
   attachments?: TurnRequest["attachments"];
 };
 
@@ -25,6 +27,7 @@ function buildTurnBody(text: string, options: PostTurnOptions): Record<string, u
     use_live_web: options.useLiveWeb,
     allow_s3_live_web: options.allowS3LiveWeb,
     conversation_id: options.conversationId,
+    project_id: options.projectId,
     attachments: options.attachments,
   };
 }

@@ -7,15 +7,16 @@ type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
 };
 
 const variantClass: Record<ButtonVariant, string> = {
-  primary: "bg-blue-600 bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white shadow-[0_0_12px_rgba(59,130,246,0.3)] hover:shadow-[0_0_20px_rgba(59,130,246,0.5)] transition-all duration-200",
-  danger: "bg-red-600 bg-gradient-to-r from-red-600 to-rose-500 hover:from-red-500 hover:to-rose-400 text-white shadow-[0_0_12px_rgba(239,68,68,0.3)] hover:shadow-[0_0_20px_rgba(239,68,68,0.5)] transition-all duration-200",
-  ghost: "bg-transparent text-gray-200 border border-cyan-500/30 hover:border-cyan-400/60 bg-slate-900/40 hover:bg-slate-800/80 shadow-sm hover:shadow-[0_0_10px_rgba(6,182,212,0.15)] transition-all duration-200",
+  primary: "bg-indigo-500 text-white hover:bg-indigo-400",
+  danger: "bg-red-500/90 text-white hover:bg-red-500",
+  ghost:
+    "border border-white/[0.09] bg-white/[0.02] text-zinc-200 hover:border-white/[0.14] hover:bg-white/[0.05]",
 };
 
 function Button({ variant = "primary", className = "", ...props }: ButtonProps): JSX.Element {
   return (
     <button
-      className={`rounded-md px-3 py-2 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50 ${variantClass[variant]} ${className}`.trim()}
+      className={`rounded-md px-3 py-2 text-sm font-medium transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-50 ${variantClass[variant]} ${className}`.trim()}
       {...props}
     />
   );

@@ -1,21 +1,16 @@
 import { request } from "@/api/client";
 import type {
   CreateLinkRequest,
-  CreateMilestoneRequest,
   CreateNoteRequest,
   CreateProjectRequest,
-  CreateRiskRequest,
   CreateTaskRequest,
   LinkResponse,
-  MilestoneResponse,
   NoteResponse,
+  ProjectChatResponse,
   ProjectDetailResponse,
   ProjectResponse,
-  RiskResponse,
   TaskResponse,
-  UpdateMilestoneRequest,
   UpdateProjectRequest,
-  UpdateRiskRequest,
   UpdateTaskRequest,
 } from "@/api/types";
 
@@ -56,35 +51,8 @@ export function deleteProject(id: string): Promise<void> {
   });
 }
 
-export function listMilestones(projectId: string): Promise<MilestoneResponse[]> {
-  return request<MilestoneResponse[]>(`/projects/${projectId}/milestones`);
-}
-
-export function createMilestone(
-  projectId: string,
-  data: CreateMilestoneRequest,
-): Promise<MilestoneResponse> {
-  return request<MilestoneResponse>(`/projects/${projectId}/milestones`, {
-    method: "POST",
-    body: data,
-  });
-}
-
-export function updateMilestone(
-  projectId: string,
-  milestoneId: string,
-  data: UpdateMilestoneRequest,
-): Promise<MilestoneResponse> {
-  return request<MilestoneResponse>(`/projects/${projectId}/milestones/${milestoneId}`, {
-    method: "PATCH",
-    body: data,
-  });
-}
-
-export function deleteMilestone(projectId: string, milestoneId: string): Promise<void> {
-  return request<void>(`/projects/${projectId}/milestones/${milestoneId}`, {
-    method: "DELETE",
-  });
+export function listProjectChats(projectId: string): Promise<ProjectChatResponse[]> {
+  return request<ProjectChatResponse[]>(`/projects/${projectId}/chats`);
 }
 
 export function listTasks(projectId: string, status?: string): Promise<TaskResponse[]> {
@@ -111,34 +79,6 @@ export function updateTask(
 
 export function deleteTask(projectId: string, taskId: string): Promise<void> {
   return request<void>(`/projects/${projectId}/tasks/${taskId}`, {
-    method: "DELETE",
-  });
-}
-
-export function listRisks(projectId: string): Promise<RiskResponse[]> {
-  return request<RiskResponse[]>(`/projects/${projectId}/risks`);
-}
-
-export function createRisk(projectId: string, data: CreateRiskRequest): Promise<RiskResponse> {
-  return request<RiskResponse>(`/projects/${projectId}/risks`, {
-    method: "POST",
-    body: data,
-  });
-}
-
-export function updateRisk(
-  projectId: string,
-  riskId: string,
-  data: UpdateRiskRequest,
-): Promise<RiskResponse> {
-  return request<RiskResponse>(`/projects/${projectId}/risks/${riskId}`, {
-    method: "PATCH",
-    body: data,
-  });
-}
-
-export function deleteRisk(projectId: string, riskId: string): Promise<void> {
-  return request<void>(`/projects/${projectId}/risks/${riskId}`, {
     method: "DELETE",
   });
 }

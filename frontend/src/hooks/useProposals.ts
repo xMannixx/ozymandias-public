@@ -10,11 +10,14 @@ export type ProposalsToast = {
   type: "success" | "error" | "info";
 };
 
+export type ProposalsLoadState = "idle" | "loading" | "success" | "error";
+
 type UseProposalsResult = {
   proposals: ProposalResponse[];
   visibleProposals: ProposalResponse[];
   loading: boolean;
   error: string | null;
+  loadState: ProposalsLoadState;
   activeTab: ProposalTab;
   counts: Record<ProposalTab, number>;
   toast: ProposalsToast | null;
@@ -53,11 +56,13 @@ export function useProposals(): UseProposalsResult {
   const [proposals, setProposals] = useState<ProposalResponse[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [loadState, setLoadState] = useState<ProposalsLoadState>("idle");
   const [activeTab, setActiveTab] = useState<ProposalTab>("pending");
   const [toast, setToast] = useState<ProposalsToast | null>(null);
 
   const refetch = useCallback(async () => {
     setLoading(true);
+    setLoadState("loading");
     setError(null);
     try {
       const data = await listProposals();
@@ -65,8 +70,10 @@ export function useProposals(): UseProposalsResult {
         throw new Error("Invalid proposals response from server");
       }
       setProposals(data);
+      setLoadState("success");
     } catch (err) {
       setError(normalizeError(err));
+      setLoadState("error");
     } finally {
       setLoading(false);
     }
@@ -120,6 +127,7 @@ export function useProposals(): UseProposalsResult {
     visibleProposals,
     loading,
     error,
+    loadState,
     activeTab,
     counts,
     toast,

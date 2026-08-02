@@ -9,34 +9,28 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.jwt import get_current_user
 from app.database import get_db
+from app.models.conversation import Conversation
 from app.models.project import (
     Project,
     ProjectFile,
     ProjectLink,
-    ProjectMilestone,
     ProjectNote,
-    ProjectRisk,
     ProjectTask,
 )
 from app.schemas import AuditEventType, AuditResult, Channel, Sensitivity
 from app.schemas.api_models import (
     CreateLinkRequest,
-    CreateMilestoneRequest,
     CreateNoteRequest,
     CreateProjectRequest,
-    CreateRiskRequest,
     CreateTaskRequest,
     FileResponse,
     LinkResponse,
-    MilestoneResponse,
     NoteResponse,
+    ProjectChatResponse,
     ProjectDetailResponse,
     ProjectResponse,
-    RiskResponse,
     TaskResponse,
-    UpdateMilestoneRequest,
     UpdateProjectRequest,
-    UpdateRiskRequest,
     UpdateTaskRequest,
 )
 from app.services.audit_service import AuditService
@@ -139,99 +133,18 @@ async def delete_project(
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
-@router.get("/{project_id}/milestones", response_model=list[MilestoneResponse])
-async def list_milestones(
+@router.get("/{project_id}/chats", response_model=list[ProjectChatResponse])
+async def list_project_chats(
     project_id: str,
     user_id: str = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
-) -> list[MilestoneResponse]:
+) -> list[ProjectChatResponse]:
     service = ProjectService(db)
     try:
-        milestones = await service.list_milestones(project_id=project_id, user_id=user_id)
+        chats = await service.list_conversations(project_id=project_id, user_id=user_id)
     except NotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
-    return [_to_milestone_response(item) for item in milestones]
-
-
-@router.post(
-    "/{project_id}/milestones",
-    response_model=MilestoneResponse,
-    status_code=status.HTTP_201_CREATED,
-)
-async def create_milestone(
-    project_id: str,
-    payload: CreateMilestoneRequest,
-    user_id: str = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-) -> MilestoneResponse:
-    service = ProjectService(db)
-    audit = AuditService(db)
-    try:
-        milestone = await service.create_milestone(
-            project_id=project_id, user_id=user_id, **payload.model_dump()
-        )
-    except (NotFoundError, ValidationError) as exc:
-        _raise_http_for_service_error(exc)
-    await _log_mutation(
-        audit=audit,
-        user_id=user_id,
-        target_id=str(milestone.milestone_id),
-        detail="projects.create_milestone",
-        payload={"project_id": project_id},
-    )
-    return _to_milestone_response(milestone)
-
-
-@router.patch("/{project_id}/milestones/{milestone_id}", response_model=MilestoneResponse)
-async def update_milestone(
-    project_id: str,
-    milestone_id: str,
-    payload: UpdateMilestoneRequest,
-    user_id: str = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-) -> MilestoneResponse:
-    del project_id
-    service = ProjectService(db)
-    audit = AuditService(db)
-    changes = payload.model_dump(exclude_unset=True)
-    try:
-        milestone = await service.update_milestone(
-            milestone_id=milestone_id, user_id=user_id, **changes
-        )
-    except (NotFoundError, ValidationError) as exc:
-        _raise_http_for_service_error(exc)
-    await _log_mutation(
-        audit=audit,
-        user_id=user_id,
-        target_id=str(milestone.milestone_id),
-        detail="projects.update_milestone",
-        payload={"changes": list(changes.keys())},
-    )
-    return _to_milestone_response(milestone)
-
-
-@router.delete("/{project_id}/milestones/{milestone_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_milestone(
-    project_id: str,
-    milestone_id: str,
-    user_id: str = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-) -> Response:
-    del project_id
-    service = ProjectService(db)
-    audit = AuditService(db)
-    try:
-        await service.delete_milestone(milestone_id=milestone_id, user_id=user_id)
-    except NotFoundError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
-    await _log_mutation(
-        audit=audit,
-        user_id=user_id,
-        target_id=milestone_id,
-        detail="projects.delete_milestone",
-        payload={"milestone_id": milestone_id},
-    )
-    return Response(status_code=status.HTTP_204_NO_CONTENT)
+    return [_to_chat_response(item) for item in chats]
 
 
 @router.get("/{project_id}/tasks", response_model=list[TaskResponse])
@@ -324,97 +237,6 @@ async def delete_task(
         target_id=task_id,
         detail="projects.delete_task",
         payload={"task_id": task_id},
-    )
-    return Response(status_code=status.HTTP_204_NO_CONTENT)
-
-
-@router.get("/{project_id}/risks", response_model=list[RiskResponse])
-async def list_risks(
-    project_id: str,
-    user_id: str = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-) -> list[RiskResponse]:
-    service = ProjectService(db)
-    try:
-        risks = await service.list_risks(project_id=project_id, user_id=user_id)
-    except NotFoundError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
-    return [_to_risk_response(item) for item in risks]
-
-
-@router.post(
-    "/{project_id}/risks", response_model=RiskResponse, status_code=status.HTTP_201_CREATED
-)
-async def create_risk(
-    project_id: str,
-    payload: CreateRiskRequest,
-    user_id: str = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-) -> RiskResponse:
-    service = ProjectService(db)
-    audit = AuditService(db)
-    try:
-        risk = await service.create_risk(
-            project_id=project_id, user_id=user_id, **payload.model_dump()
-        )
-    except (NotFoundError, ValidationError) as exc:
-        _raise_http_for_service_error(exc)
-    await _log_mutation(
-        audit=audit,
-        user_id=user_id,
-        target_id=str(risk.risk_id),
-        detail="projects.create_risk",
-        payload={"project_id": project_id},
-    )
-    return _to_risk_response(risk)
-
-
-@router.patch("/{project_id}/risks/{risk_id}", response_model=RiskResponse)
-async def update_risk(
-    project_id: str,
-    risk_id: str,
-    payload: UpdateRiskRequest,
-    user_id: str = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-) -> RiskResponse:
-    del project_id
-    service = ProjectService(db)
-    audit = AuditService(db)
-    changes = payload.model_dump(exclude_unset=True)
-    try:
-        risk = await service.update_risk(risk_id=risk_id, user_id=user_id, **changes)
-    except (NotFoundError, ValidationError) as exc:
-        _raise_http_for_service_error(exc)
-    await _log_mutation(
-        audit=audit,
-        user_id=user_id,
-        target_id=str(risk.risk_id),
-        detail="projects.update_risk",
-        payload={"changes": list(changes.keys())},
-    )
-    return _to_risk_response(risk)
-
-
-@router.delete("/{project_id}/risks/{risk_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_risk(
-    project_id: str,
-    risk_id: str,
-    user_id: str = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-) -> Response:
-    del project_id
-    service = ProjectService(db)
-    audit = AuditService(db)
-    try:
-        await service.delete_risk(risk_id=risk_id, user_id=user_id)
-    except NotFoundError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
-    await _log_mutation(
-        audit=audit,
-        user_id=user_id,
-        target_id=risk_id,
-        detail="projects.delete_risk",
-        payload={"risk_id": risk_id},
     )
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
@@ -593,14 +415,16 @@ async def _project_response(
     project: Project,
     user_id: str,
 ) -> ProjectResponse:
-    tasks = await service.list_tasks(project_id=str(project.project_id), user_id=user_id)
-    risks = await service.list_risks(project_id=str(project.project_id), user_id=user_id)
-    milestones = await service.list_milestones(project_id=str(project.project_id), user_id=user_id)
-    next_milestone = _next_milestone_name(milestones)
+    project_id = str(project.project_id)
+    tasks = await service.list_tasks(project_id=project_id, user_id=user_id)
+    files = await service.list_files(project_id=project_id, user_id=user_id)
+    chats = await service.list_conversations(project_id=project_id, user_id=user_id)
     return ProjectResponse(
-        project_id=str(project.project_id),
+        project_id=project_id,
         name=project.name,
         description=project.description,
+        instructions=project.instructions,
+        sensitivity=project.sensitivity,
         status=project.status,
         priority=project.priority,
         color=project.color,
@@ -609,8 +433,9 @@ async def _project_response(
         completed_date=project.completed_date,
         task_count=len(tasks),
         task_done_count=sum(1 for item in tasks if item.status == "done"),
-        risk_open_count=sum(1 for item in risks if item.status == "open"),
-        next_milestone=next_milestone,
+        knowledge_count=sum(1 for item in files if item.extract_status == "ok"),
+        chat_count=len(chats),
+        next_due_task=_next_due_task_name(tasks),
         created_at=project.created_at,
         updated_at=project.updated_at,
     )
@@ -622,34 +447,29 @@ async def _project_detail_response(
     project: Project,
     user_id: str,
 ) -> ProjectDetailResponse:
-    milestones = await service.list_milestones(project_id=str(project.project_id), user_id=user_id)
-    tasks = await service.list_tasks(project_id=str(project.project_id), user_id=user_id)
-    risks = await service.list_risks(project_id=str(project.project_id), user_id=user_id)
-    notes = await service.list_notes(project_id=str(project.project_id), user_id=user_id)
-    files = await service.list_files(project_id=str(project.project_id), user_id=user_id)
-    links = await service.list_links(project_id=str(project.project_id), user_id=user_id)
+    project_id = str(project.project_id)
+    tasks = await service.list_tasks(project_id=project_id, user_id=user_id)
+    notes = await service.list_notes(project_id=project_id, user_id=user_id)
+    files = await service.list_files(project_id=project_id, user_id=user_id)
+    links = await service.list_links(project_id=project_id, user_id=user_id)
+    chats = await service.list_conversations(project_id=project_id, user_id=user_id)
     base = await _project_response(service=service, project=project, user_id=user_id)
     return ProjectDetailResponse(
         **base.model_dump(),
-        milestones=[_to_milestone_response(item) for item in milestones],
         tasks=[_to_task_response(item) for item in tasks],
-        risks=[_to_risk_response(item) for item in risks],
         notes=[_to_note_response(item) for item in notes],
         files=[_to_file_response(item) for item in files],
         links=[_to_link_response(item) for item in links],
+        chats=[_to_chat_response(item) for item in chats],
     )
 
 
-def _to_milestone_response(milestone: ProjectMilestone) -> MilestoneResponse:
-    return MilestoneResponse(
-        milestone_id=str(milestone.milestone_id),
-        project_id=str(milestone.project_id),
-        name=milestone.name,
-        due_date=milestone.due_date,
-        completed=milestone.completed,
-        completed_at=milestone.completed_at,
-        sort_order=milestone.sort_order,
-        created_at=milestone.created_at,
+def _to_chat_response(conversation: Conversation) -> ProjectChatResponse:
+    return ProjectChatResponse(
+        conversation_id=str(conversation.conversation_id),
+        title=conversation.title,
+        created_at=conversation.created_at,
+        updated_at=conversation.updated_at,
     )
 
 
@@ -665,19 +485,6 @@ def _to_task_response(task: ProjectTask) -> TaskResponse:
         sort_order=task.sort_order,
         created_at=task.created_at,
         updated_at=task.updated_at,
-    )
-
-
-def _to_risk_response(risk: ProjectRisk) -> RiskResponse:
-    return RiskResponse(
-        risk_id=str(risk.risk_id),
-        project_id=str(risk.project_id),
-        name=risk.name,
-        description=risk.description,
-        severity=risk.severity,
-        status=risk.status,
-        created_at=risk.created_at,
-        updated_at=risk.updated_at,
     )
 
 
@@ -699,6 +506,8 @@ def _to_file_response(file_row: ProjectFile) -> FileResponse:
         original_name=file_row.original_name,
         content_type=file_row.content_type,
         size_bytes=file_row.size_bytes,
+        extract_status=file_row.extract_status,
+        text_chars=file_row.text_chars,
         created_at=file_row.created_at,
     )
 
@@ -713,15 +522,16 @@ def _to_link_response(link: ProjectLink) -> LinkResponse:
     )
 
 
-def _next_milestone_name(milestones: list[ProjectMilestone]) -> str | None:
-    due_items = [item for item in milestones if item.due_date is not None and not item.completed]
-    if not due_items:
+def _next_due_task_name(tasks: list[ProjectTask]) -> str | None:
+    """Name of the soonest unfinished task that has a date."""
+    dated = [item for item in tasks if item.due_date is not None and item.status != "done"]
+    if not dated:
         return None
-    due_items.sort(key=_milestone_due_date)
-    return due_items[0].name
+    dated.sort(key=_task_due_date)
+    return dated[0].name
 
 
-def _milestone_due_date(item: ProjectMilestone) -> date:
+def _task_due_date(item: ProjectTask) -> date:
     if item.due_date is None:
         return date.max
     return item.due_date

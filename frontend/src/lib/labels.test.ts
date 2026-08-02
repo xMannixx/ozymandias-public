@@ -1,4 +1,16 @@
-import { categoryForEventType, claimStatusSentence, humanizeSnakeCase, labelFor, SENSITIVITY_LABELS } from "@/lib/labels";
+import {
+  categoryForEventType,
+  claimStatusSentence,
+  codeWithLabel,
+  confidenceDescription,
+  confidenceLabel,
+  humanizeSnakeCase,
+  labelFor,
+  optionsWithAll,
+  SENSITIVITY_LABELS,
+  VERIFICATION_LABELS,
+  VERIFICATION_ORDER,
+} from "@/lib/labels";
 
 describe("labels", () => {
   it("provides a human label for every sensitivity level", () => {
@@ -34,5 +46,28 @@ describe("labels", () => {
         handling_policy: "cloud_ok_encrypted",
       }),
     ).toBe("Confirmed - kept permanently - cloud allowed if encrypted");
+  });
+
+  it("codeWithLabel pairs a raw code with its plain-language label", () => {
+    expect(codeWithLabel(SENSITIVITY_LABELS, "S2")).toBe("S2 · Personal");
+    expect(codeWithLabel(SENSITIVITY_LABELS, "S9")).toBe("S9");
+  });
+
+  it("optionsWithAll puts an All entry first and uses readable labels", () => {
+    const options = optionsWithAll(VERIFICATION_LABELS, VERIFICATION_ORDER);
+    expect(options[0]).toEqual({ value: "", label: "All" });
+    expect(options).toContainEqual({ value: "tentative", label: "Needs review" });
+  });
+
+  it("confidenceLabel describes the score in words", () => {
+    expect(confidenceLabel(0.95)).toBe("Very sure");
+    expect(confidenceLabel(0.7)).toBe("Fairly sure");
+    expect(confidenceLabel(0.5)).toBe("Unsure");
+    expect(confidenceLabel(0.1)).toBe("Very unsure");
+  });
+
+  it("confidenceDescription explains the score and includes the percentage", () => {
+    expect(confidenceDescription(0.31)).toContain("31%");
+    expect(confidenceDescription(0.31)).toMatch(/low confidence/i);
   });
 });

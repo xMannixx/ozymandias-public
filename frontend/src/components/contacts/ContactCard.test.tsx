@@ -8,7 +8,7 @@ vi.mock("@/components/contacts/AvatarDisplay", () => ({
 }));
 
 describe("ContactCard", () => {
-  it("zeigt Namen und Firma", () => {
+  it("shows name and company", () => {
     render(
       <ContactCard contact={mockContact} isSelected={false} onSelect={vi.fn()} />,
     );
@@ -17,7 +17,7 @@ describe("ContactCard", () => {
     expect(screen.getByText("Analytical Engines Ltd")).toBeInTheDocument();
   });
 
-  it("zeigt Tags", () => {
+  it("shows tags", () => {
     render(
       <ContactCard contact={mockContact} isSelected={false} onSelect={vi.fn()} />,
     );
@@ -26,7 +26,27 @@ describe("ContactCard", () => {
     expect(screen.getByText("VIP")).toBeInTheDocument();
   });
 
-  it("Klick ruft onSelect mit contact_id auf", async () => {
+  it("marks a private contact as local only", () => {
+    render(
+      <ContactCard
+        contact={{ ...mockContact, sensitivity: "S3" }}
+        isSelected={false}
+        onSelect={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("Local only")).toBeInTheDocument();
+  });
+
+  it("stays quiet for a normal contact", () => {
+    render(
+      <ContactCard contact={mockContact} isSelected={false} onSelect={vi.fn()} />,
+    );
+
+    expect(screen.queryByText("Local only")).not.toBeInTheDocument();
+  });
+
+  it("click calls onSelect with contact_id", async () => {
     const user = userEvent.setup();
     const onSelect = vi.fn();
     render(

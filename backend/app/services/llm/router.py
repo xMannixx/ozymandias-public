@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import time
 from collections.abc import AsyncIterator
 from functools import lru_cache
 from typing import Any
@@ -18,6 +19,13 @@ from app.services.llm.mistral import MistralProvider
 from app.services.llm.ollama import OllamaProvider
 from app.services.llm.openai_provider import OpenAIProvider
 from app.services.llm.token_usage_tracker import get_token_usage_tracker
+from app.services.llm.usage import (
+    STATUS_ERROR,
+    STATUS_OK,
+    LLMCallUsage,
+    call_type_for_intent,
+    tool_name_from_request,
+)
 
 
 class LLMRouter:
@@ -45,6 +53,43 @@ class LLMRouter:
         """Return provider names configured at startup."""
         return list(self._providers.keys())
 
+    def _default_model(self, provider_name: str) -> str:
+        """Best-effort model name for a call that failed before reporting one."""
+        provider = self._providers.get(provider_name)
+        return str(getattr(provider, "_model_name", "")) if provider is not None else ""
+
+    @staticmethod
+    def _record_usage(
+        sink: list[LLMCallUsage] | None,
+        *,
+        intent: str,
+        tools: list[dict[str, Any]] | None,
+        provider_name: str,
+        model: str,
+        started: float,
+        response: LLMResponse | None = None,
+        exc: Exception | None = None,
+    ) -> None:
+        """Append one attempt to the caller's sink, including failed attempts."""
+        if sink is None:
+            return
+        latency_ms = max(0, round((time.perf_counter() - started) * 1000))
+        sink.append(
+            LLMCallUsage(
+                call_type=call_type_for_intent(intent),
+                provider=provider_name,
+                model=model,
+                status=STATUS_OK if exc is None else STATUS_ERROR,
+                latency_ms=latency_ms,
+                prompt_tokens=response.prompt_tokens if response else 0,
+                completion_tokens=response.completion_tokens if response else 0,
+                cached_prompt_tokens=response.cached_prompt_tokens if response else 0,
+                total_tokens=response.tokens_used if response else 0,
+                tool_name=tool_name_from_request(tools),
+                error_kind=type(exc).__name__ if exc is not None else None,
+            )
+        )
+
     def get_model_name(self, provider_name: str) -> str:
         """Return the configured default model for one provider."""
         normalized_provider = provider_name.strip().lower()
@@ -67,6 +112,7 @@ class LLMRouter:
         preferred_local_provider: str | None = None,
         preferred_local_model: str | None = None,
         api_keys: dict[str, str | None] | None = None,
+        usage_sink: list[LLMCallUsage] | None = None,
     ) -> LLMResponse:
         """Select provider and execute one chat request with cross-provider fallback."""
         # Ensure any runtime API keys are lazily registered before building the chain.
@@ -107,6 +153,7 @@ class LLMRouter:
             if api_key is not None:
                 chat_kwargs["api_key"] = api_key
 
+            started = time.perf_counter()
             try:
                 response = await provider.chat(
                     messages,
@@ -116,8 +163,26 @@ class LLMRouter:
                 )
                 if response.tokens_used:
                     tracker.record(provider_name, response.tokens_used)
+                self._record_usage(
+                    usage_sink,
+                    intent=intent,
+                    tools=tools,
+                    provider_name=provider_name,
+                    model=response.model,
+                    started=started,
+                    response=response,
+                )
                 return response
             except Exception as exc:
+                self._record_usage(
+                    usage_sink,
+                    intent=intent,
+                    tools=tools,
+                    provider_name=provider_name,
+                    model=model_override or self._default_model(provider_name),
+                    started=started,
+                    exc=exc,
+                )
                 # S3/S4 local-only failure — surface immediately with structured error.
                 if (
                     provider_name in {"ollama", "lmstudio"}
@@ -154,6 +219,7 @@ class LLMRouter:
         preferred_local_provider: str | None = None,
         preferred_local_model: str | None = None,
         api_keys: dict[str, str | None] | None = None,
+        usage_sink: list[LLMCallUsage] | None = None,
     ) -> AsyncIterator[LLMStreamItem]:
         """Stream text deltas with the same routing and fallback rules as route().
 
@@ -196,6 +262,7 @@ class LLMRouter:
                 chat_kwargs["api_key"] = api_key
 
             emitted = False
+            started = time.perf_counter()
             try:
                 final: LLMResponse | None = None
                 async for item in provider.chat_stream(
@@ -215,9 +282,27 @@ class LLMRouter:
                     )
                 if final.tokens_used:
                     tracker.record(provider_name, final.tokens_used)
+                self._record_usage(
+                    usage_sink,
+                    intent=intent,
+                    tools=tools,
+                    provider_name=provider_name,
+                    model=final.model,
+                    started=started,
+                    response=final,
+                )
                 yield final
                 return
             except Exception as exc:
+                self._record_usage(
+                    usage_sink,
+                    intent=intent,
+                    tools=tools,
+                    provider_name=provider_name,
+                    model=model_override or self._default_model(provider_name),
+                    started=started,
+                    exc=exc,
+                )
                 if (
                     provider_name in {"ollama", "lmstudio"}
                     and enforce_local

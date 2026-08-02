@@ -1,3 +1,5 @@
+import { AlertTriangle } from "lucide-react";
+
 type ConflictGroupProps = {
   conflictGroupId?: string | null;
   relatedCount?: number;
@@ -10,17 +12,20 @@ function ConflictGroup({ conflictGroupId, relatedCount = 0 }: ConflictGroupProps
 
   return (
     <div
-      className="rounded border border-orange-500 bg-orange-900/20 px-3 py-2 text-sm text-orange-100"
+      className="flex gap-2.5 rounded-lg border border-amber-500/25 bg-amber-500/[0.07] px-3 py-2.5"
       title="This memory shares a subject with at least one other memory that has a different value."
     >
-      <p>
-        {relatedCount > 1
-          ? `${relatedCount} memories look like they conflict or duplicate each other.`
-          : "This memory may conflict with another one."}
-      </p>
-      <p className="mt-1 text-xs text-orange-200/80">
-        To resolve: check both, then retract the one that&apos;s outdated or incorrect.
-      </p>
+      <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" aria-hidden="true" />
+      <div className="space-y-1">
+        <p className="text-sm text-amber-100">
+          {relatedCount > 1
+            ? `${relatedCount} memories look like they conflict or duplicate each other.`
+            : "This memory may conflict with another one."}
+        </p>
+        <p className="text-xs text-amber-200/70">
+          To resolve: check both, then retract the one that&apos;s outdated or incorrect.
+        </p>
+      </div>
     </div>
   );
 }

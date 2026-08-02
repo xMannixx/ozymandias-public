@@ -1,6 +1,5 @@
 import { useNavigate } from "react-router-dom";
 import GlassCard from "@/components/common/GlassCard";
-import { RadialBarChart, RadialBar, Tooltip, ResponsiveContainer } from "recharts";
 
 type ClaimsSummaryProps = {
   claimsTotal: number;
@@ -8,18 +7,26 @@ type ClaimsSummaryProps = {
   sensitivity: Record<string, number>;
 };
 
-const states = ["tentative", "confirmed", "superseded", "retracted"] as const;
-const levels = ["S0", "S1", "S2", "S3", "S4"] as const;
+const verificationStates = ["tentative", "confirmed", "superseded", "retracted"] as const;
+const sensitivityLevels = ["S0", "S1", "S2", "S3", "S4"] as const;
 
-const palette: Record<string, string> = {
-  S0: "#94a3b8", // Vibrant silver
-  S1: "#00ff87", // Neon green
-  S2: "#00d2ff", // Neon cyan/blue
-  S3: "#ff7b00", // Neon orange
-  S4: "#d946ef", // Neon magenta
+const sensitivityColor: Record<string, string> = {
+  S0: "bg-zinc-500",
+  S1: "bg-emerald-500",
+  S2: "bg-sky-500",
+  S3: "bg-amber-500",
+  S4: "bg-rose-500",
 };
 
-const stateLabels: Record<string, string> = {
+const sensitivityHint: Record<string, string> = {
+  S0: "Public",
+  S1: "Internal",
+  S2: "Confidential",
+  S3: "Secret (local)",
+  S4: "Isolated",
+};
+
+const stateLabel: Record<string, string> = {
   tentative: "Tentative",
   confirmed: "Confirmed",
   superseded: "Superseded",
@@ -30,64 +37,42 @@ function ClaimsSummary({ claimsTotal, verification, sensitivity }: ClaimsSummary
   const navigate = useNavigate();
   const denominator = Math.max(1, claimsTotal);
 
-  // Construct radial data for concentric rings (S0 inside, S4 outside)
-  const radialData: { name: string; value: number; fill: string }[] = levels
-    .map((level) => ({
-      name: level,
-      value: sensitivity[level] ?? 0,
-      fill: palette[level],
-    }))
-    .filter((d) => d.value > 0);
-
-  // Fallback: If no sensitivity data exists, show a neutral placeholder ring
-  if (radialData.length === 0) {
-    radialData.push({ name: "None", value: 1, fill: "#1e293b" });
-  }
-
   return (
     <GlassCard
-      className="space-y-4 md:col-span-2 cursor-pointer border border-slate-800/80 bg-slate-950/30 backdrop-blur-md hover:border-blue-400/40 hover:shadow-[0_0_20px_rgba(59,130,246,0.15)] transition-all duration-300"
+      className="cursor-pointer space-y-4 md:col-span-2"
       onClick={() => navigate("/memory")}
     >
-      <div className="flex items-center justify-between border-b border-slate-800/60 pb-3">
+      <div className="flex items-baseline justify-between border-b border-white/[0.06] pb-3">
         <div>
-          <p className="text-xs uppercase tracking-wider text-gray-400 font-medium">Memory Status</p>
-          <div className="flex items-baseline gap-2 mt-1">
-            <span className="text-4xl font-extrabold bg-gradient-to-r from-blue-400 to-cyan-300 bg-clip-text text-transparent">
-              {claimsTotal}
-            </span>
-            <span className="text-sm font-semibold text-gray-300">Total claims</span>
+          <p className="text-xs font-medium uppercase tracking-wider text-zinc-500">Memory</p>
+          <div className="mt-1 flex items-baseline gap-2">
+            <span className="text-3xl font-semibold tracking-tight text-white">{claimsTotal}</span>
+            <span className="text-sm text-zinc-400">total claims</span>
           </div>
         </div>
-        <div className="flex gap-2">
-          {levels.map((level) => (
-            <div key={level} className="flex items-center gap-1">
-              <span className="h-2 w-2 rounded-full" style={{ backgroundColor: palette[level] }} />
-              <span className="text-[10px] font-bold text-gray-400">{level}</span>
-            </div>
-          ))}
-        </div>
+        <span className="text-xs text-zinc-500">Click to browse →</span>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 items-center">
-        {/* Left Side: Verification bars */}
+      <div className="grid gap-6 md:grid-cols-2">
         <div className="space-y-3">
-          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Verification</p>
-          <div className="space-y-2.5">
-            {states.map((state) => {
+          <p className="text-xs font-medium uppercase tracking-wider text-zinc-500">Verification</p>
+          <div className="space-y-2">
+            {verificationStates.map((state) => {
               const value = verification[state] ?? 0;
               const percent = Math.round((value / denominator) * 100);
-              const width = `${percent}%`;
               return (
                 <div key={state} className="space-y-1">
                   <div className="flex items-center justify-between text-xs">
-                    <span className="text-gray-300 font-medium">{stateLabels[state] || state}</span>
-                    <span className="text-blue-300 font-bold">{value} <span className="text-[10px] text-gray-500 font-normal">({percent}%)</span></span>
+                    <span className="text-zinc-300">{stateLabel[state] ?? state}</span>
+                    <span className="text-zinc-400">
+                      <span className="font-medium text-zinc-200">{value}</span>
+                      <span className="ml-1 text-zinc-500">({percent}%)</span>
+                    </span>
                   </div>
-                  <div className="h-1.5 rounded-full bg-slate-900/60 overflow-hidden border border-slate-800/40">
+                  <div className="h-1 overflow-hidden rounded-full bg-white/[0.04]">
                     <div
-                      className="h-full rounded-full bg-gradient-to-r from-blue-500 to-cyan-400 shadow-[0_0_8px_rgba(59,130,246,0.3)] transition-all duration-500"
-                      style={{ width }}
+                      className="h-full rounded-full bg-indigo-400/70 transition-[width] duration-500"
+                      style={{ width: `${percent}%` }}
                     />
                   </div>
                 </div>
@@ -96,37 +81,37 @@ function ClaimsSummary({ claimsTotal, verification, sensitivity }: ClaimsSummary
           </div>
         </div>
 
-        {/* Right Side: Sensitivity Radial Bar Chart */}
-        <div className="flex flex-col items-center justify-center space-y-2 border-t border-slate-800/40 pt-4 md:border-t-0 md:pt-0 md:border-l md:border-slate-800/40 md:pl-6">
-          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider self-start">Sensitivity distribution</p>
-          <div className="w-full h-[150px] flex items-center justify-center">
-            <ResponsiveContainer width="100%" height="100%">
-              <RadialBarChart
-                cx="50%"
-                cy="50%"
-                innerRadius="25%"
-                outerRadius="95%"
-                barSize={8}
-                data={radialData}
-                startAngle={90}
-                endAngle={-270}
-              >
-                <RadialBar
-                  background={{ fill: "rgba(30, 41, 59, 0.15)" }}
-                  dataKey="value"
-                  cornerRadius={4}
-                />
-                <Tooltip
-                  contentStyle={{
-                    background: "rgba(15, 23, 42, 0.9)",
-                    border: "1px solid rgba(51, 65, 85, 0.5)",
-                    borderRadius: "8px",
-                    fontSize: "12px",
-                    color: "#f8fafc",
-                  }}
-                />
-              </RadialBarChart>
-            </ResponsiveContainer>
+        <div className="space-y-3">
+          <p className="text-xs font-medium uppercase tracking-wider text-zinc-500">Sensitivity</p>
+          <div className="space-y-2">
+            {sensitivityLevels.map((level) => {
+              const value = sensitivity[level] ?? 0;
+              const percent = Math.round((value / denominator) * 100);
+              return (
+                <div key={level} className="space-y-1">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="flex items-center gap-2 text-zinc-300">
+                      <span
+                        className={`h-1.5 w-1.5 rounded-full ${sensitivityColor[level]}`}
+                        aria-hidden="true"
+                      />
+                      {level}
+                      <span className="text-zinc-500">· {sensitivityHint[level]}</span>
+                    </span>
+                    <span className="text-zinc-400">
+                      <span className="font-medium text-zinc-200">{value}</span>
+                      <span className="ml-1 text-zinc-500">({percent}%)</span>
+                    </span>
+                  </div>
+                  <div className="h-1 overflow-hidden rounded-full bg-white/[0.04]">
+                    <div
+                      className={`h-full rounded-full ${sensitivityColor[level]}/60 transition-[width] duration-500`}
+                      style={{ width: `${percent}%`, opacity: value === 0 ? 0.25 : 1 }}
+                    />
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>

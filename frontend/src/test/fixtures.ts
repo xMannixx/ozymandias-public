@@ -6,6 +6,7 @@ import type {
   HealthResponse,
   ProposedClaimData,
   ProposalResponse,
+  UsageReport,
   UserSettingsResponse,
 } from "@/api/types";
 
@@ -279,9 +280,59 @@ export const mockDashboardStats: DashboardStats = {
   },
   projects_active: 3,
   projects_tasks_open: 11,
-  projects_risks_critical: 2,
-  projects_next_milestone: "Kickoff",
+  projects_knowledge_files: 4,
+  projects_next_due_task: "File the return (2026-05-31)",
   contacts_total: 0,
+};
+
+export const mockUsageReport: UsageReport = {
+  range: "24h",
+  since: "2026-04-05T12:00:00Z",
+  generated_at: "2026-04-06T12:00:00Z",
+  bucket_unit: "hour",
+  totals: {
+    messages_total: 8,
+    messages_user: 4,
+    messages_assistant: 4,
+    sessions: 2,
+    calls: 10,
+    calls_failed: 1,
+    error_rate: 0.1,
+    tool_calls: 2,
+    tokens_total: 24000,
+    tokens_input: 20000,
+    tokens_output: 4000,
+    tokens_cached: 5000,
+    tokens_per_minute: 200,
+    avg_tokens_per_message: 6000,
+    cache_hit_rate: 0.25,
+    avg_latency_ms: 812,
+    cost_usd: 1.5,
+    avg_cost_per_message: 0.375,
+    unpriced_calls: 0,
+    first_call_at: "2026-04-06T11:00:00Z",
+    last_call_at: "2026-04-06T11:58:00Z",
+  },
+  top_models: [
+    { key: "deepseek-chat", calls: 7, tokens: 18000, cost_usd: 1.1, cost_share: 0.73 },
+    { key: "gemini-2.5-flash", calls: 3, tokens: 6000, cost_usd: 0.4, cost_share: 0.27 },
+  ],
+  top_providers: [
+    { key: "deepseek", calls: 7, tokens: 18000, cost_usd: 1.1, cost_share: 0.73 },
+    { key: "gemini", calls: 3, tokens: 6000, cost_usd: 0.4, cost_share: 0.27 },
+  ],
+  top_tools: [{ key: "live_web_search", calls: 2, tokens: 3000, cost_usd: 0.2, cost_share: 0.13 }],
+  top_channels: [{ key: "web", calls: 10, tokens: 24000, cost_usd: 1.5, cost_share: 1 }],
+  top_call_types: [
+    { key: "chat", calls: 6, tokens: 20000, cost_usd: 1.2, cost_share: 0.8 },
+    { key: "claim_extraction", calls: 4, tokens: 4000, cost_usd: 0.3, cost_share: 0.2 },
+  ],
+  errors_by_kind: [{ label: "TimeoutError", count: 1 }],
+  errors_by_day: [{ label: "2026-04-06", count: 1 }],
+  errors_by_hour: [{ label: "11", count: 1 }],
+  series: [
+    { bucket: "2026-04-06T11:00:00Z", calls: 10, tokens: 24000, cost_usd: 1.5, errors: 1 },
+  ],
 };
 
 export const mockSettings: UserSettingsResponse = {

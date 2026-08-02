@@ -186,3 +186,53 @@ export function humanizeSnakeCase(value: string): string {
 export function labelFor(map: Record<string, string>, key: string): string {
   return map[key] ?? humanizeSnakeCase(key);
 }
+
+/** Builds "S2 · Personal" style option labels so codes are never shown bare. */
+export function codeWithLabel(map: Record<string, string>, code: string): string {
+  const label = map[code];
+  return label ? `${code} · ${label}` : code;
+}
+
+/**
+ * Dropdown options with an "All" entry first, using plain-language labels.
+ * Keeps the raw enum value so filter state and API calls stay unchanged.
+ */
+export function optionsWithAll(
+  map: Record<string, string>,
+  order: string[],
+): Array<{ value: string; label: string }> {
+  return [{ value: "", label: "All" }, ...order.map((key) => ({ value: key, label: labelFor(map, key) }))];
+}
+
+export const LIFECYCLE_ORDER = ["session", "temporary", "permanent", "expiry", "archived"];
+export const VERIFICATION_ORDER = ["tentative", "confirmed", "retracted", "superseded"];
+export const TRUST_ORDER = ["T0", "T1", "T2", "T3"];
+
+/** Turns a 0-1 confidence score into something a person can act on. */
+export function confidenceLabel(confidence: number): string {
+  const percent = Math.round(confidence * 100);
+  if (percent >= 85) {
+    return "Very sure";
+  }
+  if (percent >= 65) {
+    return "Fairly sure";
+  }
+  if (percent >= 40) {
+    return "Unsure";
+  }
+  return "Very unsure";
+}
+
+export function confidenceDescription(confidence: number): string {
+  const percent = Math.round(confidence * 100);
+  if (percent >= 85) {
+    return `Ozymandias is very sure this is correct (${percent}%). It will not ask you about it.`;
+  }
+  if (percent >= 65) {
+    return `Ozymandias is fairly sure this is correct (${percent}%).`;
+  }
+  if (percent >= 40) {
+    return `Ozymandias is not very sure about this (${percent}%). It may ask you to confirm it later.`;
+  }
+  return `Ozymandias has low confidence in this (${percent}%). Worth checking whether it is right.`;
+}

@@ -17,6 +17,7 @@ from app.schemas import (
 )
 from app.services.llm.base import LLMMessage, LLMResponse
 from app.services.llm.claim_extractor import ClaimExtractor, _apply_defaults, _is_question
+from app.services.llm.usage import LLMCallUsage, call_type_for_intent
 
 
 @dataclass
@@ -32,10 +33,22 @@ class _FakeRouter:
         messages: list[LLMMessage],
         tools: list[dict[str, Any]] | None = None,
         api_keys: dict[str, str | None] | None = None,
+        usage_sink: list[LLMCallUsage] | None = None,
     ) -> LLMResponse:
         del api_keys, messages, tools
         assert intent == "claim_extraction"
         self.last_sensitivity = sensitivity
+        if usage_sink is not None:
+            usage_sink.append(
+                LLMCallUsage(
+                    call_type=call_type_for_intent(intent),
+                    provider="deepseek",
+                    model="fake",
+                    status="ok",
+                    latency_ms=5,
+                    total_tokens=1,
+                )
+            )
         return LLMResponse(
             content=self.payload,
             model="fake",
@@ -63,6 +76,21 @@ async def test_claim_extractor_parses_valid_json() -> None:
     assert claims[0].subject == "user"
     assert claims[0].source_type is SourceType.model_inferred
     assert claims[0].verification_state is VerificationState.tentative
+
+
+@pytest.mark.asyncio
+async def test_claim_extractor_reports_its_own_call_to_the_usage_sink() -> None:
+    """Extraction is a second model call per turn, so it must show up in usage."""
+    router = _FakeRouter(payload="[]")
+    sink: list[LLMCallUsage] = []
+    await ClaimExtractor(router=router).extract(
+        llm_response_text="irrelevant",
+        original_message="Ich lebe in Berlin",
+        sensitivity=Sensitivity.S1,
+        turn_id="turn-1",
+        usage_sink=sink,
+    )
+    assert [record.call_type for record in sink] == ["claim_extraction"]
 
 
 @pytest.mark.asyncio

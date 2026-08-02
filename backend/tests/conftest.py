@@ -1,6 +1,8 @@
 """Pytest fixtures."""
 
 from collections.abc import AsyncIterator
+from typing import Any, cast
+from unittest.mock import AsyncMock
 
 import fakeredis.aioredis
 import pytest
@@ -11,6 +13,17 @@ from httpx import ASGITransport, AsyncClient
 from app.auth.jwt import get_current_user
 from app.database import get_db, get_redis
 from app.main import create_app
+
+
+def await_kwargs(mock: object) -> dict[str, Any]:
+    """Keyword arguments of a mock's last await.
+
+    Patched methods keep their declared type, so reaching for ``await_args``
+    directly upsets the type checker at every call site.
+    """
+    await_args = cast(AsyncMock, mock).await_args
+    assert await_args is not None, "expected the mock to have been awaited"
+    return dict(await_args.kwargs)
 
 
 class FakeScalarResult:

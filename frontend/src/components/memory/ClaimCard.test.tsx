@@ -47,9 +47,14 @@ describe("ClaimCard", () => {
     expect(container.firstChild).toHaveClass("border-yellow-500");
   });
 
-  it("shows confidence as rounded percentage", () => {
+  it("shows confidence as a plain-language label plus percentage", () => {
     render(<ClaimCard claim={mockClaimLowConfidence} isSelected={false} onSelect={() => undefined} />);
-    expect(screen.getByText("31%")).toBeInTheDocument();
+    expect(screen.getByText(/Very unsure · 31%/)).toBeInTheDocument();
+  });
+
+  it("names the source of the memory in plain language", () => {
+    render(<ClaimCard claim={mockClaimS4} isSelected={false} onSelect={() => undefined} />);
+    expect(screen.getByText("Ozymandias inferred this")).toBeInTheDocument();
   });
 
   it("applies selected glow class", () => {

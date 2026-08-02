@@ -1,6 +1,13 @@
 import { FormEvent, useEffect, useState } from "react";
 import { listProjects } from "@/api/projects";
-import type { ContactDetailResponse, EmailEntry, PhoneEntry, ProjectResponse, UpdateContactRequest } from "@/api/types";
+import type {
+  ContactDetailResponse,
+  EmailEntry,
+  PhoneEntry,
+  ProjectResponse,
+  Sensitivity,
+  UpdateContactRequest,
+} from "@/api/types";
 import AvatarDisplay from "@/components/contacts/AvatarDisplay";
 import Button from "@/components/common/Button";
 import Spinner from "@/components/common/Spinner";
@@ -22,6 +29,15 @@ function displayName(contact: ContactDetailResponse): string {
   return parts.join(" ").trim() || contact.first_name;
 }
 
+/** S3 and S4 keep this person out of every cloud request, so say so plainly. */
+const sensitivityOptions: Array<{ value: Sensitivity; label: string }> = [
+  { value: "S0", label: "S0 — public, nothing to protect" },
+  { value: "S1", label: "S1 — normal, may use cloud models" },
+  { value: "S2", label: "S2 — personal, may use cloud models" },
+  { value: "S3", label: "S3 — private contact, local models only" },
+  { value: "S4", label: "S4 — secret, local models only" },
+];
+
 function ContactDetail({
   contact,
   loading,
@@ -42,6 +58,7 @@ function ContactDetail({
   const [birthday, setBirthday] = useState("");
   const [notes, setNotes] = useState("");
   const [tagsRaw, setTagsRaw] = useState("");
+  const [sensitivity, setSensitivity] = useState<Sensitivity>("S2");
   const [phones, setPhones] = useState<PhoneEntry[]>([]);
   const [emails, setEmails] = useState<EmailEntry[]>([]);
   const [linkProjectId, setLinkProjectId] = useState("");
@@ -63,6 +80,7 @@ function ContactDetail({
     setBirthday(contact.birthday ?? "");
     setNotes(contact.notes ?? "");
     setTagsRaw(contact.tags.join(", "));
+    setSensitivity(contact.sensitivity);
     setPhones(contact.phones.length > 0 ? contact.phones : [{ label: "", number: "" }]);
     setEmails(contact.emails.length > 0 ? contact.emails : [{ label: "", email: "" }]);
     setError(null);
@@ -80,7 +98,7 @@ function ContactDetail({
   if (!contact) {
     return (
       <div className="glass-card p-4 text-sm text-gray-400" data-testid="contact-detail-empty">
-        Kontakt auswaehlen.
+        Select a contact.
       </div>
     );
   }
@@ -115,9 +133,12 @@ function ContactDetail({
       tags,
       phones: phonePayload,
       emails: emailPayload,
+      sensitivity,
     };
     await onSave(contact.contact_id, payload);
   };
+
+  const staysLocal = sensitivity === "S3" || sensitivity === "S4";
 
   const linkedIds = new Set(contact.linked_projects.map((p) => p.project_id));
   const linkableProjects = projects.filter((p) => !linkedIds.has(p.project_id));
@@ -128,7 +149,7 @@ function ContactDetail({
         <AvatarDisplay contactId={contact.contact_id} hasAvatar={contact.has_avatar} label={name} className="h-24 w-24" />
         <div className="flex flex-wrap justify-center gap-2">
           <label className="cursor-pointer rounded-md bg-gray-800 px-3 py-1 text-xs text-gray-200">
-            Avatar hochladen
+            Upload avatar
             <input
               type="file"
               accept="image/*"
@@ -240,7 +261,7 @@ function ContactDetail({
         </div>
         <div>
           <label className="mb-1 block text-xs text-gray-400" htmlFor="cd-tags">
-            Tags (kommagetrennt)
+            Tags (comma-separated)
           </label>
           <input
             id="cd-tags"
@@ -248,6 +269,29 @@ function ContactDetail({
             onChange={(event) => setTagsRaw(event.target.value)}
             className="w-full rounded border border-gray-700 bg-gray-900 px-2 py-1 text-sm text-gray-100"
           />
+        </div>
+
+        <div>
+          <label className="mb-1 block text-xs text-gray-400" htmlFor="cd-sensitivity">
+            Privacy level
+          </label>
+          <select
+            id="cd-sensitivity"
+            value={sensitivity}
+            onChange={(event) => setSensitivity(event.target.value as Sensitivity)}
+            className="w-full rounded border border-gray-700 bg-gray-900 px-2 py-1 text-sm text-gray-100"
+          >
+            {sensitivityOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+          <p className="mt-1 text-xs text-gray-500">
+            {staysLocal
+              ? "Ozy only uses this contact when answering on a local model. Nothing about this person goes to a cloud provider."
+              : "When you mention this person in a chat, Ozy sees the full entry — phone, email, address, notes."}
+          </p>
         </div>
 
         <div className="space-y-2">
@@ -267,7 +311,7 @@ function ContactDetail({
               />
               <input
                 aria-label={`Phone number ${String(index + 1)}`}
-                placeholder="Nummer"
+                placeholder="Number"
                 value={row.number}
                 onChange={(event) => {
                   const next = [...phones];
@@ -284,16 +328,16 @@ function ContactDetail({
             className="text-xs"
             onClick={() => setPhones([...phones, { label: "", number: "" }])}
           >
-            + Nummer
+            + Number
           </Button>
         </div>
 
         <div className="space-y-2">
-          <p className="text-xs font-semibold text-gray-400">E-Mail</p>
+          <p className="text-xs font-semibold text-gray-400">Email</p>
           {emails.map((row, index) => (
             <div key={`email-${String(index)}`} className="flex gap-2">
               <input
-                aria-label={`E-Mail-Label ${String(index + 1)}`}
+                aria-label={`Email label ${String(index + 1)}`}
                 placeholder="Label"
                 value={row.label}
                 onChange={(event) => {
@@ -322,7 +366,7 @@ function ContactDetail({
             className="text-xs"
             onClick={() => setEmails([...emails, { label: "", email: "" }])}
           >
-            + E-Mail
+            + Email
           </Button>
         </div>
 
@@ -339,7 +383,7 @@ function ContactDetail({
       </form>
 
       <div className="border-t border-gray-700 pt-4">
-        <h4 className="mb-2 text-sm font-semibold text-blue-200">Verknuepfte Projekte</h4>
+        <h4 className="mb-2 text-sm font-semibold text-blue-200">Linked projects</h4>
         <ul className="space-y-2" data-testid="linked-projects">
           {contact.linked_projects.map((p) => (
             <li key={p.project_id} className="flex items-center justify-between gap-2 text-sm text-gray-200">
@@ -367,7 +411,7 @@ function ContactDetail({
               onChange={(event) => setLinkProjectId(event.target.value)}
               className="rounded border border-gray-700 bg-gray-900 px-2 py-1 text-sm text-gray-100"
             >
-              <option value="">Projekt waehlen...</option>
+              <option value="">Choose project...</option>
               {linkableProjects.map((p) => (
                 <option key={p.project_id} value={p.project_id}>
                   {p.name}

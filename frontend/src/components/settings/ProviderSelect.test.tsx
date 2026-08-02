@@ -100,7 +100,7 @@ describe("ProviderSelect", () => {
     await userEvent.selectOptions(screen.getByLabelText("settings-local-provider-select"), "lmstudio");
     await screen.findByRole("option", { name: "qwen-local" });
     await userEvent.selectOptions(screen.getByLabelText("settings-local-model-select"), "qwen-local");
-    await userEvent.click(screen.getByRole("button", { name: "Save provider" }));
+    await userEvent.click(screen.getByRole("button", { name: "Save changes" }));
 
     expect(onSave).toHaveBeenCalledWith(
       "openai",
@@ -132,7 +132,7 @@ describe("ProviderSelect", () => {
     await userEvent.selectOptions(screen.getByLabelText("settings-provider-select"), "auto");
     await userEvent.clear(screen.getByLabelText("settings-model-input"));
     await userEvent.selectOptions(screen.getByLabelText("settings-local-provider-select"), "auto");
-    await userEvent.click(screen.getByRole("button", { name: "Save provider" }));
+    await userEvent.click(screen.getByRole("button", { name: "Save changes" }));
 
     expect(onSave).toHaveBeenCalledWith(
       null,
@@ -165,7 +165,7 @@ describe("ProviderSelect", () => {
     expect(screen.queryByLabelText("settings-model-input")).not.toBeInTheDocument();
     await screen.findByRole("option", { name: "deepseek-reasoner" });
     await userEvent.selectOptions(screen.getByLabelText("settings-deepseek-model-select"), "deepseek-reasoner");
-    await userEvent.click(screen.getByRole("button", { name: "Save provider" }));
+    await userEvent.click(screen.getByRole("button", { name: "Save changes" }));
 
     expect(listDeepSeekModelsMock).toHaveBeenCalled();
     expect(onSave).toHaveBeenCalledWith(

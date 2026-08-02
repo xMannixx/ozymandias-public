@@ -22,12 +22,18 @@ describe("ModeSettings", () => {
 
   it("renders guardian mode badge", () => {
     render(<ModeSettings />);
-    expect(screen.getByText("Guardian")).toHaveClass("neon-glow-blue");
+    expect(screen.getByText("Guardian")).toBeInTheDocument();
+  });
+
+  it("explains in plain words what the current mode does", () => {
+    render(<ModeSettings />);
+    expect(screen.getByText(/asks before it saves anything/i)).toBeInTheDocument();
+    expect(screen.getByText(/wait for your approval/i)).toBeInTheDocument();
   });
 
   it("opens confirmation dialog", async () => {
     render(<ModeSettings />);
-    await userEvent.click(screen.getByRole("button", { name: "Zu Autopilot wechseln" }));
+    await userEvent.click(screen.getByRole("button", { name: "Switch to Autopilot" }));
     expect(screen.getByRole("dialog", { name: "mode-settings-confirm" })).toBeInTheDocument();
   });
 
@@ -42,7 +48,7 @@ describe("ModeSettings", () => {
     });
     render(<ModeSettings />);
 
-    await userEvent.click(screen.getByRole("button", { name: "Zu Autopilot wechseln" }));
+    await userEvent.click(screen.getByRole("button", { name: "Switch to Autopilot" }));
     await userEvent.click(screen.getByRole("button", { name: "Confirm" }));
     expect(setMode).toHaveBeenCalledWith("autopilot");
   });

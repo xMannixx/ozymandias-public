@@ -8,7 +8,7 @@ from anthropic import AsyncAnthropic
 
 from app.config import get_settings
 from app.services.errors import ServiceError
-from app.services.llm.base import LLMMessage, LLMProvider, LLMResponse
+from app.services.llm.base import LLMMessage, LLMProvider, LLMResponse, TokenDetail
 
 
 class AnthropicProvider(LLMProvider):
@@ -58,13 +58,23 @@ class AnthropicProvider(LLMProvider):
             if hasattr(first, "text"):
                 content = first.text
 
-        tokens_used = 0
+        tokens = TokenDetail()
         if response.usage is not None:
-            tokens_used = response.usage.input_tokens + response.usage.output_tokens
+            # Anthropic reports cache reads next to input_tokens, not inside it.
+            # Fold them in so cached tokens stay a subset of the prompt everywhere.
+            cached = int(getattr(response.usage, "cache_read_input_tokens", 0) or 0)
+            prompt = int(response.usage.input_tokens or 0) + cached
+            completion = int(response.usage.output_tokens or 0)
+            tokens = TokenDetail(
+                prompt_tokens=prompt,
+                completion_tokens=completion,
+                cached_prompt_tokens=cached,
+                total_tokens=prompt + completion,
+            )
 
-        return LLMResponse(
+        return LLMResponse.from_tokens(
             content=content,
             model=selected_model,
             provider="anthropic",
-            tokens_used=tokens_used,
+            tokens=tokens,
         )

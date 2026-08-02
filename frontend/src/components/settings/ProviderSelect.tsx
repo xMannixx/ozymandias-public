@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
+import { Cloud, HardDrive } from "lucide-react";
 import { listDeepSeekModels, listLMStudioModels, listOllamaModels, listMistralModels } from "@/api/llm";
-import GlassCard from "@/components/common/GlassCard";
+import Button from "@/components/common/Button";
 import Spinner from "@/components/common/Spinner";
+import SettingField from "@/components/settings/SettingField";
+import SettingsCard from "@/components/settings/SettingsCard";
 import { useHealth } from "@/hooks/useHealth";
 import type { LLMProviderName } from "@/api/types";
 
@@ -80,6 +83,7 @@ function ProviderSelect({
   const [isLiveWebEnabled, setIsLiveWebEnabled] = useState(liveWebEnabled);
   const [selectedLiveWebMode, setSelectedLiveWebMode] = useState(liveWebMode);
   const [allowS3LiveWebByDefault, setAllowS3LiveWebByDefault] = useState(liveWebS3ConfirmedDefault);
+  const [saved, setSaved] = useState(false);
 
   useEffect(() => {
     setSelectedProvider(toCloudProviderOption(provider));
@@ -278,6 +282,8 @@ function ProviderSelect({
       selectedLiveWebMode,
       allowS3LiveWebByDefault,
     );
+    setSaved(true);
+    window.setTimeout(() => setSaved(false), 3000);
   }
 
   const localModelSelectValue = selectedLocalModel.trim().length > 0 ? selectedLocalModel : "__auto__";
@@ -301,196 +307,253 @@ function ProviderSelect({
       ? [selectedMistralModel, ...mistralModels]
       : mistralModels;
 
+  const liveWebModeDescription: Record<typeof selectedLiveWebMode, string> = {
+    provider_native_first:
+      "Ozymandias first asks the AI to search the web itself. If the AI cannot, it falls back to the built-in search connector.",
+    connector_only: "Ozymandias always uses its own built-in search connector, never the AI's own search.",
+    off: "No web lookups at all. Answers rely only on what the AI already knows and what you have saved.",
+  };
+
   return (
-    <GlassCard className="space-y-3">
-      <div className="flex items-center justify-between">
-        <p className="text-sm font-medium text-gray-200">LLM Auswahl</p>
-        {loading ? <Spinner /> : null}
+    <SettingsCard
+      title="Which AI answers you"
+      description="Ozymandias sends everyday questions to a cloud AI, but keeps private topics on a model running on your own machine. You choose both."
+      badge={loading ? <Spinner /> : null}
+      footer={
+        <>
+          <Button onClick={() => void savePreference()} disabled={saving}>
+            Save changes
+          </Button>
+          {saved ? (
+            <span className="text-xs text-emerald-300" role="status" aria-live="polite">
+              Saved.
+            </span>
+          ) : null}
+        </>
+      }
+    >
+      <div className="space-y-4 rounded-md border border-white/[0.06] bg-white/[0.02] p-3">
+        <div className="flex items-center gap-2">
+          <Cloud className="h-4 w-4 text-sky-400" aria-hidden="true" />
+          <p className="text-sm font-medium text-zinc-100">Everyday topics</p>
+        </div>
+        <p className="text-xs leading-relaxed text-zinc-400">
+          Used for anything that is not personally sensitive — general questions, drafting, brainstorming. These
+          messages leave your machine and go to the provider you pick.
+        </p>
+
+        <SettingField label="Cloud provider" description="Pick a specific service, or let Ozymandias decide.">
+          <select
+            aria-label="settings-provider-select"
+            className="w-full text-sm"
+            value={selectedProvider}
+            onChange={(event) => setSelectedProvider(event.target.value as ProviderOption)}
+          >
+            <option value="auto">Let Ozymandias choose automatically</option>
+            {CLOUD_PROVIDERS.map((item) => {
+              const configured = configuredProviders.has(item);
+              const current = selectedProvider === item;
+              return (
+                <option key={item} value={item} disabled={!configured && !current}>
+                  {formatProviderLabel(item)}
+                  {configured ? "" : " — needs an API key first"}
+                </option>
+              );
+            })}
+          </select>
+        </SettingField>
+
+        {selectedProvider === "deepseek" ? (
+          <SettingField
+            label="Model"
+            description="Leave on automatic unless you specifically want a different DeepSeek model."
+          >
+            <select
+              aria-label="settings-deepseek-model-select"
+              className="w-full text-sm"
+              value={deepseekModelSelectValue}
+              onChange={(event) => {
+                setSelectedDeepseekModel(event.target.value === "__auto__" ? "" : event.target.value);
+              }}
+              disabled={deepseekModelsLoading}
+            >
+              <option value="__auto__">Automatic (provider default)</option>
+              {deepseekModelOptions.map((modelOption) => (
+                <option key={modelOption} value={modelOption}>
+                  {modelOption}
+                </option>
+              ))}
+            </select>
+          </SettingField>
+        ) : selectedProvider === "mistral" ? (
+          <SettingField
+            label="Model"
+            description="Leave on automatic unless you specifically want a different Mistral model."
+          >
+            <select
+              aria-label="settings-mistral-model-select"
+              className="w-full text-sm"
+              value={mistralModelSelectValue}
+              onChange={(event) => {
+                setSelectedMistralModel(event.target.value === "__auto__" ? "" : event.target.value);
+              }}
+              disabled={mistralModelsLoading}
+            >
+              <option value="__auto__">Automatic (provider default)</option>
+              {mistralModelOptions.map((modelOption) => (
+                <option key={modelOption} value={modelOption}>
+                  {modelOption}
+                </option>
+              ))}
+            </select>
+          </SettingField>
+        ) : (
+          <SettingField
+            label="Model name (optional)"
+            description="Leave empty to use the provider's default model. Only fill this in if you know the exact name you want."
+          >
+            <input
+              aria-label="settings-model-input"
+              className="w-full text-sm"
+              placeholder="Leave empty for the default"
+              value={modelInput}
+              onChange={(event) => setModelInput(event.target.value)}
+            />
+          </SettingField>
+        )}
+
+        {selectedProvider === "deepseek" && deepseekModelsLoading ? <Spinner /> : null}
+        {selectedProvider === "deepseek" && deepseekModelsError ? (
+          <p className="text-xs text-amber-300">{deepseekModelsError}</p>
+        ) : null}
+        {selectedProvider === "mistral" && mistralModelsLoading ? <Spinner /> : null}
+        {selectedProvider === "mistral" && mistralModelsError ? (
+          <p className="text-xs text-amber-300">{mistralModelsError}</p>
+        ) : null}
       </div>
 
-      <label className="flex flex-col gap-1 text-xs text-gray-400">
-        Cloud-Provider (S0-S2)
-        <select
-          aria-label="settings-provider-select"
-          className="rounded border border-gray-700 bg-gray-900 px-2 py-2 text-sm text-gray-100"
-          value={selectedProvider}
-          onChange={(event) => setSelectedProvider(event.target.value as ProviderOption)}
+      <div className="space-y-4 rounded-md border border-white/[0.06] bg-white/[0.02] p-3">
+        <div className="flex items-center gap-2">
+          <HardDrive className="h-4 w-4 text-emerald-400" aria-hidden="true" />
+          <p className="text-sm font-medium text-zinc-100">Private topics</p>
+        </div>
+        <p className="text-xs leading-relaxed text-zinc-400">
+          Health, finances, relationships and similar. These never leave your machine — they are always handled by
+          a model running locally, even if a cloud provider is configured above.
+        </p>
+
+        <SettingField
+          label="Local model runner"
+          description="The program on your machine that runs the local model."
         >
-          <option value="auto">Auto (Router)</option>
-          {CLOUD_PROVIDERS.map((item) => {
-            const configured = configuredProviders.has(item);
-            const current = selectedProvider === item;
-            return (
-              <option key={item} value={item} disabled={!configured && !current}>
-                {formatProviderLabel(item)}
-                {configured ? "" : " (not configured)"}
-              </option>
-            );
-          })}
-        </select>
-      </label>
-
-      {selectedProvider === "deepseek" ? (
-        <label className="flex flex-col gap-1 text-xs text-gray-400">
-          Modell (optional)
           <select
-            aria-label="settings-deepseek-model-select"
-            className="rounded border border-gray-700 bg-gray-900 px-2 py-2 text-sm text-gray-100"
-            value={deepseekModelSelectValue}
-            onChange={(event) => {
-              setSelectedDeepseekModel(event.target.value === "__auto__" ? "" : event.target.value);
-            }}
-            disabled={deepseekModelsLoading}
+            aria-label="settings-local-provider-select"
+            className="w-full text-sm"
+            value={selectedLocalProvider}
+            onChange={(event) => setSelectedLocalProvider(event.target.value as LocalProviderOption)}
           >
-            <option value="__auto__">Auto (Provider-Default)</option>
-            {deepseekModelOptions.map((modelOption) => (
-              <option key={modelOption} value={modelOption}>
-                {modelOption}
-              </option>
-            ))}
+            <option value="auto">Use whichever is available (Ollama or LM Studio)</option>
+            {LOCAL_PROVIDERS.map((item) => {
+              const configured = configuredProviders.has(item);
+              const current = selectedLocalProvider === item;
+              return (
+                <option key={item} value={item} disabled={!configured && !current}>
+                  {formatProviderLabel(item)}
+                  {configured ? "" : " — not running"}
+                </option>
+              );
+            })}
           </select>
-        </label>
-      ) : selectedProvider === "mistral" ? (
-        <label className="flex flex-col gap-1 text-xs text-gray-400">
-          Modell (optional)
-          <select
-            aria-label="settings-mistral-model-select"
-            className="rounded border border-gray-700 bg-gray-900 px-2 py-2 text-sm text-gray-100"
-            value={mistralModelSelectValue}
-            onChange={(event) => {
-              setSelectedMistralModel(event.target.value === "__auto__" ? "" : event.target.value);
-            }}
-            disabled={mistralModelsLoading}
+        </SettingField>
+
+        {selectedLocalProvider !== "auto" ? (
+          <SettingField
+            label="Local model"
+            description="Which of the models installed locally to use."
           >
-            <option value="__auto__">Auto (Provider-Default)</option>
-            {mistralModelOptions.map((modelOption) => (
-              <option key={modelOption} value={modelOption}>
-                {modelOption}
-              </option>
-            ))}
-          </select>
-        </label>
-      ) : (
-        <label className="flex flex-col gap-1 text-xs text-gray-400">
-          Modell (optional)
-          <input
-            aria-label="settings-model-input"
-            className="rounded border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-gray-100"
-            placeholder="e.g. gpt-4o or deepseek-chat"
-            value={modelInput}
-            onChange={(event) => setModelInput(event.target.value)}
-          />
-        </label>
-      )}
+            <select
+              aria-label="settings-local-model-select"
+              className="w-full text-sm"
+              value={localModelSelectValue}
+              onChange={(event) => {
+                setSelectedLocalModel(event.target.value === "__auto__" ? "" : event.target.value);
+              }}
+              disabled={localModelsLoading}
+            >
+              <option value="__auto__">Automatic (whatever is loaded)</option>
+              {localModelOptions.map((modelOption) => (
+                <option key={modelOption} value={modelOption}>
+                  {modelOption}
+                </option>
+              ))}
+            </select>
+          </SettingField>
+        ) : null}
 
-      {selectedProvider === "deepseek" && deepseekModelsLoading ? <Spinner /> : null}
-      {selectedProvider === "deepseek" && deepseekModelsError ? (
-        <p className="text-xs text-yellow-300">{deepseekModelsError}</p>
-      ) : null}
+        {localModelsLoading ? <Spinner /> : null}
+        {localModelsError ? <p className="text-xs text-amber-300">{localModelsError}</p> : null}
+      </div>
 
-      {selectedProvider === "mistral" && mistralModelsLoading ? <Spinner /> : null}
-      {selectedProvider === "mistral" && mistralModelsError ? (
-        <p className="text-xs text-yellow-300">{mistralModelsError}</p>
-      ) : null}
+      {error ? <p className="text-xs text-rose-300">{error}</p> : null}
 
-      <label className="flex flex-col gap-1 text-xs text-gray-400">
-        Lokaler Provider (S3/S4)
-        <select
-          aria-label="settings-local-provider-select"
-          className="rounded border border-gray-700 bg-gray-900 px-2 py-2 text-sm text-gray-100"
-          value={selectedLocalProvider}
-          onChange={(event) => setSelectedLocalProvider(event.target.value as LocalProviderOption)}
-        >
-          <option value="auto">Auto (Ollama/LM Studio)</option>
-          {LOCAL_PROVIDERS.map((item) => {
-            const configured = configuredProviders.has(item);
-            const current = selectedLocalProvider === item;
-            return (
-              <option key={item} value={item} disabled={!configured && !current}>
-                {formatProviderLabel(item)}
-                {configured ? "" : " (not configured)"}
-              </option>
-            );
-          })}
-        </select>
-      </label>
+      <div className="space-y-3 rounded-md border border-white/[0.06] bg-white/[0.02] p-3">
+        <div>
+          <p className="text-sm font-medium text-zinc-100">Web search</p>
+          <p className="mt-0.5 text-xs leading-relaxed text-zinc-400">
+            Lets Ozymandias look things up online when your question needs current information.
+          </p>
+        </div>
 
-      {selectedLocalProvider !== "auto" ? (
-        <label className="flex flex-col gap-1 text-xs text-gray-400">
-          Lokales Modell
-          <select
-            aria-label="settings-local-model-select"
-            className="rounded border border-gray-700 bg-gray-900 px-2 py-2 text-sm text-gray-100"
-            value={localModelSelectValue}
-            onChange={(event) => {
-              setSelectedLocalModel(event.target.value === "__auto__" ? "" : event.target.value);
-            }}
-            disabled={localModelsLoading}
-          >
-            <option value="__auto__">Auto (Provider-Default)</option>
-            {localModelOptions.map((modelOption) => (
-              <option key={modelOption} value={modelOption}>
-                {modelOption}
-              </option>
-            ))}
-          </select>
-        </label>
-      ) : null}
-
-      {localModelsLoading ? <Spinner /> : null}
-      {error ? <p className="text-xs text-red-300">{error}</p> : null}
-      {localModelsError ? <p className="text-xs text-yellow-300">{localModelsError}</p> : null}
-
-      <div className="space-y-2 rounded border border-gray-800 bg-gray-900/40 p-2">
-        <p className="text-xs font-medium text-gray-300">Live web access</p>
-        <label className="inline-flex items-center gap-2 text-xs text-gray-300">
+        <label className="flex items-start gap-2 text-sm text-zinc-200">
           <input
             aria-label="settings-live-web-enabled"
             type="checkbox"
             checked={isLiveWebEnabled}
+            className="mt-0.5 h-3.5 w-3.5 accent-indigo-500"
             onChange={(event) => setIsLiveWebEnabled(event.target.checked)}
           />
-          Enable live web in chat
+          <span>Allow Ozymandias to search the web</span>
         </label>
-        <label className="flex flex-col gap-1 text-xs text-gray-400">
-          Modus
-          <select
-            aria-label="settings-live-web-mode"
-            className="rounded border border-gray-700 bg-gray-900 px-2 py-2 text-sm text-gray-100"
-            value={selectedLiveWebMode}
-            onChange={(event) =>
-              setSelectedLiveWebMode(
-                event.target.value as "provider_native_first" | "connector_only" | "off",
-              )
-            }
-            disabled={!isLiveWebEnabled}
-          >
-            <option value="provider_native_first">Provider-native first (with connector fallback)</option>
-            <option value="connector_only">Nur Connector</option>
-            <option value="off">Aus</option>
-          </select>
-        </label>
-        <label className="inline-flex items-center gap-2 text-xs text-gray-300">
-          <input
-            aria-label="settings-live-web-s3-default"
-            type="checkbox"
-            checked={allowS3LiveWebByDefault}
-            onChange={(event) => setAllowS3LiveWebByDefault(event.target.checked)}
-            disabled={!isLiveWebEnabled}
-          />
-          S3-Live-Web standardmaessig erlauben
-        </label>
-      </div>
 
-      <button
-        type="button"
-        className="rounded border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-gray-100 hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
-        onClick={() => void savePreference()}
-        disabled={saving}
-      >
-        Save provider
-      </button>
-    </GlassCard>
+        {isLiveWebEnabled ? (
+          <>
+            <SettingField label="How to search" description={liveWebModeDescription[selectedLiveWebMode]}>
+              <select
+                aria-label="settings-live-web-mode"
+                className="w-full text-sm"
+                value={selectedLiveWebMode}
+                onChange={(event) =>
+                  setSelectedLiveWebMode(
+                    event.target.value as "provider_native_first" | "connector_only" | "off",
+                  )
+                }
+              >
+                <option value="provider_native_first">Prefer the AI's own search, fall back to ours</option>
+                <option value="connector_only">Always use our own search connector</option>
+                <option value="off">Never search the web</option>
+              </select>
+            </SettingField>
+
+            <label className="flex items-start gap-2 text-sm text-zinc-200">
+              <input
+                aria-label="settings-live-web-s3-default"
+                type="checkbox"
+                checked={allowS3LiveWebByDefault}
+                className="mt-0.5 h-3.5 w-3.5 accent-indigo-500"
+                onChange={(event) => setAllowS3LiveWebByDefault(event.target.checked)}
+              />
+              <span>
+                Search the web for private topics too, without asking each time
+                <span className="mt-0.5 block text-xs text-zinc-400">
+                  Off by default: Ozymandias asks for permission before sending anything derived from a private
+                  topic to a search engine. Turning this on skips that prompt.
+                </span>
+              </span>
+            </label>
+          </>
+        ) : null}
+      </div>
+    </SettingsCard>
   );
 }
 

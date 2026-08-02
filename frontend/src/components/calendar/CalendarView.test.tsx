@@ -64,7 +64,7 @@ describe("CalendarView", () => {
     ];
   });
 
-  it("zeigt 7 Tage der aktuellen Woche", () => {
+  it("shows 7 days of the current week", () => {
     renderView();
     expect(screen.getAllByTestId(/calendar-day-/)).toHaveLength(7);
   });
@@ -75,7 +75,7 @@ describe("CalendarView", () => {
     expect(within(day).getByText("Team Sync")).toBeInTheDocument();
   });
 
-  it("Vor/Zurueck aendert Woche", async () => {
+  it("next/previous changes the week", async () => {
     renderView();
     await userEvent.click(screen.getByRole("button", { name: "Previous week" }));
     await userEvent.click(screen.getByRole("button", { name: "Next week" }));
@@ -83,7 +83,7 @@ describe("CalendarView", () => {
     expect(hookState.nextWeek).toHaveBeenCalledTimes(1);
   });
 
-  it('"Heute" springt zur aktuellen Woche', async () => {
+  it('"Today" jumps to the current week', async () => {
     renderView();
     await userEvent.click(screen.getByRole("button", { name: "Today" }));
     expect(hookState.goToday).toHaveBeenCalledTimes(1);

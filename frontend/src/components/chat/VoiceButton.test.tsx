@@ -53,7 +53,7 @@ describe("VoiceButton", () => {
 
   it("shows processing state with spinner text", () => {
     renderVoiceButton("processing");
-    expect(screen.getByText("Verarbeitung")).toBeInTheDocument();
+    expect(screen.getByText("Processing")).toBeInTheDocument();
   });
 
   it("renders error message when present", () => {

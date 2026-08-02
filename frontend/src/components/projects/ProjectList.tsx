@@ -15,7 +15,6 @@ type ProjectListProps = {
   setStatusFilter: (value: string | null) => void;
   createProject: (data: CreateProjectRequest) => Promise<void>;
   deleteProject: (id: string) => Promise<void>;
-  openProject: (projectId: string, projectName: string) => void;
   clearToast: () => void;
   refetch: () => Promise<void>;
 };
@@ -29,7 +28,6 @@ function ProjectList({
   setStatusFilter,
   createProject,
   deleteProject,
-  openProject,
   clearToast,
   refetch,
 }: ProjectListProps): JSX.Element {
@@ -37,26 +35,33 @@ function ProjectList({
 
   return (
     <section className="space-y-4">
-      <div className="glass-card flex flex-col gap-2 p-3 md:flex-row md:items-center md:justify-between">
+      <header className="space-y-1">
+        <h1 className="text-xl font-medium text-zinc-100">Workspaces</h1>
+        <p className="text-sm text-zinc-500">
+          A workspace holds its own instructions, files, tasks and chats. Ozy uses all of it when
+          you work inside one.
+        </p>
+      </header>
+
+      <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
         <div className="flex items-center gap-2">
           <Button type="button" onClick={() => setDialogOpen(true)}>
-            New project
+            New workspace
           </Button>
           <Button type="button" variant="ghost" onClick={() => void refetch()}>
-            Neu laden
+            Reload
           </Button>
         </div>
         <select
           aria-label="projects-status-filter"
           value={statusFilter ?? ""}
           onChange={(event) => setStatusFilter(event.target.value || null)}
-          className="rounded border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-gray-100"
         >
-          <option value="">Alle</option>
-          <option value="active">Aktiv</option>
-          <option value="paused">Pausiert</option>
+          <option value="">All</option>
+          <option value="active">Active</option>
+          <option value="paused">Paused</option>
           <option value="completed">Completed</option>
-          <option value="cancelled">Abgebrochen</option>
+          <option value="cancelled">Cancelled</option>
         </select>
       </div>
 
@@ -66,28 +71,30 @@ function ProjectList({
         </div>
       ) : null}
 
-      {error ? <p className="text-sm text-red-300">{error}</p> : null}
-
       {loading && projects.length === 0 ? (
-        <div className="glass-card flex justify-center p-6">
+        <div className="glass-card flex justify-center p-6" role="status" aria-live="polite">
           <Spinner />
         </div>
-      ) : null}
-
-      {projects.length === 0 && !loading ? (
-        <div className="glass-card p-6 text-sm text-gray-300">
-          No projects yet. Create your first project.
+      ) : error && projects.length === 0 ? (
+        <p className="glass-card p-4 text-sm text-red-300" role="alert">
+          Could not load workspaces. {error}
+        </p>
+      ) : projects.length === 0 ? (
+        <div className="glass-card space-y-1 p-6">
+          <p className="text-sm text-zinc-200">No workspaces yet.</p>
+          <p className="text-sm text-zinc-500">
+            Create one for a topic you keep coming back to, then add instructions and files.
+          </p>
         </div>
       ) : (
         <div
-          className="grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-4"
+          className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-4"
           data-testid="projects-grid"
         >
           {projects.map((project) => (
             <ProjectCard
               key={project.project_id}
               project={project}
-              onOpen={openProject}
               onDelete={(projectId) => {
                 void deleteProject(projectId);
               }}

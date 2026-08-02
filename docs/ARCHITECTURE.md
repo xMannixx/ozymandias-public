@@ -12,7 +12,7 @@ Ozymandias ist in **vier klar getrennte Schichten** aufgebaut. Jede Schicht hat 
 ┌─────────────────────────────────────────────────────────────┐
 │  SCHICHT 4: FRONTEND                                        │
 │  React 19 + TypeScript + Vite + Tailwind CSS                │
-│  NOC-Theme · PWA · Dashboard · Chat · Memory · Audit        │
+│  Glass-Design · PWA · Dashboard · Chat · Memory · Audit     │
 └────────────────────────┬────────────────────────────────────┘
                          │ REST / JSON (JWT Bearer)
 ┌────────────────────────▼────────────────────────────────────┐
@@ -24,7 +24,7 @@ Ozymandias ist in **vier klar getrennte Schichten** aufgebaut. Jede Schicht hat 
 ┌──────────▼──────────┐       ┌──────────▼──────────────────┐
 │  SCHICHT 2: RUST    │       │  SCHICHT 1: DATEN            │
 │  ozy-contracts      │       │  Postgres 17 + pgvector      │
-│  ozy-core           │       │  Redis 7 (Circuit Breaker)   │
+│  ozy-core           │       │  Redis 7 (Breaker, Celery)   │
 │  ozy-bindings       │       │  MinIO (File Storage)        │
 └─────────────────────┘       └─────────────────────────────┘
 ```
@@ -99,8 +99,9 @@ backend/
 │   └── versions/                 # Migrations-Dateien
 ├── app/
 │   ├── main.py                   # FastAPI App-Factory, Middleware, Router-Registration
+│   ├── celery_app.py             # Celery-App + Beat-Zeitplan (Nachtjobs)
 │   ├── config.py                 # Settings (Pydantic BaseSettings, .env)
-│   ├── database.py               # SQLAlchemy async Engine, Session-Factory
+│   ├── database.py               # SQLAlchemy async Engine, Session-Factory, Job-Runner
 │   ├── api/                      # Route-Handler (FastAPI Routers)
 │   │   ├── audit.py              # GET /audit
 │   │   ├── auth.py               # GET/POST /auth/*
@@ -140,33 +141,51 @@ backend/
 │   │   ├── taint.py              # TaintChunk, TaintContext, TaintSummary
 │   │   └── token_budget.py       # TokenBudgetRequest/Allocation
 │   └── services/                 # Business-Logik
+│       ├── attachment_service.py # Datei-Anhänge am Turn
 │       ├── audit_service.py      # Append-Only Logging
+│       ├── behavioral_rule_service.py # Prozedurale Lane + Guardian-Review
 │       ├── calendar_service.py   # Google Calendar
 │       ├── circuit_breaker_service.py  # Redis-backed Velocity Tracking
 │       ├── claim_service.py      # CRUD + Versioning + Hash-Chain
 │       ├── contact_service.py    # CRUD + Avatar-Upload
-│       ├── decay_service.py      # Celery-Task für Memory-Decay
+│       ├── conversation_service.py # Gesprächsverlauf pro Projekt
+│       ├── decay_service.py      # Celery-Tasks ozy.decay.run / run_all
 │       ├── file_service.py       # MinIO Upload/Download
 │       ├── gmail_service.py      # Google Mail
+│       ├── job_targets.py        # Zielnutzer der Nachtjobs (Beat kennt keine)
+│       ├── live_web_service.py   # Optionaler Web-Connector
+│       ├── memory_graph_service.py     # Entities + Relationen
+│       ├── memory_lifecycle_service.py # Celery-Tasks ozy.memory.cleanup / cleanup_all
+│       ├── memory_provenance_service.py # Herkunft aus dem Audit-Log
+│       ├── memory_recall_service.py    # Query-aware Recall pro Lane
+│       ├── memory_write_service.py     # Lane-Writes hinter den Gates
+│       ├── project_context_service.py  # Projektwissen für den Prompt
 │       ├── project_service.py    # CRUD für Projekte + Sub-Ressourcen
 │       ├── proposal_service.py   # Proposal-Workflow
 │       ├── rust_bridge.py        # PyO3-Wrapper-Aufrufe
 │       ├── settings_service.py   # User-Settings
 │       ├── stats_service.py      # Aggregat-Statistiken
 │       ├── turn_service.py       # Turn-Orchestrierung (Kern-Pipeline)
+│       ├── usage_service.py      # Token-/Kosten-Report pro Zeitraum
 │       ├── utils.py              # Hilfsfunktionen
 │       └── llm/                  # LLM-Provider-Layer
 │           ├── base.py           # LLMProvider-Interface, LLMMessage, LLMResponse
 │           ├── router.py         # LLMRouter — Sensitivity + Intent → Provider
+│           ├── anthropic_provider.py # Anthropic-Provider
 │           ├── deepseek.py       # DeepSeek-Provider
 │           ├── gemini.py         # Google Gemini-Provider
+│           ├── mistral.py        # Mistral-Provider
 │           ├── openai_provider.py # OpenAI-Provider
 │           ├── ollama.py         # Ollama-Provider (lokal)
 │           ├── lmstudio.py       # LM Studio-Provider (lokal)
 │           ├── claim_extractor.py # LLM-basierte Claim-Extraktion
+│           ├── contact_match.py  # Welche Kontakte eine Nachricht meint
 │           ├── context_assembler.py # Token-Budget-gesteuerter Context-Aufbau
+│           ├── pricing.py        # Listenpreise → Kosten pro Aufruf
 │           ├── sensitivity_classifier.py # LLM-basierte Sensitivity-Einstufung
 │           ├── system_prompt.py  # Ozy-Basis-System-Prompt
+│           ├── token_usage_tracker.py # Tageslimits pro Provider
+│           ├── usage.py          # Tokens, Latenz und Kosten pro Aufruf
 │           ├── tts.py            # OpenAI TTS
 │           └── whisper.py        # OpenAI Whisper STT
 └── tests/                        # Pytest-Suites
@@ -193,7 +212,8 @@ frontend/
     │   ├── chat/                 # Chat-Bubbles, Input, Voice-Controls
     │   ├── memory/               # ClaimCard, ProposalCard, ConflictGroup
     │   ├── audit/                # AuditFeed, AuditEntry
-    │   ├── dashboard/            # BriefingWidget, StatsCard
+    │   ├── dashboard/            # ClaimsSummary, SystemHealth, UsageSummary
+    │   ├── usage/                # KPI-Tiles, Top-Listen, Trend-Chart
     │   ├── calendar/             # WeekView, EventCard
     │   ├── mail/                 # InboxList, MailDetail
     │   ├── projects/             # ProjectCard, MilestoneList, TaskBoard
@@ -207,6 +227,7 @@ frontend/
     │   ├── MemoryPage.tsx
     │   ├── ProposalsPage.tsx
     │   ├── AuditPage.tsx
+    │   ├── UsagePage.tsx
     │   ├── SettingsPage.tsx
     │   ├── CalendarPage.tsx
     │   ├── MailPage.tsx
@@ -235,6 +256,7 @@ ozy-minio        minio/minio:latest        Port 9000/9001
 ozy-db-init      postgres:17-alpine        (einmalig, läuft Schema-SQL)
 ozy-pg-backup    postgres:17-alpine        (täglich pg_dump, 7-Tage-Rotation)
 ozy-backend      ./backend/Dockerfile      Port 8000
+ozy-worker       ./backend/Dockerfile      (Celery Worker + Beat, kein Port)
 ozy-frontend     ./frontend/Dockerfile     (baut React-Bundle in Volume)
 ozy-nginx        nginx:1.28-alpine         Port 8080 (Prod)
 ```
@@ -250,9 +272,13 @@ ozy-nginx  (Reverse Proxy)
 
 ozy-backend
     ├── postgres:5432  (DB)
-    ├── redis:6379     (Circuit Breaker, Celery Broker)
+    ├── redis:6379/0   (Circuit Breaker)
     ├── minio:9000     (File Storage)
     └── LLM-APIs       (extern: DeepSeek, Gemini, OpenAI / intern: Ollama, LM Studio)
+
+ozy-worker  (Celery Worker + Beat)
+    ├── postgres:5432  (DB)
+    └── redis:6379/1,2 (Task-Queue und Ergebnisse)
 ```
 
 ### Volumes (NIEMALS mit `down -v` löschen!)

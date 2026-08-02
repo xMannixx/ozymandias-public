@@ -31,7 +31,7 @@ describe("CircuitBreakerSettings", () => {
     await userEvent.type(screen.getByLabelText("cb-max-actions"), "9");
     await userEvent.type(screen.getByLabelText("cb-window-seconds"), "60");
     await userEvent.type(screen.getByLabelText("cb-cooldown-seconds"), "120");
-    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    await userEvent.click(screen.getByRole("button", { name: "Save changes" }));
 
     expect(onSave).toHaveBeenCalledWith(9, 60, 120);
   });
@@ -48,7 +48,7 @@ describe("CircuitBreakerSettings", () => {
     );
 
     await userEvent.type(screen.getByLabelText("cb-window-seconds"), "2");
-    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    await userEvent.click(screen.getByRole("button", { name: "Save changes" }));
 
     expect(screen.getByText(/Invalid values/i)).toBeInTheDocument();
     expect(onSave).not.toHaveBeenCalled();

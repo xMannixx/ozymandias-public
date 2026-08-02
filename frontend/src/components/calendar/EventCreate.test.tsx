@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import EventCreate from "@/components/calendar/EventCreate";
 
 describe("EventCreate", () => {
-  it("Erstellen ruft createEvent API auf", async () => {
+  it("Create calls createEvent API", async () => {
     const onCreate = vi.fn(async (_payload: Record<string, unknown>) => undefined);
     render(<EventCreate onCreate={onCreate} />);
 
@@ -20,7 +20,7 @@ describe("EventCreate", () => {
     });
   });
 
-  it("Titel Pflichtfeld", () => {
+  it("title is required", () => {
     render(<EventCreate onCreate={vi.fn(async () => undefined)} />);
     expect(screen.getByRole("button", { name: "Create" })).toBeDisabled();
   });

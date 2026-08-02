@@ -13,6 +13,7 @@ from app.auth.jwt import get_current_user
 from app.database import get_db
 from app.schemas import AuditEventType, AuditResult, Channel, Sensitivity
 from app.schemas.api_models import FileResponse
+from app.services.attachment_service import try_extract_text
 from app.services.audit_service import AuditService
 from app.services.errors import NotFoundError, ValidationError
 from app.services.file_service import FileService
@@ -34,6 +35,9 @@ async def upload_file(
 
     data = await file.read()
     content_type = file.content_type or ""
+    # Extraction is best-effort: an unreadable file still uploads, it just
+    # carries no knowledge into the workspace context.
+    extraction = try_extract_text(filename=file.filename or "", data=data)
     try:
         upload = await file_service.upload_file(
             project_id=project_id,
@@ -51,6 +55,9 @@ async def upload_file(
             size_bytes=int(upload["size_bytes"]),
             minio_bucket=str(upload["minio_bucket"]),
             minio_key=str(upload["minio_key"]),
+            extracted_text=extraction.text,
+            extract_status=extraction.status,
+            text_chars=extraction.chars,
         )
     except NotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc

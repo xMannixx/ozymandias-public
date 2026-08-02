@@ -40,6 +40,9 @@ class TurnRequest(BaseModel):
     use_live_web: bool | None = None
     allow_s3_live_web: bool = False
     conversation_id: str | None = None
+    #: Workspace this turn happens in. Pulls that project's instructions and
+    #: knowledge into context and can force local-only routing.
+    project_id: str | None = None
     attachments: list[TurnAttachment] | None = Field(default=None, max_length=5)
 
 
@@ -129,6 +132,7 @@ class ConversationResponse(BaseModel):
 
     conversation_id: str
     title: str
+    project_id: str | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -291,9 +295,90 @@ class DashboardStats(BaseModel):
     provider_usage: dict[str, int]
     projects_active: int = Field(ge=0)
     projects_tasks_open: int = Field(ge=0)
-    projects_risks_critical: int = Field(ge=0)
-    projects_next_milestone: str | None = None
+    projects_knowledge_files: int = Field(ge=0)
+    projects_next_due_task: str | None = None
     contacts_total: int = Field(ge=0)
+
+
+UsageRangeLiteral = Literal["24h", "7d", "30d", "all"]
+
+
+class UsageTotals(BaseModel):
+    """Headline numbers of one usage range."""
+
+    messages_total: int = Field(ge=0)
+    messages_user: int = Field(ge=0)
+    messages_assistant: int = Field(ge=0)
+    sessions: int = Field(ge=0)
+    calls: int = Field(ge=0)
+    calls_failed: int = Field(ge=0)
+    #: Failed calls over all calls, 0.0 to 1.0.
+    error_rate: float = Field(ge=0.0, le=1.0)
+    tool_calls: int = Field(ge=0)
+    tokens_total: int = Field(ge=0)
+    tokens_input: int = Field(ge=0)
+    tokens_output: int = Field(ge=0)
+    tokens_cached: int = Field(ge=0)
+    #: Tokens per minute across the measured window, None below two calls.
+    tokens_per_minute: float | None = None
+    avg_tokens_per_message: float | None = None
+    #: Cached input over all input tokens of providers that report caching.
+    cache_hit_rate: float | None = None
+    avg_latency_ms: int | None = None
+    cost_usd: float = Field(ge=0.0)
+    avg_cost_per_message: float | None = None
+    #: Calls whose model has no known price, so cost is understated by them.
+    unpriced_calls: int = Field(ge=0)
+    first_call_at: datetime | None = None
+    last_call_at: datetime | None = None
+
+
+class UsageBreakdownItem(BaseModel):
+    """One row of a top list, for example a model or a provider."""
+
+    key: str
+    calls: int = Field(ge=0)
+    tokens: int = Field(ge=0)
+    cost_usd: float = Field(ge=0.0)
+    #: Share of the range's total cost, 0.0 to 1.0.
+    cost_share: float = Field(ge=0.0, le=1.0)
+
+
+class UsageCount(BaseModel):
+    """A labelled count, used for error distributions."""
+
+    label: str
+    count: int = Field(ge=0)
+
+
+class UsageBucket(BaseModel):
+    """One point of the usage trend, hourly or daily."""
+
+    bucket: datetime
+    calls: int = Field(ge=0)
+    tokens: int = Field(ge=0)
+    cost_usd: float = Field(ge=0.0)
+    errors: int = Field(ge=0)
+
+
+class UsageReport(BaseModel):
+    """Everything the usage page shows for one range."""
+
+    range: UsageRangeLiteral
+    since: datetime | None = None
+    generated_at: datetime
+    #: hour for the 24h range, day for the longer ones.
+    bucket_unit: Literal["hour", "day"]
+    totals: UsageTotals
+    top_models: list[UsageBreakdownItem]
+    top_providers: list[UsageBreakdownItem]
+    top_tools: list[UsageBreakdownItem]
+    top_channels: list[UsageBreakdownItem]
+    top_call_types: list[UsageBreakdownItem]
+    errors_by_kind: list[UsageCount]
+    errors_by_day: list[UsageCount]
+    errors_by_hour: list[UsageCount]
+    series: list[UsageBucket]
 
 
 class UserSettingsResponse(BaseModel):
@@ -476,6 +561,8 @@ class ProjectResponse(BaseModel):
     project_id: str
     name: str
     description: str | None
+    instructions: str | None = None
+    sensitivity: str = "S1"
     status: str
     priority: str
     color: str | None
@@ -484,8 +571,10 @@ class ProjectResponse(BaseModel):
     completed_date: date | None
     task_count: int = Field(ge=0)
     task_done_count: int = Field(ge=0)
-    risk_open_count: int = Field(ge=0)
-    next_milestone: str | None = None
+    #: Files that carry usable text for the workspace context.
+    knowledge_count: int = Field(default=0, ge=0)
+    chat_count: int = Field(default=0, ge=0)
+    next_due_task: str | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -493,12 +582,20 @@ class ProjectResponse(BaseModel):
 class ProjectDetailResponse(ProjectResponse):
     """Project payload with fully expanded related entities."""
 
-    milestones: list[MilestoneResponse]
     tasks: list[TaskResponse]
-    risks: list[RiskResponse]
     notes: list[NoteResponse]
     files: list[FileResponse]
     links: list[LinkResponse]
+    chats: list[ProjectChatResponse]
+
+
+class ProjectChatResponse(BaseModel):
+    """A chat that lives inside a workspace."""
+
+    conversation_id: str
+    title: str
+    created_at: datetime
+    updated_at: datetime
 
 
 class CreateProjectRequest(BaseModel):
@@ -506,6 +603,8 @@ class CreateProjectRequest(BaseModel):
 
     name: str = Field(min_length=1, max_length=200)
     description: str | None = None
+    instructions: str | None = Field(default=None, max_length=20_000)
+    sensitivity: Literal["S0", "S1", "S2", "S3", "S4"] = "S1"
     status: Literal["active", "paused", "completed", "cancelled"] = "active"
     priority: Literal["low", "medium", "high", "critical"] = "medium"
     color: str | None = None
@@ -518,42 +617,14 @@ class UpdateProjectRequest(BaseModel):
 
     name: str | None = Field(default=None, min_length=1, max_length=200)
     description: str | None = None
+    instructions: str | None = Field(default=None, max_length=20_000)
+    sensitivity: Literal["S0", "S1", "S2", "S3", "S4"] | None = None
     status: Literal["active", "paused", "completed", "cancelled"] | None = None
     priority: Literal["low", "medium", "high", "critical"] | None = None
     color: str | None = None
     start_date: date | None = None
     target_date: date | None = None
     completed_date: date | None = None
-
-
-class MilestoneResponse(BaseModel):
-    """Milestone payload."""
-
-    milestone_id: str
-    project_id: str
-    name: str
-    due_date: date | None
-    completed: bool
-    completed_at: datetime | None
-    sort_order: int
-    created_at: datetime
-
-
-class CreateMilestoneRequest(BaseModel):
-    """Create milestone payload."""
-
-    name: str = Field(min_length=1, max_length=200)
-    due_date: date | None = None
-    sort_order: int = 0
-
-
-class UpdateMilestoneRequest(BaseModel):
-    """Partial milestone update."""
-
-    name: str | None = Field(default=None, min_length=1, max_length=200)
-    due_date: date | None = None
-    completed: bool | None = None
-    sort_order: int | None = None
 
 
 class TaskResponse(BaseModel):
@@ -593,37 +664,6 @@ class UpdateTaskRequest(BaseModel):
     sort_order: int | None = None
 
 
-class RiskResponse(BaseModel):
-    """Risk payload."""
-
-    risk_id: str
-    project_id: str
-    name: str
-    description: str | None
-    severity: str
-    status: str
-    created_at: datetime
-    updated_at: datetime
-
-
-class CreateRiskRequest(BaseModel):
-    """Create risk payload."""
-
-    name: str = Field(min_length=1, max_length=200)
-    description: str | None = None
-    severity: Literal["low", "medium", "high", "critical"] = "medium"
-    status: Literal["open", "watching", "occurred", "resolved"] = "open"
-
-
-class UpdateRiskRequest(BaseModel):
-    """Partial risk update."""
-
-    name: str | None = Field(default=None, min_length=1, max_length=200)
-    description: str | None = None
-    severity: Literal["low", "medium", "high", "critical"] | None = None
-    status: Literal["open", "watching", "occurred", "resolved"] | None = None
-
-
 class NoteResponse(BaseModel):
     """Project note payload."""
 
@@ -642,7 +682,7 @@ class CreateNoteRequest(BaseModel):
 
 
 class FileResponse(BaseModel):
-    """Project file metadata payload."""
+    """Project file metadata plus whether its text is usable as knowledge."""
 
     file_id: str
     project_id: str
@@ -650,6 +690,9 @@ class FileResponse(BaseModel):
     original_name: str
     content_type: str
     size_bytes: int
+    #: pending | ok | unsupported | failed
+    extract_status: str = "pending"
+    text_chars: int = Field(default=0, ge=0)
     created_at: datetime
 
 
@@ -699,6 +742,7 @@ class ContactResponse(BaseModel):
     emails: list[EmailEntry]
     tags: list[str]
     has_avatar: bool
+    sensitivity: str = "S2"
     created_at: datetime
     updated_at: datetime
 
@@ -733,6 +777,7 @@ class CreateContactRequest(BaseModel):
     birthday: date | None = None
     notes: str | None = None
     tags: list[str] = Field(default_factory=list)
+    sensitivity: Literal["S0", "S1", "S2", "S3", "S4"] = "S2"
 
 
 class UpdateContactRequest(BaseModel):
@@ -748,6 +793,7 @@ class UpdateContactRequest(BaseModel):
     birthday: date | None = None
     notes: str | None = None
     tags: list[str] | None = None
+    sensitivity: Literal["S0", "S1", "S2", "S3", "S4"] | None = None
 
 
 class LinkProjectRequest(BaseModel):

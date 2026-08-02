@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import uuid
+from decimal import Decimal
 from types import SimpleNamespace
 from typing import cast
 from unittest.mock import AsyncMock
@@ -10,6 +11,7 @@ from unittest.mock import AsyncMock
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.usage import LLMUsageEvent
 from app.schemas import (
     ClaimData,
     G2Result,
@@ -36,10 +38,13 @@ from app.services.errors import (
 )
 from app.services.live_web_service import LiveWebContext
 from app.services.llm.base import LLMResponse
+from app.services.llm.context_assembler import ContextResult
 from app.services.llm.sensitivity_classifier import SensitivityClassification
 from app.services.llm.system_prompt import OZY_SYSTEM_PROMPT, build_system_prompt
+from app.services.llm.usage import LLMCallUsage
+from app.services.project_context_service import ProjectContext
 from app.services.turn_service import TurnService
-from tests.conftest import FakeAsyncSession
+from tests.conftest import FakeAsyncSession, await_kwargs
 
 
 def _claim() -> ClaimData:
@@ -116,13 +121,14 @@ def _patch_context_assembler(
     monkeypatch: pytest.MonkeyPatch,
     *,
     context_block: str = (
-        "<user_context>\n"
-        "Keine Claims, Projekte oder Kontakte gespeichert. Memory ist leer.\n"
+        "<user_context>\nNo claims, projects or contacts stored yet. Memory is empty.\n"
         "</user_context>"
     ),
 ) -> AsyncMock:
-    assemble_mock = AsyncMock(return_value=context_block)
-    monkeypatch.setattr("app.services.turn_service.ContextAssembler.assemble", assemble_mock)
+    assemble_mock = AsyncMock(return_value=ContextResult(text=context_block))
+    monkeypatch.setattr(
+        "app.services.turn_service.ContextAssembler.assemble_with_report", assemble_mock
+    )
     return assemble_mock
 
 
@@ -303,6 +309,82 @@ async def test_process_turn_logs_failure_and_reraises(monkeypatch: pytest.Monkey
     with pytest.raises(CircuitBreakerTrippedError):
         await service.process_turn(user_id="user-1", payload=TurnRequest(text="hello", claims=[]))
     assert service.audit.log.await_count >= 1  # type: ignore[attr-defined]
+
+
+@pytest.mark.asyncio
+async def test_process_turn_persists_what_the_llm_calls_consumed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    session = FakeAsyncSession()
+    service = TurnService(cast(AsyncSession, session))
+    _prepare_service(service)
+    _patch_context_assembler(monkeypatch)
+    _patch_default_rust(monkeypatch, claims=[])
+
+    async def _route(**kwargs: object) -> LLMResponse:
+        sink = cast(list[LLMCallUsage] | None, kwargs["usage_sink"])
+        assert sink is not None
+        sink.append(
+            LLMCallUsage(
+                call_type="chat",
+                provider="openai",
+                model="gpt-4o",
+                status="ok",
+                latency_ms=900,
+                prompt_tokens=1_000_000,
+                completion_tokens=100_000,
+                cached_prompt_tokens=500_000,
+                total_tokens=1_100_000,
+            )
+        )
+        return LLMResponse(content="ok", model="gpt-4o", provider="openai", tokens_used=1_100_000)
+
+    service.llm_router.route = AsyncMock(side_effect=_route)  # type: ignore[method-assign]
+    service.claim_extractor.extract = AsyncMock(return_value=[])  # type: ignore[method-assign]
+
+    await service.process_turn(user_id="user-1", payload=TurnRequest(text="hello"))
+
+    events = [row for row in session.added if isinstance(row, LLMUsageEvent)]
+    assert len(events) == 1
+    assert events[0].provider == "openai"
+    assert events[0].total_tokens == 1_100_000
+    assert events[0].cost_usd == Decimal("2.875000")
+    assert events[0].turn_id is not None
+
+
+@pytest.mark.asyncio
+async def test_process_turn_persists_usage_even_when_the_turn_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A crashed turn still burned tokens, so the failed attempt must be visible."""
+    session = FakeAsyncSession()
+    service = TurnService(cast(AsyncSession, session))
+    _prepare_service(service)
+    _patch_context_assembler(monkeypatch)
+    _patch_default_rust(monkeypatch, claims=[])
+
+    async def _route(**kwargs: object) -> LLMResponse:
+        sink = cast(list[LLMCallUsage] | None, kwargs["usage_sink"])
+        assert sink is not None
+        sink.append(
+            LLMCallUsage(
+                call_type="chat",
+                provider="openai",
+                model="gpt-4o",
+                status="error",
+                latency_ms=300,
+                error_kind="ConnectionError",
+            )
+        )
+        raise ConnectionError("connection refused")
+
+    service.llm_router.route = AsyncMock(side_effect=_route)  # type: ignore[method-assign]
+
+    with pytest.raises(ConnectionError):
+        await service.process_turn(user_id="user-1", payload=TurnRequest(text="hello"))
+
+    events = [row for row in session.added if isinstance(row, LLMUsageEvent)]
+    assert [(event.status, event.error_kind) for event in events] == [("error", "ConnectionError")]
 
 
 @pytest.mark.asyncio
@@ -954,7 +1036,7 @@ async def test_process_turn_persists_chat_messages_to_conversation(
     _prepare_service(service)
     _patch_context_assembler(monkeypatch)
     _patch_default_rust(monkeypatch, claims=[])
-    conversation = SimpleNamespace(conversation_id=uuid.uuid4())
+    conversation = SimpleNamespace(conversation_id=uuid.uuid4(), project_id=None)
     service.conversation_service.create_conversation = AsyncMock(  # type: ignore[method-assign]
         return_value=conversation
     )
@@ -987,7 +1069,7 @@ async def test_process_turn_injects_conversation_history_into_llm_messages(
     _prepare_service(service)
     _patch_context_assembler(monkeypatch)
     _patch_default_rust(monkeypatch, claims=[])
-    conversation = SimpleNamespace(conversation_id=uuid.uuid4())
+    conversation = SimpleNamespace(conversation_id=uuid.uuid4(), project_id=None)
     service.conversation_service.get_conversation = AsyncMock(  # type: ignore[method-assign]
         return_value=conversation
     )
@@ -1021,6 +1103,290 @@ async def test_process_turn_injects_conversation_history_into_llm_messages(
     assert contents.index("earlier question") < contents.index("follow-up")
 
 
+def _patch_project_context(
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    sensitivity: str = "S1",
+    force_local: bool = False,
+    knowledge_files: list[str] | None = None,
+) -> ProjectContext:
+    context = ProjectContext(
+        project_id="11111111-1111-1111-1111-111111111111",
+        project_name="Ozymandias",
+        sensitivity=sensitivity,
+        force_local=force_local,
+        text='<workspace name="Ozymandias" sensitivity="S1">\nspec says JSON\n</workspace>',
+        knowledge_files=knowledge_files or ["spec.md"],
+        knowledge_chars=42,
+    )
+    monkeypatch.setattr(
+        "app.services.turn_service.ProjectContextService.build",
+        AsyncMock(return_value=context),
+    )
+    return context
+
+
+@pytest.mark.asyncio
+async def test_process_turn_injects_workspace_block_ahead_of_general_context(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = TurnService(cast(AsyncSession, FakeAsyncSession()))
+    _prepare_service(service)
+    _patch_context_assembler(monkeypatch)
+    _patch_default_rust(monkeypatch, claims=[])
+    context = _patch_project_context(monkeypatch)
+    service.conversation_service.create_conversation = AsyncMock(  # type: ignore[method-assign]
+        return_value=SimpleNamespace(conversation_id=uuid.uuid4(), project_id=None)
+    )
+    service.conversation_service.append_message = AsyncMock()  # type: ignore[method-assign]
+    service.llm_router.route = AsyncMock(  # type: ignore[method-assign]
+        return_value=LLMResponse(content="answer", model="llama3", provider="ollama", tokens_used=5)
+    )
+    service.claim_extractor.extract = AsyncMock(return_value=[])  # type: ignore[method-assign]
+
+    await service.process_turn(
+        user_id="user-1",
+        payload=TurnRequest(text="what does the spec say?", project_id=context.project_id),
+    )
+
+    messages = await_kwargs(service.llm_router.route)["messages"]
+    assert messages[1]["content"] == context.text
+    assert "<user_context>" in messages[2]["content"]
+
+
+@pytest.mark.asyncio
+async def test_process_turn_omits_project_overview_inside_a_workspace(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = TurnService(cast(AsyncSession, FakeAsyncSession()))
+    _prepare_service(service)
+    assemble_mock = _patch_context_assembler(monkeypatch)
+    _patch_default_rust(monkeypatch, claims=[])
+    context = _patch_project_context(monkeypatch)
+    service.conversation_service.create_conversation = AsyncMock(  # type: ignore[method-assign]
+        return_value=SimpleNamespace(conversation_id=uuid.uuid4(), project_id=None)
+    )
+    service.conversation_service.append_message = AsyncMock()  # type: ignore[method-assign]
+    service.llm_router.route = AsyncMock(  # type: ignore[method-assign]
+        return_value=LLMResponse(content="answer", model="llama3", provider="ollama", tokens_used=5)
+    )
+    service.claim_extractor.extract = AsyncMock(return_value=[])  # type: ignore[method-assign]
+
+    await service.process_turn(
+        user_id="user-1",
+        payload=TurnRequest(text="status?", project_id=context.project_id),
+    )
+
+    assert await_kwargs(assemble_mock)["include_projects"] is False
+
+
+@pytest.mark.asyncio
+async def test_sensitive_workspace_forces_local_routing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = TurnService(cast(AsyncSession, FakeAsyncSession()))
+    _prepare_service(service)
+    _patch_context_assembler(monkeypatch)
+    _patch_default_rust(monkeypatch, claims=[])
+    context = _patch_project_context(monkeypatch, sensitivity="S3", force_local=True)
+    service.conversation_service.create_conversation = AsyncMock(  # type: ignore[method-assign]
+        return_value=SimpleNamespace(conversation_id=uuid.uuid4(), project_id=None)
+    )
+    service.conversation_service.append_message = AsyncMock()  # type: ignore[method-assign]
+    service.llm_router.route = AsyncMock(  # type: ignore[method-assign]
+        return_value=LLMResponse(content="answer", model="llama3", provider="ollama", tokens_used=5)
+    )
+    service.claim_extractor.extract = AsyncMock(return_value=[])  # type: ignore[method-assign]
+
+    await service.process_turn(
+        user_id="user-1",
+        payload=TurnRequest(
+            text="harmless question",
+            project_id=context.project_id,
+            provider="openai",
+        ),
+    )
+
+    route_kwargs = await_kwargs(service.llm_router.route)
+    assert route_kwargs["enforce_local"] is True
+    # A cloud provider must not survive a local-only workspace.
+    assert route_kwargs["preferred_provider"] is None
+
+
+@pytest.mark.asyncio
+async def test_turn_audit_records_injected_workspace_knowledge(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = TurnService(cast(AsyncSession, FakeAsyncSession()))
+    _prepare_service(service)
+    _patch_context_assembler(monkeypatch)
+    _patch_default_rust(monkeypatch, claims=[])
+    context = _patch_project_context(monkeypatch, knowledge_files=["spec.md", "notes.txt"])
+    service.conversation_service.create_conversation = AsyncMock(  # type: ignore[method-assign]
+        return_value=SimpleNamespace(conversation_id=uuid.uuid4(), project_id=None)
+    )
+    service.conversation_service.append_message = AsyncMock()  # type: ignore[method-assign]
+    service.llm_router.route = AsyncMock(  # type: ignore[method-assign]
+        return_value=LLMResponse(content="answer", model="llama3", provider="ollama", tokens_used=5)
+    )
+    service.claim_extractor.extract = AsyncMock(return_value=[])  # type: ignore[method-assign]
+
+    await service.process_turn(
+        user_id="user-1",
+        payload=TurnRequest(text="hello", project_id=context.project_id),
+    )
+
+    audit_payload = await_kwargs(service.audit.log)["payload"]
+    assert audit_payload["project_id"] == context.project_id
+    assert audit_payload["project_knowledge_files"] == ["spec.md", "notes.txt"]
+    assert audit_payload["project_knowledge_chars"] == 42
+
+
+@pytest.mark.asyncio
+async def test_turn_audit_records_which_contacts_the_model_saw(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Contact data leaving the machine has to be traceable afterwards."""
+    service = TurnService(cast(AsyncSession, FakeAsyncSession()))
+    _prepare_service(service)
+    monkeypatch.setattr(
+        "app.services.turn_service.ContextAssembler.assemble_with_report",
+        AsyncMock(
+            return_value=ContextResult(
+                text="<user_context></user_context>",
+                detailed_contact_ids=["11111111-1111-1111-1111-111111111111"],
+                withheld_private_contacts=2,
+            )
+        ),
+    )
+    _patch_default_rust(monkeypatch, claims=[])
+    service.llm_router.route = AsyncMock(  # type: ignore[method-assign]
+        return_value=LLMResponse(content="answer", model="llama3", provider="ollama", tokens_used=5)
+    )
+    service.claim_extractor.extract = AsyncMock(return_value=[])  # type: ignore[method-assign]
+
+    await service.process_turn(user_id="user-1", payload=TurnRequest(text="Schmidts Nummer?"))
+
+    audit_payload = await_kwargs(service.audit.log)["payload"]
+    assert audit_payload["contact_details_shown"] == ["11111111-1111-1111-1111-111111111111"]
+    assert audit_payload["contacts_withheld_private"] == 2
+
+
+@pytest.mark.asyncio
+async def test_the_user_message_drives_contact_lookup(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = TurnService(cast(AsyncSession, FakeAsyncSession()))
+    _prepare_service(service)
+    assemble_mock = _patch_context_assembler(monkeypatch)
+    _patch_default_rust(monkeypatch, claims=[])
+    service.llm_router.route = AsyncMock(  # type: ignore[method-assign]
+        return_value=LLMResponse(content="answer", model="llama3", provider="ollama", tokens_used=5)
+    )
+    service.claim_extractor.extract = AsyncMock(return_value=[])  # type: ignore[method-assign]
+
+    await service.process_turn(
+        user_id="user-1", payload=TurnRequest(text="Hast du Schmidts Nummer?")
+    )
+
+    assert assemble_mock.await_args is not None
+    assert assemble_mock.await_args.kwargs["query"] == "Hast du Schmidts Nummer?"
+
+
+@pytest.mark.asyncio
+async def test_new_chat_inside_a_workspace_is_linked_to_it(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = TurnService(cast(AsyncSession, FakeAsyncSession()))
+    _prepare_service(service)
+    _patch_context_assembler(monkeypatch)
+    _patch_default_rust(monkeypatch, claims=[])
+    context = _patch_project_context(monkeypatch)
+    service.conversation_service.create_conversation = AsyncMock(  # type: ignore[method-assign]
+        return_value=SimpleNamespace(conversation_id=uuid.uuid4(), project_id=None)
+    )
+    service.conversation_service.append_message = AsyncMock()  # type: ignore[method-assign]
+    service.llm_router.route = AsyncMock(  # type: ignore[method-assign]
+        return_value=LLMResponse(content="answer", model="llama3", provider="ollama", tokens_used=5)
+    )
+    service.claim_extractor.extract = AsyncMock(return_value=[])  # type: ignore[method-assign]
+
+    await service.process_turn(
+        user_id="user-1",
+        payload=TurnRequest(text="hello", project_id=context.project_id),
+    )
+
+    create_kwargs = await_kwargs(service.conversation_service.create_conversation)
+    assert create_kwargs["project_id"] == context.project_id
+
+
+@pytest.mark.asyncio
+async def test_existing_chat_keeps_its_workspace_without_an_explicit_project(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = TurnService(cast(AsyncSession, FakeAsyncSession()))
+    _prepare_service(service)
+    _patch_context_assembler(monkeypatch)
+    _patch_default_rust(monkeypatch, claims=[])
+    build_mock = AsyncMock(
+        return_value=ProjectContext(
+            project_id="22222222-2222-2222-2222-222222222222",
+            project_name="Ozymandias",
+            sensitivity="S1",
+            force_local=False,
+            text="<workspace/>",
+        )
+    )
+    monkeypatch.setattr("app.services.turn_service.ProjectContextService.build", build_mock)
+    conversation = SimpleNamespace(
+        conversation_id=uuid.uuid4(),
+        project_id=uuid.UUID("22222222-2222-2222-2222-222222222222"),
+    )
+    service.conversation_service.get_conversation = AsyncMock(  # type: ignore[method-assign]
+        return_value=conversation
+    )
+    service.conversation_service.append_message = AsyncMock()  # type: ignore[method-assign]
+    service.conversation_service.recent_history = AsyncMock(  # type: ignore[method-assign]
+        return_value=[]
+    )
+    service.llm_router.route = AsyncMock(  # type: ignore[method-assign]
+        return_value=LLMResponse(content="answer", model="llama3", provider="ollama", tokens_used=5)
+    )
+    service.claim_extractor.extract = AsyncMock(return_value=[])  # type: ignore[method-assign]
+
+    await service.process_turn(
+        user_id="user-1",
+        payload=TurnRequest(text="follow-up", conversation_id=str(conversation.conversation_id)),
+    )
+
+    assert await_kwargs(build_mock)["project_id"] == str(conversation.project_id)
+
+
+@pytest.mark.asyncio
+async def test_turns_without_a_project_skip_workspace_context(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = TurnService(cast(AsyncSession, FakeAsyncSession()))
+    _prepare_service(service)
+    assemble_mock = _patch_context_assembler(monkeypatch)
+    _patch_default_rust(monkeypatch, claims=[])
+    build_mock = AsyncMock()
+    monkeypatch.setattr("app.services.turn_service.ProjectContextService.build", build_mock)
+    service.conversation_service.create_conversation = AsyncMock(  # type: ignore[method-assign]
+        return_value=SimpleNamespace(conversation_id=uuid.uuid4(), project_id=None)
+    )
+    service.conversation_service.append_message = AsyncMock()  # type: ignore[method-assign]
+    service.llm_router.route = AsyncMock(  # type: ignore[method-assign]
+        return_value=LLMResponse(content="answer", model="llama3", provider="ollama", tokens_used=5)
+    )
+    service.claim_extractor.extract = AsyncMock(return_value=[])  # type: ignore[method-assign]
+
+    await service.process_turn(user_id="user-1", payload=TurnRequest(text="hello"))
+
+    build_mock.assert_not_awaited()
+    assert await_kwargs(assemble_mock)["include_projects"] is True
+
+
 @pytest.mark.asyncio
 async def test_process_turn_with_claims_override_skips_conversation(
     monkeypatch: pytest.MonkeyPatch,
@@ -1047,7 +1413,7 @@ async def test_process_turn_includes_attachments_in_user_message_and_history(
     _prepare_service(service)
     _patch_context_assembler(monkeypatch)
     _patch_default_rust(monkeypatch, claims=[])
-    conversation = SimpleNamespace(conversation_id=uuid.uuid4())
+    conversation = SimpleNamespace(conversation_id=uuid.uuid4(), project_id=None)
     service.conversation_service.create_conversation = AsyncMock(  # type: ignore[method-assign]
         return_value=conversation
     )
@@ -1103,7 +1469,7 @@ async def test_process_turn_stream_yields_deltas_and_result(
     _prepare_service(service)
     _patch_context_assembler(monkeypatch)
     _patch_default_rust(monkeypatch, claims=[])
-    conversation = SimpleNamespace(conversation_id=uuid.uuid4())
+    conversation = SimpleNamespace(conversation_id=uuid.uuid4(), project_id=None)
     service.conversation_service.create_conversation = AsyncMock(  # type: ignore[method-assign]
         return_value=conversation
     )

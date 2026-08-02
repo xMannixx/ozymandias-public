@@ -1,8 +1,9 @@
-"""Text extraction for chat attachments (txt/md/csv/pdf)."""
+"""Text extraction for chat attachments and project knowledge (txt/md/csv/pdf)."""
 
 from __future__ import annotations
 
 import io
+from dataclasses import dataclass
 from pathlib import PurePosixPath, PureWindowsPath
 
 from pypdf import PdfReader
@@ -51,6 +52,33 @@ def extract_attachment_text(*, filename: str, data: bytes) -> tuple[str, bool]:
     if len(text) > MAX_TEXT_CHARS:
         return text[:MAX_TEXT_CHARS], True
     return text, False
+
+
+@dataclass(frozen=True)
+class ExtractionOutcome:
+    """Result of a best-effort extraction that must not fail the caller."""
+
+    #: ok | unsupported | failed
+    status: str
+    text: str | None
+    chars: int
+
+
+def try_extract_text(*, filename: str, data: bytes) -> ExtractionOutcome:
+    """Extract text without raising, so an upload can succeed regardless.
+
+    Project files may be images, archives or anything else; those simply carry
+    no knowledge instead of being rejected.
+    """
+    suffix = PurePosixPath(sanitize_filename(filename).lower()).suffix
+    if suffix not in SUPPORTED_EXTENSIONS or len(data) > MAX_UPLOAD_BYTES:
+        return ExtractionOutcome(status="unsupported", text=None, chars=0)
+
+    try:
+        text, _ = extract_attachment_text(filename=filename, data=data)
+    except ValidationError:
+        return ExtractionOutcome(status="failed", text=None, chars=0)
+    return ExtractionOutcome(status="ok", text=text, chars=len(text))
 
 
 def _decode_text(data: bytes) -> str:

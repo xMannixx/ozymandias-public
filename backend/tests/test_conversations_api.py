@@ -44,8 +44,11 @@ def _message(conversation_id: uuid.UUID, *, seq: int, role: str) -> Conversation
 async def test_list_conversations_returns_items(
     client: AsyncClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    async def fake_list(self: ConversationService, *, user_id: str) -> list[Conversation]:
+    async def fake_list(
+        self: ConversationService, *, user_id: str, project_id: str | None = None
+    ) -> list[Conversation]:
         assert user_id == "test-user-id"
+        assert project_id is None
         return [_conversation("First"), _conversation("Second")]
 
     monkeypatch.setattr(ConversationService, "list_conversations", fake_list)
@@ -53,6 +56,27 @@ async def test_list_conversations_returns_items(
     assert response.status_code == 200
     body = response.json()
     assert [item["title"] for item in body] == ["First", "Second"]
+    assert body[0]["project_id"] is None
+
+
+@pytest.mark.asyncio
+async def test_list_conversations_filters_by_project(
+    client: AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    project_id = uuid.uuid4()
+    scoped = _conversation("Kickoff")
+    scoped.project_id = project_id
+
+    async def fake_list(
+        self: ConversationService, *, user_id: str, project_id: str | None = None
+    ) -> list[Conversation]:
+        assert project_id == str(scoped.project_id)
+        return [scoped]
+
+    monkeypatch.setattr(ConversationService, "list_conversations", fake_list)
+    response = await client.get(f"/conversations?project_id={project_id}")
+    assert response.status_code == 200
+    assert response.json()[0]["project_id"] == str(project_id)
 
 
 @pytest.mark.asyncio

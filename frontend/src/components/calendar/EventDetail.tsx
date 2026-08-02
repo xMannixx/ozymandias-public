@@ -55,7 +55,7 @@ function EventDetail({ event, onClose, onDelete }: EventDetailProps): JSX.Elemen
             rel="noreferrer"
             className="inline-flex text-sm text-blue-300 underline underline-offset-2 hover:text-blue-200"
           >
-            In Google Calendar oeffnen
+            Open in Google Calendar
           </a>
         ) : null}
 
@@ -64,7 +64,7 @@ function EventDetail({ event, onClose, onDelete }: EventDetailProps): JSX.Elemen
             Delete
           </Button>
           <Button type="button" variant="ghost" onClick={onClose}>
-            Schliessen
+            Close
           </Button>
         </div>
       </GlassCard>

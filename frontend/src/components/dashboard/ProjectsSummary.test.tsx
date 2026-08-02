@@ -13,30 +13,35 @@ vi.mock("react-router-dom", async () => {
 });
 
 describe("ProjectsSummary", () => {
-  it("zeigt projektzahlen", () => {
+  it("shows workspace counts", () => {
     render(
       <ProjectsSummary
         projectsActive={3}
         tasksOpen={7}
-        risksCritical={2}
-        nextMilestone="M1"
+        knowledgeFiles={4}
+        nextDueTask="File the return (2026-05-31)"
       />,
     );
 
-    expect(screen.getByText("3 active projects")).toBeInTheDocument();
+    expect(screen.getByText("3 active")).toBeInTheDocument();
     expect(screen.getByText("7 open tasks")).toBeInTheDocument();
-    expect(screen.getByText("2 kritische Risiken")).toBeInTheDocument();
+    expect(screen.getByText("4 files Ozy can quote")).toBeInTheDocument();
+    expect(screen.getByText("Next up: File the return (2026-05-31)")).toBeInTheDocument();
   });
 
-  it("klick navigiert zu /projects", async () => {
+  it("says when nothing is due", () => {
+    render(
+      <ProjectsSummary projectsActive={1} tasksOpen={0} knowledgeFiles={1} nextDueTask={null} />,
+    );
+
+    expect(screen.getByText("Nothing with a deadline")).toBeInTheDocument();
+    expect(screen.getByText("1 file Ozy can quote")).toBeInTheDocument();
+  });
+
+  it("navigates to the workspace list", async () => {
     const user = userEvent.setup();
     render(
-      <ProjectsSummary
-        projectsActive={3}
-        tasksOpen={7}
-        risksCritical={2}
-        nextMilestone="M1"
-      />,
+      <ProjectsSummary projectsActive={3} tasksOpen={7} knowledgeFiles={4} nextDueTask={null} />,
     );
 
     await user.click(screen.getByTestId("projects-summary-card"));

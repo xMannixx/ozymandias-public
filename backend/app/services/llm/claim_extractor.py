@@ -20,6 +20,7 @@ from app.schemas import (
 )
 from app.services.llm.base import LLMMessage, LLMResponse
 from app.services.llm.router import get_llm_router
+from app.services.llm.usage import LLMCallUsage
 
 LOGGER = logging.getLogger(__name__)
 
@@ -125,6 +126,7 @@ class ClaimExtractor:
         sensitivity: Sensitivity,
         turn_id: str,
         api_keys: dict[str, str | None] | None = None,
+        usage_sink: list[LLMCallUsage] | None = None,
     ) -> list[ClaimData]:
         if _is_question(original_message):
             LOGGER.debug("Skipping claim extraction: original_message is a question")
@@ -146,6 +148,7 @@ class ClaimExtractor:
             sensitivity=sensitivity,
             messages=messages,
             api_keys=api_keys,
+            usage_sink=usage_sink,
         )
         raw_items = _parse_claim_array(extraction.content)
         if not raw_items:
@@ -290,4 +293,5 @@ class SupportsRouting(Protocol):
         messages: list[LLMMessage],
         tools: list[dict[str, Any]] | None = None,
         api_keys: dict[str, str | None] | None = None,
+        usage_sink: list[LLMCallUsage] | None = None,
     ) -> LLMResponse: ...

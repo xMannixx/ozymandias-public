@@ -29,7 +29,7 @@ function VoiceButton({
   const buttonLabel = !isVoiceEnabled
     ? "Voice off"
     : isProcessing
-      ? "Verarbeitung"
+      ? "Processing"
       : isPlaying
         ? "Playing"
         : isRecording
