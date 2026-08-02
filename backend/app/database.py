@@ -1,6 +1,8 @@
 """Database engine and session management."""
 
-from collections.abc import AsyncGenerator
+import asyncio
+from collections.abc import AsyncGenerator, Coroutine
+from typing import Any
 
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
@@ -42,3 +44,21 @@ async def init_db() -> None:
     """Run a lightweight database connectivity check."""
     async with engine.connect() as connection:
         await connection.execute(text("SELECT 1"))
+
+
+def run_db_job[T](work: Coroutine[Any, Any, T]) -> T:
+    """Run a coroutine from synchronous code and leave no pooled connections.
+
+    Celery gives every task its own event loop. Connections the pool kept from
+    an earlier task belong to a loop that is already closed, and reusing one
+    fails with "attached to a different loop", so the pool is emptied at the
+    end of each run.
+    """
+
+    async def _runner() -> T:
+        try:
+            return await work
+        finally:
+            await engine.dispose()
+
+    return asyncio.run(_runner())
