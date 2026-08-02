@@ -111,6 +111,44 @@ services:
     ports:
       - "8000:8000"
 
+  worker:
+    build:
+      context: .
+      dockerfile: ./backend/Dockerfile
+    container_name: ozy-worker
+    restart: unless-stopped
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
+      redis:
+        condition: service_started
+      minio:
+        condition: service_started
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
+      REDIS_URL: redis://redis:6379/0
+      # Celery reads these two itself and they win over the app config, so they
+      # have to name the service, not localhost. Own DBs to keep queue and
+      # results apart from the circuit breaker in DB 0.
+      CELERY_BROKER_URL: redis://redis:6379/1
+      CELERY_RESULT_BACKEND: redis://redis:6379/2
+      MINIO_ENDPOINT: minio:9000
+      OLLAMA_BASE_URL: http://host.docker.internal:11434
+      LMSTUDIO_BASE_URL: http://host.docker.internal:1234/v1
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    # Single owner, so one process tree carries both the queue and the schedule.
+    command: celery -A app.celery_app worker --beat --loglevel=info
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A app.celery_app inspect ping -d celery@$$HOSTNAME"]
+      interval: 60s
+      timeout: 15s
+      retries: 3
+      start_period: 30s
+
   frontend:
     build:
       context: ./frontend
