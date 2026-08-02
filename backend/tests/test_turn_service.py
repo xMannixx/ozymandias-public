@@ -44,7 +44,7 @@ from app.services.llm.system_prompt import OZY_SYSTEM_PROMPT, build_system_promp
 from app.services.llm.usage import LLMCallUsage
 from app.services.project_context_service import ProjectContext
 from app.services.turn_service import TurnService
-from tests.conftest import FakeAsyncSession
+from tests.conftest import FakeAsyncSession, await_kwargs
 
 
 def _claim() -> ClaimData:
@@ -1149,7 +1149,7 @@ async def test_process_turn_injects_workspace_block_ahead_of_general_context(
         payload=TurnRequest(text="what does the spec say?", project_id=context.project_id),
     )
 
-    messages = service.llm_router.route.await_args.kwargs["messages"]
+    messages = await_kwargs(service.llm_router.route)["messages"]
     assert messages[1]["content"] == context.text
     assert "<user_context>" in messages[2]["content"]
 
@@ -1177,7 +1177,7 @@ async def test_process_turn_omits_project_overview_inside_a_workspace(
         payload=TurnRequest(text="status?", project_id=context.project_id),
     )
 
-    assert assemble_mock.await_args.kwargs["include_projects"] is False
+    assert await_kwargs(assemble_mock)["include_projects"] is False
 
 
 @pytest.mark.asyncio
@@ -1207,7 +1207,7 @@ async def test_sensitive_workspace_forces_local_routing(
         ),
     )
 
-    route_kwargs = service.llm_router.route.await_args.kwargs
+    route_kwargs = await_kwargs(service.llm_router.route)
     assert route_kwargs["enforce_local"] is True
     # A cloud provider must not survive a local-only workspace.
     assert route_kwargs["preferred_provider"] is None
@@ -1236,7 +1236,7 @@ async def test_turn_audit_records_injected_workspace_knowledge(
         payload=TurnRequest(text="hello", project_id=context.project_id),
     )
 
-    audit_payload = service.audit.log.await_args.kwargs["payload"]
+    audit_payload = await_kwargs(service.audit.log)["payload"]
     assert audit_payload["project_id"] == context.project_id
     assert audit_payload["project_knowledge_files"] == ["spec.md", "notes.txt"]
     assert audit_payload["project_knowledge_chars"] == 42
@@ -1267,7 +1267,7 @@ async def test_turn_audit_records_which_contacts_the_model_saw(
 
     await service.process_turn(user_id="user-1", payload=TurnRequest(text="Schmidts Nummer?"))
 
-    audit_payload = service.audit.log.await_args.kwargs["payload"]
+    audit_payload = await_kwargs(service.audit.log)["payload"]
     assert audit_payload["contact_details_shown"] == ["11111111-1111-1111-1111-111111111111"]
     assert audit_payload["contacts_withheld_private"] == 2
 
@@ -1316,7 +1316,7 @@ async def test_new_chat_inside_a_workspace_is_linked_to_it(
         payload=TurnRequest(text="hello", project_id=context.project_id),
     )
 
-    create_kwargs = service.conversation_service.create_conversation.await_args.kwargs
+    create_kwargs = await_kwargs(service.conversation_service.create_conversation)
     assert create_kwargs["project_id"] == context.project_id
 
 
@@ -1359,7 +1359,7 @@ async def test_existing_chat_keeps_its_workspace_without_an_explicit_project(
         payload=TurnRequest(text="follow-up", conversation_id=str(conversation.conversation_id)),
     )
 
-    assert build_mock.await_args.kwargs["project_id"] == str(conversation.project_id)
+    assert await_kwargs(build_mock)["project_id"] == str(conversation.project_id)
 
 
 @pytest.mark.asyncio
@@ -1384,7 +1384,7 @@ async def test_turns_without_a_project_skip_workspace_context(
     await service.process_turn(user_id="user-1", payload=TurnRequest(text="hello"))
 
     build_mock.assert_not_awaited()
-    assert assemble_mock.await_args.kwargs["include_projects"] is True
+    assert await_kwargs(assemble_mock)["include_projects"] is True
 
 
 @pytest.mark.asyncio

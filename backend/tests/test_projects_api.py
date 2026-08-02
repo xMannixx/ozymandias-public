@@ -20,6 +20,7 @@ from app.models.project import (
 from app.services.audit_service import AuditService
 from app.services.errors import NotFoundError
 from app.services.project_service import ProjectService
+from tests.conftest import await_kwargs
 
 
 def _project() -> Project:
@@ -254,7 +255,7 @@ async def test_patch_project_saves_instructions(
     )
     assert response.status_code == 200
     assert response.json()["instructions"] == "Always cite the spec."
-    assert update.await_args.kwargs["instructions"] == "Always cite the spec."
+    assert await_kwargs(update)["instructions"] == "Always cite the spec."
 
 
 @pytest.mark.asyncio

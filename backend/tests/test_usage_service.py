@@ -5,7 +5,7 @@ from __future__ import annotations
 import uuid
 from datetime import UTC, datetime
 from decimal import Decimal
-from typing import cast
+from typing import Any, cast
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -35,7 +35,7 @@ def _call(**overrides: object) -> LLMCallUsage:
         "total_tokens": 1_100_000,
     }
     defaults.update(overrides)
-    return LLMCallUsage(**cast(dict, defaults))
+    return LLMCallUsage(**cast(dict[str, Any], defaults))
 
 
 @pytest.mark.asyncio
