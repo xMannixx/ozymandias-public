@@ -6,7 +6,7 @@ Willkommen bei Ozymandias (Ozy), deiner persönlichen, sicheren KI-Schaltzentral
 
 ## Inhaltsverzeichnis
 1. [Was ist Ozymandias?](#1-was-ist-ozymandias)
-2. [Die Benutzeroberfläche (NOC-Dashboard)](#2-die-benutzeroberfläche-noc-dashboard)
+2. [Die Benutzeroberfläche](#2-die-benutzeroberfläche)
 3. [Schritt-für-Schritt-Anleitungen](#3-schritt-für-schritt-anleitungen)
    - [Einen neuen Fakt (Claim) hinzufügen](#einen-neuen-fakt-claim-hinzufügen)
    - [Vorschläge (Proposals) bestätigen oder ablehnen](#vorschläge-proposals-bestätigen-oder-ablehnen)
@@ -30,16 +30,19 @@ Ozy merkt sich Informationen auf vier Ebenen:
 
 ---
 
-## 2. Die Benutzeroberfläche (NOC-Dashboard)
+## 2. Die Benutzeroberfläche
 
-Das Dashboard von Ozy ist im minimalistischen, dunklen NOC-Theme (Network Operations Center) gestaltet. Es bietet dir vollen Einblick in das Gedächtnis der KI und ermöglicht dir die Freigabe kritischer Aktionen.
+Die Oberfläche ist ruhig und dunkel gehalten (Glass-Design) und durchgehend englisch beschriftet. Sie gibt dir vollen Einblick in das Gedächtnis der KI und ermöglicht dir die Freigabe kritischer Aktionen.
 
 ### Wichtige Bereiche:
 - **Chat:** Schreibe oder sprich (Voice STT/TTS) mit Ozy.
 - **Gedächtnis (Memory Browser):** Suche und filtere alle Fakten, die Ozy über dich weiß.
 - **Vorschläge (Proposals):** Alle Fakten, die Ozy aus deinen Gesprächen ableitet, landen hier als Vorschlag zur Freigabe.
 - **Regeln (Rules):** Hier verwaltest du die Verhaltensweisen der KI.
-- **Audit-Feed:** Ein chronologisches Protokoll aller Aktionen, die das System ausgeführt hat.
+- **Projekte (Projects):** Jedes Projekt ist ein eigener Arbeitsbereich mit eigenem Chat, Wissensdokumenten und eigenen Instruktionen. Was dort liegt, nimmt Ozy automatisch in den Kontext.
+- **Kontakte (Contacts):** Dein Adressbuch. Nennst du im Chat einen Namen, eine Firma oder eine Rolle, zieht Ozy den passenden Eintrag heran. Kontakte, die du als privat markierst, verlassen dabei nie deinen Rechner.
+- **Verbrauch (Usage):** Tokens, Kosten, Antwortzeiten und Fehler pro Zeitraum, aufgeschlüsselt nach Modell, Provider und Kanal.
+- **Audit-Feed:** Ein chronologisches Protokoll aller Aktionen, die das System ausgeführt hat — auch der nächtlichen Aufräumjobs.
 
 ---
 

@@ -94,7 +94,9 @@ Im [Benutzerhandbuch (docs/USER_GUIDE.md)](docs/USER_GUIDE.md) findest du detail
 
 **Python-Orchestrierung** — FastAPI, SQLAlchemy 2.0, Pydantic v2, Celery. LLM-Aufrufe, DB-Zugriffe, Connector-Management.
 
-**Frontend** — React + TypeScript, Vite + Tailwind. Dunkles NOC-Theme, PWA-tauglich.
+**Frontend** — React + TypeScript, Vite + Tailwind. Ruhiges, dunkles Glass-Design, durchgehend englische Oberfläche, PWA-tauglich.
+
+**Hintergrund-Jobs** — Eigener Worker-Container mit Celery und Beat: Memory-Decay um 03:00 UTC, Lane-Cleanup um 03:30 UTC.
 
 **Datenbank** — Postgres + pgvector. Claims als strukturierte Fakten, Episoden als chronologisches Archiv, Vektor-Index für semantische Suche.
 
@@ -117,6 +119,12 @@ Detaillierte Spezifikation: [`docs/OZY_ZUSAMMENFASSUNG_v5_2026-04-03.md`](docs/O
 **Live-Web** — Optionaler Web-Zugriff: provider-nativ zuerst, alternativ über einen konfigurierbaren Connector. S3-Zugriffe erfordern explizite Bestätigung.
 
 **Voice** — End-to-end Sprach-Flow (STT/TTS) mit Push-to-Talk und Freisprech-Modus.
+
+**Projekt-Workspaces** — Jedes Projekt hat einen eigenen Chat, Wissensdokumente und Custom Instructions. Was dort liegt, geht automatisch in den Kontext der Antworten.
+
+**Kontakte im Kontext** — Nennt eine Nachricht einen Namen, eine Firma, eine Rolle oder ein Tag, landet der passende Eintrag vollständig im Prompt. Als privat markierte Kontakte (S3/S4) bleiben dabei lokal.
+
+**Verbrauch** — Die Usage-Seite zeigt Tokens, Kosten, Latenz, Cache-Trefferquote und Fehler pro Zeitraum, aufgeschlüsselt nach Modell, Provider und Kanal.
 
 ## Tech Stack
 
@@ -150,6 +158,7 @@ ozymandias/
 ├── frontend/                    # React Dashboard (Vite + Tailwind)
 │   └── src/
 ├── docs/                        # Specs, DB-Schema, Versionsmatrix, Strategie
+├── docker-compose.yaml          # Postgres, Redis, MinIO, Backend, Worker, Frontend, Nginx
 ├── nginx/                       # Nginx-Konfiguration (Reverse Proxy)
 └── .github/workflows/           # CI/CD (PR Gate, Nightly, Release)
 ```
@@ -161,11 +170,11 @@ ozymandias/
 | `ozy-contracts` | ✅ Fertig | Typen, Enums, Error-Types implementiert und validiert |
 | `ozy-core` | ✅ Fertig | Sensitivity Router, Write-Gates, PolicyResolver, Circuit Breaker, Taint Tracker, Decay Engine, Token Budget |
 | `ozy-bindings` | ✅ Fertig | PyO3-Bridge implementiert, Fallback-Modus vorhanden |
-| `backend` | ✅ Fertig | FastAPI, Claims/Memory inkl. Memory v2 (Authority Lanes), Proposals, Audit, Voice (STT/TTS), Mail/Kalender, Kontakte, Projekte, Live-Web, Provider-Routing, Celery, Auth |
-| `frontend` | ✅ Fertig | React-Dashboard (NOC-Theme): Chat, Settings, Voice, Memory-/Regel-Review, System-Health, Proposals, Audit |
+| `backend` | ✅ Fertig | FastAPI, Claims/Memory inkl. Memory v2 (Authority Lanes), Proposals, Audit, Voice (STT/TTS), Mail/Kalender, Kontakte, Projekt-Workspaces, Live-Web, Provider-Routing, Usage-Tracking, Celery-Worker mit Beat, Auth |
+| `frontend` | ✅ Fertig | React-Dashboard im Glass-Design: Chat, Projekt-Workspaces, Settings, Voice, Memory-/Regel-Review, System-Health, Proposals, Audit, Usage |
 | Deployment | 🚧 In Arbeit | Docker Compose + Nginx vorhanden; Public-Deployment-Härtung und Mobile-Distribution sind noch Roadmap-Themen |
 
-Aktuelle Phase: **Phase 2 — Memory v2 & Autonomy**
+Aktuelle Phase: **Phase 4 — Connectors** (Gmail/Kalender und Taint-Tracking stehen, MCP-Grundlage fehlt noch)
 
 ## Entwicklung
 
@@ -190,6 +199,18 @@ npm run dev
 ```
 
 CI läuft bei jedem PR automatisch (PR Gate): Rust-Tests, Python-Lint/Typen/Tests, DB-Migration-Sanity, Bindings-Smoke, Security-Scan.
+
+### Hintergrund-Jobs
+
+Der `worker`-Container fährt mit `docker compose up -d` hoch und bringt Celery Beat mit. Manuell auslösen lassen sich die Nachtjobs so:
+
+```bash
+docker compose exec worker celery -A app.celery_app call ozy.decay.run_all
+docker compose exec worker celery -A app.celery_app call ozy.memory.cleanup_all
+docker compose logs -f worker
+```
+
+Details: [`docs/spec/OZY_CELERY_TASKS.md`](docs/spec/OZY_CELERY_TASKS.md)
 
 ### Devcontainer
 

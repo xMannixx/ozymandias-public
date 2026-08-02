@@ -7,6 +7,51 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
 
 ---
 
+## [Unveröffentlicht]
+
+### Hinzugefügt
+
+#### Projekt-Workspaces
+- Projekte sind Arbeitsbereiche statt Ablagen: eigener Gesprächsverlauf pro Projekt (`conversation_service`), Wissensdokumente, Custom Instructions und Referenz-Links
+- `project_context_service` legt Projektwissen und Instruktionen automatisch in den Kontext der Antworten
+- Frontend: Workspace-Seite mit Tabs (Chat, Knowledge, Instructions, Plan), aktiver Workspace sichtbar in Chat und Dashboard, Deep-Links über Nginx bedient
+
+#### Verbrauchserfassung und Usage-Seite
+- Provider melden Prompt-, Completion- und Cached-Tokens pro Aufruf; Router und Claim-Extractor erfassen zusätzlich Latenz und Versuch
+- Listenpreis-Tabelle (`llm/pricing.py`) rechnet Tokens in Dollar um; pro LLM-Aufruf eines Turns wird ein Usage-Event gespeichert
+- `usage_service` aggregiert zu einem Report pro Zeitraum: Durchsatz, Tokens, Kosten, Cache-Trefferquote, Fehlerquote, Top-Listen nach Modell, Provider, Werkzeug und Kanal sowie Fehler nach Tag und Stunde
+- Neue Usage-Seite im Frontend, Dashboard nach Wissen und Betrieb gruppiert
+
+#### Kontakte im Gesprächskontext
+- Neue Spalte `sensitivity` auf `contacts` (Standard S2); als privat markierte Kontakte (S3/S4) erreichen kein Cloud-Modell
+- `llm/contact_match.py` entscheidet deterministisch, welche Kontakte eine Nachricht meint (Name, Firma, Rolle, Tag) — inklusive Umlaut-Faltung und Schutz vor mehrdeutigen Vornamen
+- Der Context Assembler liefert für genannte Personen den vollständigen Eintrag statt nur den Namen; das Audit-Log hält fest, welche Kontakte das Modell gesehen hat und wie viele zurückgehalten wurden
+- Frontend: Datenschutzstufe im Kontaktdetail wählbar, Karten zeigen „Local only"
+
+#### Hintergrund-Jobs laufen wirklich
+- `backend/app/celery_app.py` mit Redis-Broker, JSON-Serialisierung, UTC und Beat-Zeitplan: Memory-Decay 03:00 UTC, Lane-Cleanup 03:30 UTC
+- Neue Beat-Einstiegspunkte `ozy.decay.run_all` und `ozy.memory.cleanup_all`, die ihre Zielnutzer selbst aus den Claims auflösen
+- Eigener `worker`-Container im Compose (Celery Worker und Beat in einem Prozessbaum, Healthcheck über `inspect ping`)
+
+### Geändert
+
+- Oberfläche vom Neon-NOC-Theme auf ein ruhiges Glass-Design umgestellt; Dashboard-Kacheln, Chat-Nachrichten und Einstellungen in verständlicher Sprache statt Datenbank-Jargon
+- Memory-, Proposals- und Audit-Ansicht erklären Codes und Konfidenzwerte im Klartext (gemeinsame Label-Helfer)
+- Oberfläche vollständig englisch; letzte deutsche Beschriftungen in Event-Details und Dashboard ersetzt
+- Navigation, Einstellungshierarchie und visuelle Dichte vereinfacht, Chat auf Mobilgeräten nutzbar, Barrierefreiheits-Grundlagen ergänzt
+- Projektlöschung räumt abhängige Zeilen jetzt über Postgres-Kaskaden ab
+
+### Behoben
+
+- Decay wandte keine einzige seiner Entscheidungen an: Die Engine meldet `claim_ref` als `source_ref`, die Zuordnung suchte aber nach der `claim_id`. Aktionen werden jetzt über die Position gepaart
+- Der jeweils zweite Celery-Job eines Laufs starb an „attached to a different loop"; der Verbindungspool wird nach jedem Task geleert
+- Durchschnittswerte im Usage-Report zählen nur noch tatsächlich gemessene Antworten
+- `/usage` wird als API-Aufruf beantwortet, Navigationen dagegen an die App weitergereicht; ungültige Report-Payloads werden abgewiesen
+- Referenz-Links akzeptieren eine reine Webadresse, Eingabefelder ohne expliziten Typ sind gestylt
+- Toasts schweben im Viewport statt im Layout, das Dist-Volume wird vor einem neuen Frontend-Build geleert
+
+---
+
 ## [0.1.0] — 2026-06-13
 
 ### Hinzugefügt
@@ -106,7 +151,7 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
 | **Phase 4 — Connectors** | Google Gmail/Calendar, Taint-Tracking, MCP-Grundlage | 🚧 In Arbeit |
 | **Phase 5 — Dashboard** | React-Frontend vollständig, NOC-Theme, PWA | ✅ Weitgehend fertig |
 | **Phase 6 — Mobile/Telegram** | Mobile APK + Bot-Integration als mobiler Kanal | 🔜 Geplant |
-| **Phase 7 — Batch & Eval** | DeepSeek Batch-API, Eval-Suiten, Nachtjobs | 🔜 Geplant |
+| **Phase 7 — Batch & Eval** | DeepSeek Batch-API, Eval-Suiten, Nachtjobs | 🚧 Nachtjobs laufen, Batch/Eval offen |
 | **Phase 8 — Hardening** | Security-Audit, Penetration Testing, DSGVO-Compliance | 🔜 Geplant |
 
 ---
