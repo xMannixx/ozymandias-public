@@ -19,6 +19,7 @@ celery_app = Celery(
     broker=settings.redis_url,
     backend=settings.redis_url,
     include=[
+        "app.services.briefing_service",
         "app.services.decay_service",
         "app.services.episode_index_service",
         "app.services.memory_lifecycle_service",
@@ -55,5 +56,11 @@ celery_app.conf.beat_schedule = {
     "index-episodes": {
         "task": "ozy.episodes.index_all",
         "schedule": crontab(minute="*/30"),
+    },
+    # Hourly, so every user can pick their own briefing hour. Minute 5 leaves
+    # the top of the hour to the indexer.
+    "daily-briefing": {
+        "task": "ozy.heartbeat.run_all",
+        "schedule": crontab(minute="5"),
     },
 }

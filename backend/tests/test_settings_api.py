@@ -31,6 +31,8 @@ def _settings(
     tts_voice: str = "ash",
     tts_model: str = "tts-1",
     tts_autoplay: bool = True,
+    briefing_enabled: bool = True,
+    briefing_hour: int = 7,
 ) -> UserSettings:
     return UserSettings(
         user_id="user-1",
@@ -53,6 +55,8 @@ def _settings(
         tts_voice=tts_voice,
         tts_model=tts_model,
         tts_autoplay=tts_autoplay,
+        briefing_enabled=briefing_enabled,
+        briefing_hour=briefing_hour,
         updated_at=datetime.now(tz=UTC),
     )
 
@@ -168,6 +172,37 @@ async def test_patch_settings_updates_live_web_flags(
     assert response.json()["live_web_enabled"] is True
     assert response.json()["live_web_mode"] == "provider_native_first"
     assert response.json()["live_web_s3_confirmed_default"] is False
+
+
+@pytest.mark.asyncio
+async def test_patch_settings_updates_the_briefing_schedule(
+    client: AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    async def fake_update(self: SettingsService, user_id: str, **kwargs: object) -> UserSettings:
+        del self, user_id
+        assert kwargs == {"briefing_enabled": True, "briefing_hour": 6}
+        return _settings(briefing_enabled=True, briefing_hour=6)
+
+    monkeypatch.setattr(SettingsService, "get_or_create", AsyncMock(return_value=_settings()))
+    monkeypatch.setattr(SettingsService, "update", fake_update)
+    monkeypatch.setattr(AuditService, "log", AsyncMock())
+
+    response = await client.patch(
+        "/settings",
+        json={"briefing_enabled": True, "briefing_hour": 6},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["briefing_hour"] == 6
+
+
+@pytest.mark.asyncio
+async def test_patch_settings_rejects_a_briefing_hour_outside_the_day(
+    client: AsyncClient,
+) -> None:
+    response = await client.patch("/settings", json={"briefing_hour": 24})
+
+    assert response.status_code == 422
 
 
 @pytest.mark.asyncio

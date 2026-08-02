@@ -858,3 +858,29 @@ $$;
 -- Der Indexer sucht Nachrichten, die noch keine Episode haben.
 CREATE INDEX IF NOT EXISTS idx_episodes_user_created
     ON episodes(user_id, created_at DESC);
+
+
+-- ============================================================
+-- HEARTBEAT-BRIEFING
+-- ============================================================
+-- Ein Briefing pro Tag und User, deterministisch aus Kalender, Mail,
+-- Proposals, Claims und Aufgaben erzeugt (kein LLM: Mail-Betreffe und
+-- Kalendereintraege sind untrusted). content ist der fertige Text,
+-- payload die strukturierte Fassung fuer die Dashboard-Karte.
+CREATE TABLE IF NOT EXISTS briefings (
+    briefing_id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id             UUID NOT NULL,
+    briefing_date       DATE NOT NULL,
+    content             TEXT NOT NULL,
+    payload             JSONB NOT NULL DEFAULT '{}'::jsonb,
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (user_id, briefing_date)
+);
+
+CREATE INDEX IF NOT EXISTS idx_briefings_user_date
+    ON briefings(user_id, briefing_date DESC);
+
+-- briefing_hour ist UTC, weil Beat in UTC laeuft.
+ALTER TABLE user_settings
+    ADD COLUMN IF NOT EXISTS briefing_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+    ADD COLUMN IF NOT EXISTS briefing_hour INT NOT NULL DEFAULT 7;

@@ -8,6 +8,7 @@ class Base(DeclarativeBase):
 
 
 from app.models.audit import AuditLog  # noqa: E402
+from app.models.briefing import Briefing  # noqa: E402
 from app.models.claim import Claim, ClaimAccessLog, ClaimVersion  # noqa: E402
 from app.models.conflict import ConflictGroup, ConflictGroupClaim  # noqa: E402
 from app.models.contact import Contact, ContactProject  # noqa: E402
@@ -37,6 +38,7 @@ __all__ = [
     "Base",
     "BehavioralRule",
     "BehavioralRuleConflict",
+    "Briefing",
     "Claim",
     "ClaimAccessLog",
     "ClaimVersion",

@@ -157,6 +157,8 @@ def _to_settings_response(settings: UserSettings) -> UserSettingsResponse:
         tts_voice=settings.tts_voice,
         tts_model=cast(Literal["tts-1", "tts-1-hd"], tts_model),
         tts_autoplay=settings.tts_autoplay,
+        briefing_enabled=settings.briefing_enabled,
+        briefing_hour=settings.briefing_hour,
         openai_api_key=_mask_key(settings.openai_api_key),
         deepseek_api_key=_mask_key(settings.deepseek_api_key),
         gemini_api_key=_mask_key(settings.gemini_api_key),

@@ -11,8 +11,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import database
 from app.celery_app import celery_app
-from app.services import decay_service, episode_index_service, memory_lifecycle_service
-from app.services.job_targets import user_ids_with_claims, user_ids_with_conversations
+from app.services import (
+    briefing_service,
+    decay_service,
+    episode_index_service,
+    memory_lifecycle_service,
+)
+from app.services.job_targets import (
+    user_ids_wanting_a_briefing,
+    user_ids_with_claims,
+    user_ids_with_conversations,
+)
 from tests.conftest import FakeAsyncSession, FakeQueryResult
 
 
@@ -142,6 +151,41 @@ async def test_episode_index_beat_job_runs_for_every_user(
     assert result == {str(user_id): {"messages": 3, "embedded": 3, "skipped": 0}}
 
 
+@pytest.mark.asyncio
+async def test_only_users_whose_hour_it_is_get_a_briefing() -> None:
+    """The heartbeat runs hourly so each user can pick their own time."""
+    early_riser = uuid.uuid4()
+    db = _session_with_users(early_riser)
+
+    targets = await user_ids_wanting_a_briefing(cast(AsyncSession, db), utc_hour=7)
+
+    assert targets == [str(early_riser)]
+
+
+@pytest.mark.asyncio
+async def test_heartbeat_beat_job_briefs_every_due_user(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    user_id = uuid.uuid4()
+    monkeypatch.setattr(
+        briefing_service,
+        "AsyncSessionLocal",
+        _FakeSessionFactory(_session_with_users(user_id)),
+    )
+    briefing_id = str(uuid.uuid4())
+
+    async def _fake_job(target: str, *, on_date: object | None = None) -> str:
+        del on_date
+        assert target == str(user_id)
+        return briefing_id
+
+    monkeypatch.setattr(briefing_service, "_run_heartbeat_job", _fake_job)
+
+    result = await briefing_service._run_heartbeat_job_for_all()
+
+    assert result == {str(user_id): briefing_id}
+
+
 def test_run_db_job_drops_pooled_connections_after_every_run(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -190,6 +234,8 @@ def test_celery_app_knows_all_maintenance_tasks() -> None:
         "ozy.decay.run_all",
         "ozy.episodes.index",
         "ozy.episodes.index_all",
+        "ozy.heartbeat",
+        "ozy.heartbeat.run_all",
         "ozy.memory.cleanup",
         "ozy.memory.cleanup_all",
     } <= registered
@@ -198,6 +244,7 @@ def test_celery_app_knows_all_maintenance_tasks() -> None:
 def test_worker_imports_the_modules_that_define_the_tasks() -> None:
     """Without these on the include list a started worker registers nothing."""
     assert set(celery_app.conf.include) == {
+        "app.services.briefing_service",
         "app.services.decay_service",
         "app.services.episode_index_service",
         "app.services.memory_lifecycle_service",

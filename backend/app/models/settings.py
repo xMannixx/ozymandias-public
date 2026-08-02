@@ -59,6 +59,13 @@ class UserSettings(Base):
     tts_voice: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'ash'"))
     tts_model: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'tts-1'"))
     tts_autoplay: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("true"))
+    briefing_enabled: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        server_default=text("true"),
+    )
+    #: Hour of day in UTC, because Celery beat runs in UTC.
+    briefing_hour: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("7"))
     openai_api_key: Mapped[str | None] = mapped_column(Text)
     deepseek_api_key: Mapped[str | None] = mapped_column(Text)
     gemini_api_key: Mapped[str | None] = mapped_column(Text)
