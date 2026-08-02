@@ -11,8 +11,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import database
 from app.celery_app import celery_app
-from app.services import decay_service, memory_lifecycle_service
-from app.services.job_targets import user_ids_with_claims
+from app.services import decay_service, episode_index_service, memory_lifecycle_service
+from app.services.job_targets import user_ids_with_claims, user_ids_with_conversations
 from tests.conftest import FakeAsyncSession, FakeQueryResult
 
 
@@ -109,6 +109,39 @@ async def test_memory_cleanup_beat_job_runs_for_every_user(
     assert result == {str(user_id): {"snippets": 2}}
 
 
+@pytest.mark.asyncio
+async def test_episode_indexing_targets_users_who_chat_not_users_with_claims() -> None:
+    """Someone can chat for weeks before a single claim is ever confirmed."""
+    chatter = uuid.uuid4()
+    db = _session_with_users(chatter)
+
+    assert await user_ids_with_conversations(cast(AsyncSession, db)) == [str(chatter)]
+
+
+@pytest.mark.asyncio
+async def test_episode_index_beat_job_runs_for_every_user(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    user_id = uuid.uuid4()
+    monkeypatch.setattr(
+        episode_index_service,
+        "AsyncSessionLocal",
+        _FakeSessionFactory(_session_with_users(user_id)),
+    )
+    seen: list[str] = []
+
+    async def _fake_job(target: str) -> dict[str, int]:
+        seen.append(target)
+        return {"messages": 3, "embedded": 3, "skipped": 0}
+
+    monkeypatch.setattr(episode_index_service, "_run_episode_index_job", _fake_job)
+
+    result = await episode_index_service._run_episode_index_job_for_all()
+
+    assert seen == [str(user_id)]
+    assert result == {str(user_id): {"messages": 3, "embedded": 3, "skipped": 0}}
+
+
 def test_run_db_job_drops_pooled_connections_after_every_run(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -155,6 +188,8 @@ def test_celery_app_knows_all_maintenance_tasks() -> None:
     assert {
         "ozy.decay.run",
         "ozy.decay.run_all",
+        "ozy.episodes.index",
+        "ozy.episodes.index_all",
         "ozy.memory.cleanup",
         "ozy.memory.cleanup_all",
     } <= registered
@@ -164,6 +199,7 @@ def test_worker_imports_the_modules_that_define_the_tasks() -> None:
     """Without these on the include list a started worker registers nothing."""
     assert set(celery_app.conf.include) == {
         "app.services.decay_service",
+        "app.services.episode_index_service",
         "app.services.memory_lifecycle_service",
     }
 

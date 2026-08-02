@@ -20,6 +20,7 @@ celery_app = Celery(
     backend=settings.redis_url,
     include=[
         "app.services.decay_service",
+        "app.services.episode_index_service",
         "app.services.memory_lifecycle_service",
     ],
 )
@@ -48,5 +49,11 @@ celery_app.conf.beat_schedule = {
     "memory-cleanup-all-users": {
         "task": "ozy.memory.cleanup_all",
         "schedule": crontab(hour="3", minute="30"),
+    },
+    # Often enough that today's chats are recallable tomorrow morning, rare
+    # enough that the local embedding model is not busy all day.
+    "index-episodes": {
+        "task": "ozy.episodes.index_all",
+        "schedule": crontab(minute="*/30"),
     },
 }
