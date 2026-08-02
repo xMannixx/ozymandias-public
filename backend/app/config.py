@@ -55,6 +55,7 @@ class Settings(BaseSettings):
     openai_model: str = Field(default="gpt-4o")
     mistral_model: str = Field(default="mistral-large-latest")
     ollama_model: str = Field(default="llama3.1:8b")
+    embedding_model: str = Field(default="nomic-embed-text")
     lmstudio_model: str = Field(default="")
     live_web_connector_url: str = Field(default="https://api.tavily.com/search")
     live_web_connector_api_key: str = Field(default="")

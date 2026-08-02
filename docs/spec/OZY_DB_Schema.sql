@@ -728,8 +728,9 @@ CREATE INDEX IF NOT EXISTS idx_rule_conflicts_rule
 --    (Write-Gate / Human-in-the-loop), nicht bereits auf DB-Ebene verworfen.
 --
 -- 2) Embedding-Strategie:
---    episodes.embedding bleibt im MVP als vector(1536) bestehen.
---    Für Modellwechsel ist ein späteres episode_embeddings-Design vorgesehen
+--    episodes.embedding fuehrt lokale Embeddings (siehe Migrationsblock am
+--    Dateiende, vector(768)). Für Modellwechsel ist ein späteres
+--    episode_embeddings-Design vorgesehen
 --    (episode_id, model_name, embedding_version, embedding) + Reindex-Migration.
 
 -- 3) Mistral API Integration: Update CHECK constraint for preferred_provider
@@ -822,3 +823,38 @@ BEGIN
     END IF;
 END
 $$;
+
+
+-- ============================================================
+-- SEMANTISCHER RECALL: lokale Embeddings
+-- ============================================================
+-- Die Breite 1536 stammte aus der OpenAI-Annahme. Embeddings entstehen jetzt
+-- lokal (Ollama, nomic-embed-text, 768 Dimensionen), damit auch S3/S4-Inhalte
+-- indexiert werden duerfen, ohne die Maschine zu verlassen.
+-- Vorhandene Vektoren passen nicht mehr und werden verworfen; der Indexer
+-- (ozy.episodes.index_all) baut sie neu auf. Der Block laeuft nur, solange die
+-- Spalte noch anders dimensioniert ist.
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1
+        FROM pg_attribute
+        WHERE attrelid = 'public.episodes'::regclass
+          AND attname = 'embedding'
+          AND NOT attisdropped
+          AND format_type(atttypid, atttypmod) <> 'vector(768)'
+    ) THEN
+        DROP INDEX IF EXISTS idx_episodes_embedding;
+        ALTER TABLE episodes DROP COLUMN embedding;
+        ALTER TABLE episodes ADD COLUMN embedding vector(768);
+
+        CREATE INDEX idx_episodes_embedding
+            ON episodes USING ivfflat (embedding vector_cosine_ops)
+            WITH (lists = 100);
+    END IF;
+END
+$$;
+
+-- Der Indexer sucht Nachrichten, die noch keine Episode haben.
+CREATE INDEX IF NOT EXISTS idx_episodes_user_created
+    ON episodes(user_id, created_at DESC);
