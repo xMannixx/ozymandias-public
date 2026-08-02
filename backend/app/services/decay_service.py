@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 from collections import Counter
 from datetime import UTC, datetime
 
@@ -10,7 +9,7 @@ from celery import shared_task
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.database import AsyncSessionLocal
+from app.database import AsyncSessionLocal, run_db_job
 from app.models.claim import Claim
 from app.schemas import (
     AuditEventType,
@@ -28,6 +27,7 @@ from app.schemas import (
 from app.schemas.contracts import DecayActionTypeReduceConfidenceVariant
 from app.services import rust_bridge
 from app.services.audit_service import AuditService
+from app.services.job_targets import user_ids_with_claims
 from app.services.utils import normalize_user_id
 
 
@@ -136,7 +136,19 @@ async def _run_decay_job(user_id: str) -> dict[str, int]:
         return await service.run_decay(user_id=user_id)
 
 
+async def _run_decay_job_for_all() -> dict[str, dict[str, int]]:
+    async with AsyncSessionLocal() as db:
+        user_ids = await user_ids_with_claims(db)
+    return {user_id: await _run_decay_job(user_id) for user_id in user_ids}
+
+
 @shared_task(name="ozy.decay.run")  # type: ignore[untyped-decorator,misc,unused-ignore]
 def run_decay_task(user_id: str) -> dict[str, int]:
     """Celery task wrapper around async decay service."""
-    return asyncio.run(_run_decay_job(user_id))
+    return run_db_job(_run_decay_job(user_id))
+
+
+@shared_task(name="ozy.decay.run_all")  # type: ignore[untyped-decorator,misc,unused-ignore]
+def run_decay_all_task() -> dict[str, dict[str, int]]:
+    """Beat entrypoint: decay for every user that has claims."""
+    return run_db_job(_run_decay_job_for_all())
