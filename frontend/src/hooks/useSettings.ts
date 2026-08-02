@@ -26,6 +26,7 @@ type UseSettingsResult = {
     ttsModel: "tts-1" | "tts-1-hd",
     ttsAutoplay: boolean,
   ) => Promise<void>;
+  updateBriefing: (enabled: boolean, hour: number) => Promise<void>;
   updateApiKeys: (
     openaiKey: string | null,
     deepseekKey: string | null,
@@ -139,6 +140,13 @@ export function useSettings(): UseSettingsResult {
     [patchSettings],
   );
 
+  const updateBriefing = useCallback(
+    async (enabled: boolean, hour: number) => {
+      await patchSettings({ briefing_enabled: enabled, briefing_hour: hour });
+    },
+    [patchSettings],
+  );
+
   const updateApiKeys = useCallback(
     async (
       openaiKey: string | null,
@@ -171,6 +179,7 @@ export function useSettings(): UseSettingsResult {
     updateCircuitBreaker,
     updateProviderPreference,
     updateVoiceSettings,
+    updateBriefing,
     updateApiKeys,
   };
 }

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Brain, KeyRound, type LucideIcon, Mic, RefreshCw, ShieldCheck } from "lucide-react";
 import Spinner from "@/components/common/Spinner";
 import ApiKeysSettings from "@/components/settings/ApiKeysSettings";
+import BriefingSettings from "@/components/settings/BriefingSettings";
 import CircuitBreakerSettings from "@/components/settings/CircuitBreakerSettings";
 import DecaySettings from "@/components/settings/DecaySettings";
 import GoogleConnection from "@/components/settings/GoogleConnection";
@@ -13,6 +14,7 @@ import { useSettings } from "@/hooks/useSettings";
 
 const DEFAULT_INTERVAL_HOURS = 24;
 const DEFAULT_CONFIDENCE_THRESHOLD = 0.5;
+const DEFAULT_BRIEFING_HOUR = 7;
 
 type TabId = "behaviour" | "models" | "memory" | "connections";
 
@@ -61,6 +63,7 @@ function SettingsView(): JSX.Element {
     updateCircuitBreaker,
     updateProviderPreference,
     updateVoiceSettings,
+    updateBriefing,
     updateApiKeys,
   } = useSettings();
   const [activeTab, setActiveTab] = useState<TabId>("behaviour");
@@ -140,6 +143,12 @@ function SettingsView(): JSX.Element {
         {activeTab === "behaviour" ? (
           <>
             <ModeSettings />
+            <BriefingSettings
+              enabled={settings?.briefing_enabled ?? true}
+              hour={settings?.briefing_hour ?? DEFAULT_BRIEFING_HOUR}
+              saving={loading}
+              onSave={updateBriefing}
+            />
             <KillSwitch />
           </>
         ) : null}

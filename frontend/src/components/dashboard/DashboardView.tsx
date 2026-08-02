@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { Activity, Brain, RefreshCw, Sparkles } from "lucide-react";
+import BriefingCard from "@/components/dashboard/BriefingCard";
 import CircuitBreakerCard from "@/components/dashboard/CircuitBreakerCard";
 import ClaimsSummary from "@/components/dashboard/ClaimsSummary";
 import ContactsSummary from "@/components/dashboard/ContactsSummary";
@@ -124,6 +125,8 @@ function DashboardView(): JSX.Element {
           Latest refresh failed ({error}). Showing the last successful snapshot.
         </p>
       ) : null}
+
+      <BriefingCard />
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
         <KpiTile

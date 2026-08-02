@@ -221,6 +221,22 @@ export type LiveWebHealth = {
   native_provider_candidates: string[];
 };
 
+export type BriefingSection = {
+  key: string;
+  title: string;
+  items: string[];
+  /** Items before truncation, so the card can say how many were left out. */
+  total: number;
+};
+
+export type BriefingResponse = {
+  briefing_id: string;
+  briefing_date: string;
+  content: string;
+  sections: BriefingSection[];
+  created_at: string;
+};
+
 export type UserSettingsResponse = {
   mode: "guardian" | "autopilot";
   kill_switch: boolean;
@@ -241,6 +257,9 @@ export type UserSettingsResponse = {
   tts_voice: string;
   tts_model: "tts-1" | "tts-1-hd";
   tts_autoplay: boolean;
+  briefing_enabled: boolean;
+  /** Hour of day in UTC. */
+  briefing_hour: number;
   openai_api_key?: string | null;
   deepseek_api_key?: string | null;
   gemini_api_key?: string | null;
@@ -268,6 +287,8 @@ export type UpdateSettingsRequest = {
   tts_voice?: string;
   tts_model?: "tts-1" | "tts-1-hd";
   tts_autoplay?: boolean;
+  briefing_enabled?: boolean;
+  briefing_hour?: number;
   openai_api_key?: string | null;
   deepseek_api_key?: string | null;
   gemini_api_key?: string | null;
