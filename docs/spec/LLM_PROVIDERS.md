@@ -230,6 +230,8 @@ OLLAMA_MODEL=llama3.1:8b               # Optional
 
 **Modellwahl gegen die installierte Liste:** `OLLAMA_MODEL` ist nur eine Vermutung, solange das Modell niemand gezogen hat. Der Provider prüft die Wunschmodelle deshalb gegen `/api/tags` (60 s Cache, `ollama_catalogue`) und weicht auf ein installiertes Modell aus, statt jeden S3/S4-Turn an einem 404 scheitern zu lassen — dort gibt es keinen Cloud-Provider, der einspringen darf. Embedding-Modelle (`nomic-embed-text` und Verwandte) sind ausgeschlossen: sie stehen in derselben Tag-Liste, können aber keinen Turn beantworten. Ist überhaupt kein Chat-Modell installiert, meldet der Provider das als Fehler mit Handlungsanweisung.
 
+**Welches Modell einspringt, hängt an der Aufgabe:** `ollama_catalogue.resolve_model(..., fallback=...)` ist die eine Stelle dafür. Eine Antwort an den Nutzer nimmt das **größte** installierte Modell, die Vorklassifikation das **kleinste** — sie läuft bei jeder Nachricht und braucht genau ein Token. Details zum Classifier in @SENSITIVITY_ROUTING.md.
+
 **Fehler bei S3/S4:** Jeder gescheiterte lokale Versuch wird als `LocalProviderUnavailableError` gemeldet — nicht nur Verbindungsfehler. Nur so erfährt der Client den echten Grund und kann bei S3 den einmaligen Cloud-Fallback anbieten; bei S4 bleibt es beim Hinweis, dass die Daten lokal bleiben.
 
 ---

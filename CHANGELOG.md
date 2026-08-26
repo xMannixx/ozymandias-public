@@ -59,6 +59,8 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
 - Jeder S3/S4-Turn scheiterte mit „Turn processing failed", wenn `OLLAMA_MODEL` auf ein nicht gezogenes Modell zeigte: Die Modellwahl läuft jetzt gegen die installierte Tag-Liste, Streaming inbegriffen, und Embedding-Modelle werden aus Routing und Dropdown ausgeschlossen
 - Ein gescheiterter lokaler Versuch wird bei S3/S4 als solcher gemeldet — bisher nur bei Verbindungsfehlern, weshalb der einmalige Cloud-Fallback bei S3 gar nicht angeboten wurde
 - Ein über die Oberfläche gespeicherter Cloud-Schlüssel machte den Provider nicht auswählbar („needs an API key first"), ein gelöschter Schlüssel blieb bis zum Neustart wirksam
+- Die Vorklassifikation war unbemerkt tot und stufte damit jede Nachricht ohne Keyword-Treffer auf S1 herunter, also in die Cloud: Sie lief gegen `OLLAMA_MODEL`, ohne zu prüfen, ob das Modell installiert ist. Sie nimmt jetzt das kleinste installierte Modell, hält es geladen (~0,15 s pro Nachricht statt Sekunden), unterdrückt den Denkschritt von Reasoning-Modellen — der sonst das Token-Budget verbraucht und eine leere Antwort liefert — und protokolliert jede Degradierung
+- Ein bevorzugter Provider ohne Schlüssel wurde stillschweigend durch einen anderen Cloud-Anbieter ersetzt; das steht jetzt im Log
 
 ---
 

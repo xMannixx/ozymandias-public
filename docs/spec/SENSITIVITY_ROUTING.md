@@ -294,6 +294,16 @@ Die Sensitivity-Klassifikation erfolgt zuerst deterministisch über Keyword-List
 
 Jede Entscheidung trägt eine Herkunft (`keyword` | `local_llm` | `degraded` | `system_channel`), die im Turn-Verlauf und Health-Status sichtbar ist.
 
+### Der Classifier muss laufen, sonst ist S1 nur geraten
+
+Degradierung ist als Ausnahme gedacht, nicht als Normalzustand — sie stuft jede Nachricht ohne Keyword-Treffer auf S1 und schickt sie damit in die Cloud. Drei Dinge halten den Classifier deshalb arbeitsfähig:
+
+- **Installiertes Modell statt konfiguriertem Namen:** `OLLAMA_MODEL` ist eine Vermutung, solange das Modell niemand gezogen hat. Der Classifier löst über `ollama_catalogue` auf und nimmt bei fehlendem Treffer das **kleinste** installierte Chat-Modell — die Antwort ist ein einziges Token, hier zählt Latenz, nicht Fähigkeit. Der Antwortpfad (S3/S4) nimmt umgekehrt das größte.
+- **Modell bleibt geladen:** Das Laden dominiert die Anfrage (Sekunden gegen ~0,15 s warm), also hält `keep_alive` es 30 Minuten resident. Das Timeout ist bewusst groß: ein zu früher Abbruch wäre eine stille Herunterstufung auf S1.
+- **`think: false`:** Reasoning-Modelle verbrauchen sonst das Token-Budget im Denkschritt und liefern eine leere Antwort, was wie ein Ausfall aussieht. Modelle ohne Thinking-Modus ignorieren den Parameter.
+
+Jede Degradierung wird geloggt. Ohne Log fällt ein dauerhaft toter Classifier nicht auf: der Chat funktioniert weiter, nur eben ohne Schutz.
+
 ### Provider-Resilienz
 
 Der Router kennt einen `enforce_local`-Schalter und meldet bei nicht erreichbarem lokalem Provider strukturierte Fehler statt eines generischen Fehlschlags:
