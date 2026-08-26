@@ -1,14 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { Cloud, HardDrive } from "lucide-react";
-import { listDeepSeekModels, listLMStudioModels, listOllamaModels, listMistralModels } from "@/api/llm";
 import Button from "@/components/common/Button";
+import ModelPicker from "@/components/common/ModelPicker";
 import Spinner from "@/components/common/Spinner";
 import SettingField from "@/components/settings/SettingField";
 import SettingsCard from "@/components/settings/SettingsCard";
 import { useHealth } from "@/hooks/useHealth";
+import { useProviderModels } from "@/hooks/useProviderModels";
 import type { LLMProviderName } from "@/api/types";
 
-const CLOUD_PROVIDERS = ["deepseek", "openai", "gemini", "mistral"] as const;
+const CLOUD_PROVIDERS = ["deepseek", "openai", "gemini", "mistral", "anthropic", "openrouter"] as const;
 const LOCAL_PROVIDERS = ["ollama", "lmstudio"] as const;
 
 type CloudProviderName = (typeof CLOUD_PROVIDERS)[number];
@@ -36,21 +37,27 @@ type ProviderSelectProps = {
   ) => Promise<void>;
 };
 
-function formatProviderLabel(provider: LLMProviderName): string {
-  if (provider === "openai") {
-    return "OpenAI";
-  }
-  if (provider === "lmstudio") {
-    return "LM Studio";
-  }
-  return provider[0].toUpperCase() + provider.slice(1);
+const PROVIDER_LABELS: Record<string, string> = {
+  openai: "OpenAI",
+  lmstudio: "LM Studio",
+  openrouter: "OpenRouter",
+  deepseek: "DeepSeek",
+};
+
+function formatProviderLabel(provider: string): string {
+  return PROVIDER_LABELS[provider] ?? provider[0].toUpperCase() + provider.slice(1);
 }
 
 function toCloudProviderOption(provider: LLMProviderName | null): ProviderOption {
-  if (provider === "deepseek" || provider === "openai" || provider === "gemini" || provider === "mistral") {
-    return provider;
-  }
-  return "auto";
+  return provider !== null && CLOUD_PROVIDERS.includes(provider as CloudProviderName)
+    ? (provider as CloudProviderName)
+    : "auto";
+}
+
+function localModelsHint(provider: LocalProviderName): string {
+  return provider === "lmstudio"
+    ? "LM Studio is unreachable or no model is loaded."
+    : "Ollama is unreachable or has no models installed.";
 }
 
 function ProviderSelect({
@@ -66,32 +73,20 @@ function ProviderSelect({
 }: ProviderSelectProps): JSX.Element {
   const { health, loading, error } = useHealth();
   const [selectedProvider, setSelectedProvider] = useState<ProviderOption>(toCloudProviderOption(provider));
-  const [modelInput, setModelInput] = useState(model ?? "");
+  const [selectedModel, setSelectedModel] = useState(model ?? "");
   const [selectedLocalProvider, setSelectedLocalProvider] = useState<LocalProviderOption>(localProvider ?? "auto");
   const [selectedLocalModel, setSelectedLocalModel] = useState(localModel ?? "");
-  const [localModels, setLocalModels] = useState<string[]>([]);
-  const [localModelsLoading, setLocalModelsLoading] = useState(false);
-  const [localModelsError, setLocalModelsError] = useState<string | null>(null);
-  const [deepseekModels, setDeepseekModels] = useState<string[]>([]);
-  const [deepseekModelsLoading, setDeepseekModelsLoading] = useState(false);
-  const [deepseekModelsError, setDeepseekModelsError] = useState<string | null>(null);
-  const [selectedDeepseekModel, setSelectedDeepseekModel] = useState("");
-  const [mistralModels, setMistralModels] = useState<string[]>([]);
-  const [mistralModelsLoading, setMistralModelsLoading] = useState(false);
-  const [mistralModelsError, setMistralModelsError] = useState<string | null>(null);
-  const [selectedMistralModel, setSelectedMistralModel] = useState("");
   const [isLiveWebEnabled, setIsLiveWebEnabled] = useState(liveWebEnabled);
   const [selectedLiveWebMode, setSelectedLiveWebMode] = useState(liveWebMode);
   const [allowS3LiveWebByDefault, setAllowS3LiveWebByDefault] = useState(liveWebS3ConfirmedDefault);
   const [saved, setSaved] = useState(false);
 
+  const cloudModels = useProviderModels(selectedProvider === "auto" ? null : selectedProvider);
+  const localModels = useProviderModels(selectedLocalProvider === "auto" ? null : selectedLocalProvider);
+
   useEffect(() => {
     setSelectedProvider(toCloudProviderOption(provider));
   }, [provider]);
-
-  useEffect(() => {
-    setModelInput(model ?? "");
-  }, [model]);
 
   useEffect(() => {
     setSelectedLocalProvider(localProvider ?? "auto");
@@ -114,142 +109,10 @@ function ProviderSelect({
   }, [liveWebS3ConfirmedDefault]);
 
   useEffect(() => {
-    if (selectedProvider === "deepseek" && provider === "deepseek") {
-      setSelectedDeepseekModel(model ?? "");
-    } else if (selectedProvider === "deepseek") {
-      setSelectedDeepseekModel("");
-    }
+    // A model belongs to one provider, so switching provider clears it unless
+    // we are back at the stored combination.
+    setSelectedModel(selectedProvider === toCloudProviderOption(provider) ? (model ?? "") : "");
   }, [selectedProvider, provider, model]);
-
-  useEffect(() => {
-    if (selectedProvider === "mistral" && provider === "mistral") {
-      setSelectedMistralModel(model ?? "");
-    } else if (selectedProvider === "mistral") {
-      setSelectedMistralModel("");
-    }
-  }, [selectedProvider, provider, model]);
-
-  useEffect(() => {
-    let cancelled = false;
-    async function fetchLocalModels(): Promise<void> {
-      if (selectedLocalProvider === "auto") {
-        setLocalModels([]);
-        setLocalModelsError(null);
-        return;
-      }
-      setLocalModelsLoading(true);
-      setLocalModelsError(null);
-      try {
-        const models = selectedLocalProvider === "ollama" ? await listOllamaModels() : await listLMStudioModels();
-        if (cancelled) {
-          return;
-        }
-        setLocalModels(models);
-        if (models.length === 0) {
-          if (selectedLocalProvider === "lmstudio") {
-            setLocalModelsError("LM Studio is unreachable or no model is loaded.");
-          } else {
-            setLocalModelsError("No Ollama models found.");
-          }
-        }
-      } catch {
-        if (cancelled) {
-          return;
-        }
-        setLocalModels([]);
-        if (selectedLocalProvider === "lmstudio") {
-          setLocalModelsError("LM Studio is unreachable.");
-        } else {
-          setLocalModelsError("Ollama is unreachable.");
-        }
-      } finally {
-        if (!cancelled) {
-          setLocalModelsLoading(false);
-        }
-      }
-    }
-
-    void fetchLocalModels();
-    return () => {
-      cancelled = true;
-    };
-  }, [selectedLocalProvider]);
-
-  useEffect(() => {
-    let cancelled = false;
-    async function fetchDeepseekModels(): Promise<void> {
-      if (selectedProvider !== "deepseek") {
-        setDeepseekModels([]);
-        setDeepseekModelsError(null);
-        return;
-      }
-      setDeepseekModelsLoading(true);
-      setDeepseekModelsError(null);
-      try {
-        const models = await listDeepSeekModels();
-        if (cancelled) {
-          return;
-        }
-        setDeepseekModels(models);
-        if (models.length === 0) {
-          setDeepseekModelsError("No DeepSeek models received.");
-        }
-      } catch {
-        if (cancelled) {
-          return;
-        }
-        setDeepseekModels([]);
-        setDeepseekModelsError("Failed to load DeepSeek models.");
-      } finally {
-        if (!cancelled) {
-          setDeepseekModelsLoading(false);
-        }
-      }
-    }
-
-    void fetchDeepseekModels();
-    return () => {
-      cancelled = true;
-    };
-  }, [selectedProvider]);
-
-  useEffect(() => {
-    let cancelled = false;
-    async function fetchMistralModels(): Promise<void> {
-      if (selectedProvider !== "mistral") {
-        setMistralModels([]);
-        setMistralModelsError(null);
-        return;
-      }
-      setMistralModelsLoading(true);
-      setMistralModelsError(null);
-      try {
-        const models = await listMistralModels();
-        if (cancelled) {
-          return;
-        }
-        setMistralModels(models);
-        if (models.length === 0) {
-          setMistralModelsError("No Mistral models received.");
-        }
-      } catch {
-        if (cancelled) {
-          return;
-        }
-        setMistralModels([]);
-        setMistralModelsError("Failed to load Mistral models.");
-      } finally {
-        if (!cancelled) {
-          setMistralModelsLoading(false);
-        }
-      }
-    }
-
-    void fetchMistralModels();
-    return () => {
-      cancelled = true;
-    };
-  }, [selectedProvider]);
 
   const configuredProviders = useMemo(
     () => new Set((health?.llm_providers ?? []).map((item) => item.toLowerCase())),
@@ -258,18 +121,8 @@ function ProviderSelect({
 
   async function savePreference(): Promise<void> {
     const nextProvider = selectedProvider === "auto" ? null : selectedProvider;
-    const nextModel =
-      selectedProvider === "deepseek"
-        ? selectedDeepseekModel.trim().length > 0
-          ? selectedDeepseekModel.trim()
-          : null
-        : selectedProvider === "mistral"
-          ? selectedMistralModel.trim().length > 0
-            ? selectedMistralModel.trim()
-            : null
-          : modelInput.trim().length > 0
-            ? modelInput.trim()
-            : null;
+    const trimmedModel = selectedModel.trim();
+    const nextModel = nextProvider === null || trimmedModel.length === 0 ? null : trimmedModel;
     const nextLocalProvider = selectedLocalProvider === "auto" ? null : selectedLocalProvider;
     const trimmedLocalModel = selectedLocalModel.trim();
     const nextLocalModel = nextLocalProvider === null || trimmedLocalModel.length === 0 ? null : trimmedLocalModel;
@@ -285,27 +138,6 @@ function ProviderSelect({
     setSaved(true);
     window.setTimeout(() => setSaved(false), 3000);
   }
-
-  const localModelSelectValue = selectedLocalModel.trim().length > 0 ? selectedLocalModel : "__auto__";
-  const localModelOptions = localModels.includes(selectedLocalModel)
-    ? localModels
-    : selectedLocalModel.trim().length > 0
-      ? [selectedLocalModel, ...localModels]
-      : localModels;
-
-  const deepseekModelSelectValue = selectedDeepseekModel.trim().length > 0 ? selectedDeepseekModel : "__auto__";
-  const deepseekModelOptions = deepseekModels.includes(selectedDeepseekModel)
-    ? deepseekModels
-    : selectedDeepseekModel.trim().length > 0
-      ? [selectedDeepseekModel, ...deepseekModels]
-      : deepseekModels;
-
-  const mistralModelSelectValue = selectedMistralModel.trim().length > 0 ? selectedMistralModel : "__auto__";
-  const mistralModelOptions = mistralModels.includes(selectedMistralModel)
-    ? mistralModels
-    : selectedMistralModel.trim().length > 0
-      ? [selectedMistralModel, ...mistralModels]
-      : mistralModels;
 
   const liveWebModeDescription: Record<typeof selectedLiveWebMode, string> = {
     provider_native_first:
@@ -363,73 +195,31 @@ function ProviderSelect({
           </select>
         </SettingField>
 
-        {selectedProvider === "deepseek" ? (
+        {selectedProvider !== "auto" ? (
           <SettingField
-            label="Model"
-            description="Leave on automatic unless you specifically want a different DeepSeek model."
+            label={cloudModels.unavailable ? "Model name (optional)" : "Model"}
+            description={
+              cloudModels.unavailable
+                ? "This provider publishes no model list. Leave empty for its default, or type an exact name."
+                : "Leave on automatic unless you want one specific model."
+            }
           >
-            <select
-              aria-label="settings-deepseek-model-select"
-              className="w-full text-sm"
-              value={deepseekModelSelectValue}
-              onChange={(event) => {
-                setSelectedDeepseekModel(event.target.value === "__auto__" ? "" : event.target.value);
+            <ModelPicker
+              models={cloudModels.models}
+              value={selectedModel}
+              onChange={setSelectedModel}
+              loading={cloudModels.loading}
+              unavailable={cloudModels.unavailable}
+              labels={{
+                select: "settings-model-select",
+                input: "settings-model-input",
+                auto: "Automatic (provider default)",
               }}
-              disabled={deepseekModelsLoading}
-            >
-              <option value="__auto__">Automatic (provider default)</option>
-              {deepseekModelOptions.map((modelOption) => (
-                <option key={modelOption} value={modelOption}>
-                  {modelOption}
-                </option>
-              ))}
-            </select>
-          </SettingField>
-        ) : selectedProvider === "mistral" ? (
-          <SettingField
-            label="Model"
-            description="Leave on automatic unless you specifically want a different Mistral model."
-          >
-            <select
-              aria-label="settings-mistral-model-select"
-              className="w-full text-sm"
-              value={mistralModelSelectValue}
-              onChange={(event) => {
-                setSelectedMistralModel(event.target.value === "__auto__" ? "" : event.target.value);
-              }}
-              disabled={mistralModelsLoading}
-            >
-              <option value="__auto__">Automatic (provider default)</option>
-              {mistralModelOptions.map((modelOption) => (
-                <option key={modelOption} value={modelOption}>
-                  {modelOption}
-                </option>
-              ))}
-            </select>
-          </SettingField>
-        ) : (
-          <SettingField
-            label="Model name (optional)"
-            description="Leave empty to use the provider's default model. Only fill this in if you know the exact name you want."
-          >
-            <input
-              aria-label="settings-model-input"
-              className="w-full text-sm"
-              placeholder="Leave empty for the default"
-              value={modelInput}
-              onChange={(event) => setModelInput(event.target.value)}
             />
           </SettingField>
-        )}
+        ) : null}
 
-        {selectedProvider === "deepseek" && deepseekModelsLoading ? <Spinner /> : null}
-        {selectedProvider === "deepseek" && deepseekModelsError ? (
-          <p className="text-xs text-amber-300">{deepseekModelsError}</p>
-        ) : null}
-        {selectedProvider === "mistral" && mistralModelsLoading ? <Spinner /> : null}
-        {selectedProvider === "mistral" && mistralModelsError ? (
-          <p className="text-xs text-amber-300">{mistralModelsError}</p>
-        ) : null}
+        {selectedProvider !== "auto" && cloudModels.loading ? <Spinner /> : null}
       </div>
 
       <div className="space-y-4 rounded-md border border-white/[0.06] bg-white/[0.02] p-3">
@@ -471,27 +261,24 @@ function ProviderSelect({
             label="Local model"
             description="Which of the models installed locally to use."
           >
-            <select
-              aria-label="settings-local-model-select"
-              className="w-full text-sm"
-              value={localModelSelectValue}
-              onChange={(event) => {
-                setSelectedLocalModel(event.target.value === "__auto__" ? "" : event.target.value);
+            <ModelPicker
+              models={localModels.models}
+              value={selectedLocalModel}
+              onChange={setSelectedLocalModel}
+              loading={localModels.loading}
+              labels={{
+                select: "settings-local-model-select",
+                input: "settings-local-model-input",
+                auto: "Automatic (whatever is loaded)",
               }}
-              disabled={localModelsLoading}
-            >
-              <option value="__auto__">Automatic (whatever is loaded)</option>
-              {localModelOptions.map((modelOption) => (
-                <option key={modelOption} value={modelOption}>
-                  {modelOption}
-                </option>
-              ))}
-            </select>
+            />
           </SettingField>
         ) : null}
 
-        {localModelsLoading ? <Spinner /> : null}
-        {localModelsError ? <p className="text-xs text-amber-300">{localModelsError}</p> : null}
+        {localModels.loading ? <Spinner /> : null}
+        {selectedLocalProvider !== "auto" && localModels.unavailable ? (
+          <p className="text-xs text-amber-300">{localModelsHint(selectedLocalProvider)}</p>
+        ) : null}
       </div>
 
       {error ? <p className="text-xs text-rose-300">{error}</p> : null}

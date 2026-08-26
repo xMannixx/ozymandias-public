@@ -1,6 +1,26 @@
 export type Sensitivity = "S0" | "S1" | "S2" | "S3" | "S4";
-export type LLMProviderName = "deepseek" | "openai" | "ollama" | "gemini" | "lmstudio" | "mistral";
+export type LLMProviderName =
+  | "deepseek"
+  | "openai"
+  | "ollama"
+  | "gemini"
+  | "lmstudio"
+  | "mistral"
+  | "anthropic"
+  | "openrouter";
 export type VoiceMode = "push_to_talk" | "hands_free";
+
+/** Cloud providers that authenticate with a key stored in user settings. */
+export type ProviderKeyId =
+  | "openai"
+  | "deepseek"
+  | "gemini"
+  | "mistral"
+  | "anthropic"
+  | "openrouter";
+
+/** One value per provider: a key, the mask (keep) or an empty string (delete). */
+export type ProviderKeys = Record<ProviderKeyId, string>;
 
 export type ClaimResponse = {
   claim_id: string;
@@ -273,6 +293,7 @@ export type UserSettingsResponse = {
   gemini_api_key?: string | null;
   mistral_api_key?: string | null;
   anthropic_api_key?: string | null;
+  openrouter_api_key?: string | null;
   updated_at: string;
 };
 
@@ -302,6 +323,7 @@ export type UpdateSettingsRequest = {
   gemini_api_key?: string | null;
   mistral_api_key?: string | null;
   anthropic_api_key?: string | null;
+  openrouter_api_key?: string | null;
 };
 
 export type TurnAttachment = {

@@ -3,29 +3,34 @@ import userEvent from "@testing-library/user-event";
 import ProviderSelect from "@/components/settings/ProviderSelect";
 
 const useHealthMock = vi.fn();
-const listOllamaModelsMock = vi.fn();
-const listLMStudioModelsMock = vi.fn();
-const listDeepSeekModelsMock = vi.fn();
+const listModelsForProviderMock = vi.fn();
 
 vi.mock("@/hooks/useHealth", () => ({
   useHealth: () => useHealthMock(),
 }));
 
 vi.mock("@/api/llm", () => ({
-  listOllamaModels: (...args: unknown[]) => listOllamaModelsMock(...args),
-  listLMStudioModels: (...args: unknown[]) => listLMStudioModelsMock(...args),
-  listDeepSeekModels: (...args: unknown[]) => listDeepSeekModelsMock(...args),
+  listModelsForProvider: (...args: unknown[]) => listModelsForProviderMock(...args),
 }));
+
+/** Catalogues keyed by provider, mirroring what each backend endpoint returns. */
+const catalogues: Record<string, string[]> = {
+  ollama: ["llama3.1:8b"],
+  lmstudio: ["qwen-local"],
+  deepseek: ["deepseek-v4-flash", "deepseek-v4-pro"],
+  openai: [],
+};
 
 describe("ProviderSelect", () => {
   beforeEach(() => {
     useHealthMock.mockReset();
-    listOllamaModelsMock.mockReset();
-    listLMStudioModelsMock.mockReset();
-    listDeepSeekModelsMock.mockReset();
+    listModelsForProviderMock.mockReset();
+    listModelsForProviderMock.mockImplementation((provider: string) =>
+      Promise.resolve(catalogues[provider] ?? []),
+    );
     useHealthMock.mockReturnValue({
       health: {
-        llm_providers: ["deepseek", "openai", "ollama", "lmstudio"],
+        llm_providers: ["deepseek", "openai", "ollama", "lmstudio", "openrouter"],
         llm_provider_health: [
           {
             name: "deepseek",
@@ -74,9 +79,6 @@ describe("ProviderSelect", () => {
       error: null,
       refetch: vi.fn(),
     });
-    listOllamaModelsMock.mockResolvedValue(["llama3.1:8b"]);
-    listLMStudioModelsMock.mockResolvedValue(["qwen-local"]);
-    listDeepSeekModelsMock.mockResolvedValue(["deepseek-chat", "deepseek-reasoner"]);
   });
 
   it("saves cloud and local provider/model", async () => {
@@ -96,7 +98,8 @@ describe("ProviderSelect", () => {
     );
 
     await userEvent.selectOptions(screen.getByLabelText("settings-provider-select"), "openai");
-    await userEvent.type(screen.getByLabelText("settings-model-input"), "gpt-4o");
+    // OpenAI publishes no catalogue here, so the field falls back to free text.
+    await userEvent.type(await screen.findByLabelText("settings-model-input"), "gpt-4o");
     await userEvent.selectOptions(screen.getByLabelText("settings-local-provider-select"), "lmstudio");
     await screen.findByRole("option", { name: "qwen-local" });
     await userEvent.selectOptions(screen.getByLabelText("settings-local-model-select"), "qwen-local");
@@ -118,7 +121,7 @@ describe("ProviderSelect", () => {
     render(
       <ProviderSelect
         provider={"deepseek"}
-        model={"deepseek-chat"}
+        model={"deepseek-v4-flash"}
         localProvider={"ollama"}
         localModel={"llama3.1:8b"}
         liveWebEnabled={true}
@@ -130,7 +133,6 @@ describe("ProviderSelect", () => {
     );
 
     await userEvent.selectOptions(screen.getByLabelText("settings-provider-select"), "auto");
-    await userEvent.clear(screen.getByLabelText("settings-model-input"));
     await userEvent.selectOptions(screen.getByLabelText("settings-local-provider-select"), "auto");
     await userEvent.click(screen.getByRole("button", { name: "Save changes" }));
 
@@ -145,7 +147,7 @@ describe("ProviderSelect", () => {
     );
   });
 
-  it("shows DeepSeek model dropdown and saves selected model", async () => {
+  it("shows a model dropdown for providers with a catalogue and saves the choice", async () => {
     const onSave = vi.fn(async () => undefined);
     render(
       <ProviderSelect
@@ -162,15 +164,85 @@ describe("ProviderSelect", () => {
     );
 
     await userEvent.selectOptions(screen.getByLabelText("settings-provider-select"), "deepseek");
+    await screen.findByRole("option", { name: "deepseek-v4-pro" });
     expect(screen.queryByLabelText("settings-model-input")).not.toBeInTheDocument();
-    await screen.findByRole("option", { name: "deepseek-reasoner" });
-    await userEvent.selectOptions(screen.getByLabelText("settings-deepseek-model-select"), "deepseek-reasoner");
+    await userEvent.selectOptions(screen.getByLabelText("settings-model-select"), "deepseek-v4-pro");
     await userEvent.click(screen.getByRole("button", { name: "Save changes" }));
 
-    expect(listDeepSeekModelsMock).toHaveBeenCalled();
+    expect(listModelsForProviderMock).toHaveBeenCalledWith("deepseek");
     expect(onSave).toHaveBeenCalledWith(
       "deepseek",
-      "deepseek-reasoner",
+      "deepseek-v4-pro",
+      null,
+      null,
+      false,
+      "provider_native_first",
+      false,
+    );
+  });
+
+  it("offers OpenRouter with a filter box for its long catalogue", async () => {
+    listModelsForProviderMock.mockImplementation((provider: string) =>
+      Promise.resolve(
+        provider === "openrouter"
+          ? Array.from({ length: 40 }, (_, index) => `vendor/model-${index}`)
+          : (catalogues[provider] ?? []),
+      ),
+    );
+    const onSave = vi.fn(async () => undefined);
+    render(
+      <ProviderSelect
+        provider={null}
+        model={null}
+        localProvider={null}
+        localModel={null}
+        liveWebEnabled={false}
+        liveWebMode={"provider_native_first"}
+        liveWebS3ConfirmedDefault={false}
+        saving={false}
+        onSave={onSave}
+      />,
+    );
+
+    await userEvent.selectOptions(screen.getByLabelText("settings-provider-select"), "openrouter");
+    const search = await screen.findByLabelText("settings-model-select-search");
+    await userEvent.type(search, "model-37");
+    await userEvent.selectOptions(screen.getByLabelText("settings-model-select"), "vendor/model-37");
+    await userEvent.click(screen.getByRole("button", { name: "Save changes" }));
+
+    expect(onSave).toHaveBeenCalledWith(
+      "openrouter",
+      "vendor/model-37",
+      null,
+      null,
+      false,
+      "provider_native_first",
+      false,
+    );
+  });
+
+  it("switching provider drops a model that belonged to the previous one", async () => {
+    const onSave = vi.fn(async () => undefined);
+    render(
+      <ProviderSelect
+        provider={"deepseek"}
+        model={"deepseek-v4-pro"}
+        localProvider={null}
+        localModel={null}
+        liveWebEnabled={false}
+        liveWebMode={"provider_native_first"}
+        liveWebS3ConfirmedDefault={false}
+        saving={false}
+        onSave={onSave}
+      />,
+    );
+
+    await userEvent.selectOptions(screen.getByLabelText("settings-provider-select"), "openai");
+    await userEvent.click(screen.getByRole("button", { name: "Save changes" }));
+
+    expect(onSave).toHaveBeenCalledWith(
+      "openai",
+      null,
       null,
       null,
       false,
@@ -180,7 +252,9 @@ describe("ProviderSelect", () => {
   });
 
   it("shows lm studio unreachable hint for empty models", async () => {
-    listLMStudioModelsMock.mockResolvedValueOnce([]);
+    listModelsForProviderMock.mockImplementation((provider: string) =>
+      Promise.resolve(provider === "lmstudio" ? [] : (catalogues[provider] ?? [])),
+    );
     const onSave = vi.fn(async () => undefined);
     render(
       <ProviderSelect
