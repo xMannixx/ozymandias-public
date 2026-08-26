@@ -56,7 +56,7 @@ class TokenUsageTracker:
     def get_all_usage(self) -> dict[str, ProviderUsage]:
         """Return a snapshot of today's usage for all known providers."""
         settings = get_settings()
-        known_providers = ("mistral", "deepseek", "openai", "anthropic", "gemini")
+        known_providers = ("mistral", "deepseek", "openai", "anthropic", "gemini", "openrouter")
         result: dict[str, ProviderUsage] = {}
 
         with self._lock:

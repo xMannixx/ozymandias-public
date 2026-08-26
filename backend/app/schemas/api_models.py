@@ -17,6 +17,7 @@ ProviderLiteral = Literal[
     "lmstudio",
     "mistral",
     "anthropic",
+    "openrouter",
 ]
 LocalProviderLiteral = Literal["ollama", "lmstudio"]
 
@@ -441,6 +442,7 @@ class UserSettingsResponse(BaseModel):
     gemini_api_key: str | None = None
     mistral_api_key: str | None = None
     anthropic_api_key: str | None = None
+    openrouter_api_key: str | None = None
     updated_at: datetime
 
 
@@ -472,6 +474,7 @@ class UpdateSettingsRequest(BaseModel):
     gemini_api_key: str | None = None
     mistral_api_key: str | None = None
     anthropic_api_key: str | None = None
+    openrouter_api_key: str | None = None
 
 
 class KillSwitchRequest(BaseModel):

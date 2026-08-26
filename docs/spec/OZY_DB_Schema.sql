@@ -884,3 +884,31 @@ CREATE INDEX IF NOT EXISTS idx_briefings_user_date
 ALTER TABLE user_settings
     ADD COLUMN IF NOT EXISTS briefing_enabled BOOLEAN NOT NULL DEFAULT TRUE,
     ADD COLUMN IF NOT EXISTS briefing_hour INT NOT NULL DEFAULT 7;
+
+
+-- ============================================================
+-- OPENROUTER ALS PROVIDER
+-- ============================================================
+ALTER TABLE user_settings
+    ADD COLUMN IF NOT EXISTS openrouter_api_key TEXT;
+
+-- Der CHECK oben kannte weder anthropic noch openrouter, obwohl beide
+-- Provider implementiert sind — ein Speichern waere fehlgeschlagen.
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1
+        FROM pg_constraint
+        WHERE conname = 'user_settings_preferred_provider_check'
+    ) THEN
+        ALTER TABLE user_settings DROP CONSTRAINT user_settings_preferred_provider_check;
+    END IF;
+
+    ALTER TABLE user_settings
+        ADD CONSTRAINT user_settings_preferred_provider_check
+        CHECK (preferred_provider IN (
+            'deepseek', 'openai', 'ollama', 'gemini', 'lmstudio',
+            'mistral', 'anthropic', 'openrouter'
+        ));
+END
+$$;

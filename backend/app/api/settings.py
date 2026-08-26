@@ -164,5 +164,6 @@ def _to_settings_response(settings: UserSettings) -> UserSettingsResponse:
         gemini_api_key=_mask_key(settings.gemini_api_key),
         mistral_api_key=_mask_key(settings.mistral_api_key),
         anthropic_api_key=_mask_key(settings.anthropic_api_key),
+        openrouter_api_key=_mask_key(settings.openrouter_api_key),
         updated_at=settings.updated_at,
     )

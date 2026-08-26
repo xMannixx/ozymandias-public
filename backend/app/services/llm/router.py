@@ -18,6 +18,7 @@ from app.services.llm.lmstudio import LMStudioProvider
 from app.services.llm.mistral import MistralProvider
 from app.services.llm.ollama import OllamaProvider
 from app.services.llm.openai_provider import OpenAIProvider
+from app.services.llm.openrouter import OpenRouterProvider
 from app.services.llm.token_usage_tracker import get_token_usage_tracker
 from app.services.llm.usage import (
     STATUS_ERROR,
@@ -47,6 +48,8 @@ class LLMRouter:
             self._providers["mistral"] = MistralProvider()
         if settings.anthropic_api_key:
             self._providers["anthropic"] = AnthropicProvider()
+        if settings.openrouter_api_key:
+            self._providers["openrouter"] = OpenRouterProvider()
 
     @property
     def available_providers(self) -> list[str]:
@@ -362,6 +365,7 @@ class LLMRouter:
             "gemini": GeminiProvider,
             "mistral": MistralProvider,
             "anthropic": AnthropicProvider,
+            "openrouter": OpenRouterProvider,
         }
         for provider_name, api_key in api_keys.items():
             if api_key and api_key.strip() and provider_name not in self._providers:
@@ -382,7 +386,7 @@ class LLMRouter:
 
         Fallback priority (S0–S2):
             preferred_provider → intent primary → Mistral → DeepSeek → OpenAI →
-            Anthropic → Gemini → local (last resort)
+            Anthropic → Gemini → OpenRouter → local (last resort)
 
         S3/S4 with enforce_local: only local providers, no cloud fallback.
         """
@@ -408,7 +412,9 @@ class LLMRouter:
             chain.append(intent_primary)
 
         # 3. Remaining cloud providers in defined cost/quality priority order.
-        _CLOUD_PRIORITY = ("mistral", "deepseek", "openai", "anthropic", "gemini")
+        # OpenRouter sits last: it is a broker, so reaching a lab directly is
+        # both cheaper and one hop shorter.
+        _CLOUD_PRIORITY = ("mistral", "deepseek", "openai", "anthropic", "gemini", "openrouter")
         for name in _CLOUD_PRIORITY:
             if name in self._providers and name not in chain:
                 chain.append(name)
@@ -428,6 +434,7 @@ class LLMRouter:
                     "openai",
                     "anthropic",
                     "gemini",
+                    "openrouter",
                     "ollama",
                     "lmstudio",
                 ):

@@ -71,6 +71,7 @@ class UserSettings(Base):
     gemini_api_key: Mapped[str | None] = mapped_column(Text)
     mistral_api_key: Mapped[str | None] = mapped_column(Text)
     anthropic_api_key: Mapped[str | None] = mapped_column(Text)
+    openrouter_api_key: Mapped[str | None] = mapped_column(Text)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,

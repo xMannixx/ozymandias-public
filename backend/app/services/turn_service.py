@@ -288,6 +288,7 @@ class TurnService:
             "gemini": getattr(settings, "gemini_api_key", None),
             "mistral": getattr(settings, "mistral_api_key", None),
             "anthropic": getattr(settings, "anthropic_api_key", None),
+            "openrouter": getattr(settings, "openrouter_api_key", None),
         }
 
         live_web_requested = payload.use_live_web
