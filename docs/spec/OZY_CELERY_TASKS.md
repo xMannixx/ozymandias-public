@@ -1,7 +1,7 @@
 # OZY Celery-Tasks — Technische Spezifikation
 
-> Implementiert in: `backend/app/services/decay_service.py`  
-> Konfiguration: `backend/app/config.py` (Redis-URL, Decay-Parameter)  
+> Implementiert in: `backend/app/services/` (`decay_service`, `memory_lifecycle_service`, `episode_index_service`, `briefing_service`)  
+> Konfiguration: `backend/app/config.py` (Redis-URL, Decay-Parameter, `embedding_model`)  
 > Referenz: `OZY_MEMORY_SYSTEM.md` §Memory Decay
 
 ---
@@ -37,7 +37,9 @@ celery_app = Celery(
     broker=settings.redis_url,
     backend=settings.redis_url,
     include=[
+        "app.services.briefing_service",
         "app.services.decay_service",
+        "app.services.episode_index_service",
         "app.services.memory_lifecycle_service",
     ],
 )
@@ -128,11 +130,49 @@ def run_decay_task(user_id: str) -> dict[str, int]:
 
 **Ausgabe:** Zähler pro Kategorie, Decay-Zähler mit Präfix `decay_`.
 
-### `ozy.decay.run_all` und `ozy.memory.cleanup_all` — Beat-Einstiegspunkte
+### `ozy.episodes.index` — Episoden-Index für semantischen Recall
+
+**Datei:** `backend/app/services/episode_index_service.py`
+
+**Zweck:** Neue `conversation_messages` embedden und als `episodes` schreiben, damit der Turn über `EpisodeRecallService` in alten Gesprächen suchen kann.
+
+**Eingabe:** `user_id: str`
+
+**Ausgabe:** `{"messages": int, "embedded": int, "skipped": int}`
+
+**Ablauf:**
+1. Nachrichten ohne passende Episode laden (`conversation_id` + `seq`), älteste zuerst, max. 500 pro Lauf
+2. Inhalte ab 25 Zeichen in Batches von 16 gegen Ollama embedden (`nomic-embed-text`, 768 Dimensionen)
+3. Episoden schreiben — Rolle, Inhalt und Sensitivity der Nachricht bleiben erhalten
+4. Audit-Log-Eintrag (`event_type: action_executed, channel: celery`)
+
+**Wichtig:** Embeddings entstehen ausschließlich lokal, weil Gesprächsinhalte jede Sensitivity haben können. Ist Ollama nicht erreichbar, schreibt der Lauf **nichts** und die Nachrichten bleiben für den nächsten Durchgang liegen; vektorlose Episoden wären als erledigt markiert und nie wieder auffindbar. Zu kurze Nachrichten werden bewusst ohne Vektor gespeichert.
+
+### `ozy.heartbeat` — Tages-Briefing
+
+**Datei:** `backend/app/services/briefing_service.py`
+
+**Zweck:** Kalender, ungelesene Mails, offene Proposals, Claims mit Review-Bedarf oder baldigem Ablauf und überfällige Projekt-Aufgaben zu einem Text zusammenfassen und in `briefings` schreiben.
+
+**Eingabe:** `user_id: str`
+
+**Ausgabe:** Die `briefing_id`, oder ein leerer String, wenn es für den Tag schon eines gibt.
+
+**Kein LLM:** Mail-Betreffe und Kalendereinträge sind untrusted. Der Text entsteht aus einer Vorlage — das passt zum Taint-Konzept und ist um sieben Uhr morgens zuverlässiger. Jede Quelle wird einzeln abgesichert: ohne Google-Konto entfallen Kalender- und Mail-Abschnitt, der Rest wird trotzdem geschrieben.
+
+**Idempotenz:** `UNIQUE (user_id, briefing_date)` plus Vorabprüfung — der stündliche Beat erzeugt pro Tag genau ein Briefing.
+
+### `ozy.decay.run_all`, `ozy.memory.cleanup_all`, `ozy.episodes.index_all`, `ozy.heartbeat.run_all` — Beat-Einstiegspunkte
 
 **Dateien:** dieselben Service-Module
 
-Beat kennt keine `user_id`. Beide Tasks ermitteln die Zielnutzer selbst über `user_ids_with_claims` in `backend/app/services/job_targets.py` (`SELECT DISTINCT user_id FROM claims`) und rufen dann den jeweiligen Ein-User-Job auf.
+Beat kennt keine `user_id`. Die Tasks ermitteln ihre Zielnutzer selbst über `backend/app/services/job_targets.py`:
+
+| Task | Zielnutzer |
+|---|---|
+| `ozy.decay.run_all`, `ozy.memory.cleanup_all` | `user_ids_with_claims` — `SELECT DISTINCT user_id FROM claims` |
+| `ozy.episodes.index_all` | `user_ids_with_conversations` — wer chattet, hat noch lange keinen bestätigten Claim |
+| `ozy.heartbeat.run_all` | `user_ids_wanting_a_briefing` — `briefing_enabled` und `briefing_hour` = aktuelle UTC-Stunde |
 
 **Ausgabe:** `{user_id: <Ergebnis des Ein-User-Jobs>}`
 
@@ -174,11 +214,7 @@ Die folgenden Tasks sind in der Architektur vorgesehen und sollen in späteren P
 2. Embedding mit neuem Modell berechnen
 3. `episodes.embedding` aktualisieren
 
-### `ozy.heartbeat` — Tages-Briefing vorbereiten
-
-**Zweck:** Jeden Morgen einen Kontext-Snapshot für den Nutzer vorbereiten (relevante Claims, offene Tasks, Kalender)
-
-**Trigger:** Täglich um 9 Uhr (konfigurierbar)
+Bis dahin bleibt der Weg: `episodes` leeren, dann `ozy.episodes.index_all` neu laufen lassen.
 
 ---
 
@@ -215,12 +251,15 @@ docker compose logs -f worker
 ### Task manuell triggern (Entwicklung)
 
 ```bash
-# Alle User (wie Beat es nachts tut)
+# Alle User (wie Beat es tut)
 docker compose exec worker celery -A app.celery_app call ozy.decay.run_all
 docker compose exec worker celery -A app.celery_app call ozy.memory.cleanup_all
+docker compose exec worker celery -A app.celery_app call ozy.episodes.index_all
+docker compose exec worker celery -A app.celery_app call ozy.heartbeat.run_all
 
 # Ein einzelner User
 docker compose exec worker celery -A app.celery_app call ozy.decay.run --args='["<user_id>"]'
+docker compose exec worker celery -A app.celery_app call ozy.heartbeat --args='["<user_id>"]'
 ```
 
 ```python
@@ -244,6 +283,8 @@ run_decay_task.apply(args=["dev-user"])
 | Rust-Bridge-Fehler | Task schlägt fehl, kein partieller Commit |
 | Leere Claims-Liste | Task endet erfolgreich mit `{"keep": 0, ...}` |
 | Redis nicht erreichbar | Celery kann keine Tasks empfangen — System läuft weiter, nur Background-Jobs fehlen |
+| Ollama nicht erreichbar | `ozy.episodes.index_all` schreibt nichts und versucht es beim nächsten Lauf erneut; der Recall im Turn bleibt still leer |
+| Kein Google-Konto | Briefing entsteht ohne Kalender- und Mail-Abschnitt |
 
 **Retry-Konfiguration** (Standard-Celery-Verhalten, kann in `celery_app.py` angepasst werden):
 - Max Retries: 3
@@ -266,9 +307,24 @@ celery_app.conf.beat_schedule = {
         "task": "ozy.memory.cleanup_all",
         "schedule": crontab(hour="3", minute="30"),
     },
+    "index-episodes": {
+        "task": "ozy.episodes.index_all",
+        "schedule": crontab(minute="*/30"),
+    },
+    "daily-briefing": {
+        "task": "ozy.heartbeat.run_all",
+        "schedule": crontab(minute="5"),
+    },
 }
 ```
 
-Zeiten sind UTC (`enable_utc=True`). Der Versatz von 30 Minuten verhindert, dass beide Jobs gleichzeitig dieselben Claims schreiben.
+| Zeitplan (UTC) | Task | Warum so oft |
+|---|---|---|
+| 03:00 täglich | `ozy.decay.run_all` | Nachts, wenn niemand mit den Claims arbeitet |
+| 03:30 täglich | `ozy.memory.cleanup_all` | 30 Minuten Versatz, damit beide Jobs nicht dieselben Claims schreiben |
+| alle 30 Minuten | `ozy.episodes.index_all` | Heutige Gespräche sind morgen auffindbar, ohne das lokale Modell dauerhaft zu beschäftigen |
+| stündlich, Minute 5 | `ozy.heartbeat.run_all` | Jeder darf seine eigene Briefing-Stunde wählen; der Task filtert selbst |
+
+Zeiten sind UTC (`enable_utc=True`) — auch `user_settings.briefing_hour`.
 
 **Hinweis:** Die `run_all`-Tasks lösen die Zielnutzer selbst aus den Daten auf, statt eine feste `DEFAULT_USER_ID` zu setzen — das funktioniert auch bei der Single-Owner-Architektur ohne zusätzliche Konfiguration.
