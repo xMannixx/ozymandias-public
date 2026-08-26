@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from typing import Literal
 
@@ -9,6 +10,20 @@ import httpx
 
 from app.config import get_settings
 from app.schemas import Channel, Sensitivity
+from app.services.llm import ollama_catalogue
+
+logger = logging.getLogger(__name__)
+
+#: Generous, because loading a cold model dominates the request. Cutting it
+#: short would silently downgrade the message to S1 and send it to the cloud —
+#: exactly what this classifier exists to prevent.
+_REQUEST_TIMEOUT_SECONDS = 45.0
+
+#: How long Ollama keeps the classifier resident after a request.
+_KEEP_MODEL_LOADED = "30m"
+
+#: The answer is one level like "S3"; a cap keeps chatty models from rambling.
+_MAX_ANSWER_TOKENS = 16
 
 S4_KEYWORDS: tuple[str, ...] = (
     "fick",
@@ -166,12 +181,23 @@ async def _classify_with_ollama(text: str) -> SensitivityClassification:
     settings = get_settings()
     chat_url = f"{settings.ollama_base_url.rstrip('/')}/api/chat"
     try:
-        async with httpx.AsyncClient(timeout=8.0) as client:
+        # A one-token answer, so the fastest installed model is the right one.
+        model = await ollama_catalogue.resolve_model(settings.ollama_model, fallback="smallest")
+        async with httpx.AsyncClient(timeout=_REQUEST_TIMEOUT_SECONDS) as client:
             response = await client.post(
                 chat_url,
                 json={
-                    "model": settings.ollama_model,
+                    "model": model,
                     "stream": False,
+                    # Loading the model is what costs the seconds here, so it
+                    # stays resident: every later message classifies instantly
+                    # instead of paying that cost again.
+                    "keep_alive": _KEEP_MODEL_LOADED,
+                    # Reasoning models otherwise spend the whole token budget
+                    # thinking and return an empty answer, which reads exactly
+                    # like an outage. Models without a thinking mode ignore it.
+                    "think": False,
+                    "options": {"temperature": 0, "num_predict": _MAX_ANSWER_TOKENS},
                     "messages": [
                         {
                             "role": "system",
@@ -195,8 +221,10 @@ async def _classify_with_ollama(text: str) -> SensitivityClassification:
             )
             response.raise_for_status()
             payload = response.json()
-    except Exception:
-        # Degraded mode: keep chat available for non-keyword traffic.
+    except Exception as exc:
+        # Degraded mode: keep chat available for non-keyword traffic. Logged
+        # because it downgrades everything to S1, which is easy to miss.
+        logger.warning("sensitivity: local classifier unavailable (%s), assuming S1", exc)
         return SensitivityClassification(
             sensitivity=Sensitivity.S1,
             source="degraded",
