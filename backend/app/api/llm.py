@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends
 from app.auth.jwt import get_current_user
 from app.config import get_settings
 from app.schemas.api_models import LLMProviderInfo
-from app.services.llm import openrouter_catalogue
+from app.services.llm import ollama_catalogue, openrouter_catalogue
 from app.services.llm.router import get_llm_router
 
 router = APIRouter(tags=["llm"])
@@ -32,29 +32,15 @@ async def list_providers(_user_id: str = Depends(get_current_user)) -> list[LLMP
 
 @router.get("/ollama/models", response_model=list[str])
 async def list_ollama_models(_user_id: str = Depends(get_current_user)) -> list[str]:
-    """Return installed local Ollama models, or empty list if unreachable."""
-    settings = get_settings()
-    tags_url = f"{settings.ollama_base_url.rstrip('/')}/api/tags"
+    """Return installed local Ollama chat models, or empty list if unreachable.
+
+    Embedding models are left out: they share the tag list with chat models but
+    cannot answer a turn, so offering them only produces broken selections.
+    """
     try:
-        async with httpx.AsyncClient(timeout=5.0) as client:
-            response = await client.get(tags_url)
-            response.raise_for_status()
-            payload = response.json()
+        return await ollama_catalogue.chat_models()
     except Exception:
         return []
-    if not isinstance(payload, dict):
-        return []
-    models = payload.get("models")
-    if not isinstance(models, list):
-        return []
-    names: list[str] = []
-    for item in models:
-        if not isinstance(item, dict):
-            continue
-        name = item.get("model") or item.get("name")
-        if isinstance(name, str) and name.strip():
-            names.append(name)
-    return names
 
 
 @router.get("/lmstudio/models", response_model=list[str])

@@ -41,64 +41,27 @@ async def test_list_providers_returns_configured_models(
 
 
 @pytest.mark.asyncio
-async def test_list_ollama_models_returns_model_names(
+async def test_list_ollama_models_returns_installed_chat_models(
     client: AsyncClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(
-        "app.api.llm.get_settings",
-        lambda: SimpleNamespace(ollama_base_url="http://localhost:11434"),
-    )
+    async def _chat_models() -> list[str]:
+        return ["llama3.1:8b", "qwen3:14b"]
 
-    class _FakeResponse:
-        def raise_for_status(self) -> None:
-            return None
-
-        def json(self) -> dict[str, object]:
-            return {
-                "models": [
-                    {"name": "qwen:14b"},
-                    {"model": "llama3.1:8b"},
-                ]
-            }
-
-    class _FakeAsyncClient:
-        async def __aenter__(self) -> _FakeAsyncClient:
-            return self
-
-        async def __aexit__(self, exc_type, exc, tb) -> None:  # type: ignore[no-untyped-def]
-            del exc_type, exc, tb
-
-        async def get(self, url: str) -> _FakeResponse:
-            assert url == "http://localhost:11434/api/tags"
-            return _FakeResponse()
-
-    monkeypatch.setattr("app.api.llm.httpx.AsyncClient", lambda **_: _FakeAsyncClient())
+    monkeypatch.setattr("app.services.llm.ollama_catalogue.chat_models", _chat_models)
 
     response = await client.get("/llm/ollama/models")
     assert response.status_code == 200
-    assert response.json() == ["qwen:14b", "llama3.1:8b"]
+    assert response.json() == ["llama3.1:8b", "qwen3:14b"]
 
 
 @pytest.mark.asyncio
 async def test_list_ollama_models_returns_empty_when_unreachable(
     client: AsyncClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(
-        "app.api.llm.get_settings",
-        lambda: SimpleNamespace(ollama_base_url="http://localhost:11434"),
-    )
+    async def _chat_models() -> list[str]:
+        raise RuntimeError("connection refused")
 
-    class _FakeAsyncClient:
-        async def __aenter__(self) -> _FakeAsyncClient:
-            return self
-
-        async def __aexit__(self, exc_type, exc, tb) -> None:  # type: ignore[no-untyped-def]
-            del exc_type, exc, tb
-
-        async def get(self, _url: str) -> object:
-            raise RuntimeError("connection refused")
-
-    monkeypatch.setattr("app.api.llm.httpx.AsyncClient", lambda **_: _FakeAsyncClient())
+    monkeypatch.setattr("app.services.llm.ollama_catalogue.chat_models", _chat_models)
 
     response = await client.get("/llm/ollama/models")
     assert response.status_code == 200

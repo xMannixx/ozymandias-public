@@ -2,17 +2,68 @@
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
 from types import SimpleNamespace
 
 import pytest
 
+from app.services.errors import ServiceError
 from app.services.llm.anthropic_provider import AnthropicProvider
-from app.services.llm.base import token_detail_from_openai_usage
+from app.services.llm.base import LLMResponse, token_detail_from_openai_usage
 from app.services.llm.deepseek import DeepSeekProvider
 from app.services.llm.gemini import GeminiProvider
 from app.services.llm.lmstudio import LMStudioProvider
 from app.services.llm.ollama import OllamaProvider
 from app.services.llm.openai_provider import OpenAIProvider
+
+
+def _fake_ollama(
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    installed: list[str],
+    configured: str = "llama3",
+    tokens: tuple[int, int] = (2, 5),
+) -> list[str]:
+    """Run OllamaProvider against a fake runtime, returning the models it tried."""
+    attempted: list[str] = []
+    prompt_tokens, completion_tokens = tokens
+
+    class _FakeOllamaClient:
+        def __init__(self, **_: object) -> None:
+            pass
+
+        async def chat(self, **kwargs: object) -> object:
+            attempted.append(str(kwargs["model"]))
+            if kwargs.get("stream"):
+                return _stream()
+            return {
+                "message": {"content": "ollama-answer"},
+                "prompt_eval_count": prompt_tokens,
+                "eval_count": completion_tokens,
+            }
+
+    async def _stream() -> AsyncIterator[dict[str, object]]:
+        yield {"message": {"content": "streamed"}}
+        yield {
+            "message": {"content": ""},
+            "done": True,
+            "prompt_eval_count": prompt_tokens,
+            "eval_count": completion_tokens,
+        }
+
+    async def _chat_models() -> list[str]:
+        return list(installed)
+
+    monkeypatch.setattr(
+        "app.services.llm.ollama.get_settings",
+        lambda: SimpleNamespace(
+            ollama_base_url="http://localhost:11434",
+            ollama_model=configured,
+        ),
+    )
+    monkeypatch.setattr("app.services.llm.ollama.AsyncClient", _FakeOllamaClient)
+    monkeypatch.setattr("app.services.llm.ollama_catalogue.chat_models", _chat_models)
+    return attempted
 
 
 class _FakeOpenAIResponse:
@@ -155,23 +206,7 @@ async def test_gemini_provider_maps_response(monkeypatch: pytest.MonkeyPatch) ->
 
 @pytest.mark.asyncio
 async def test_ollama_provider_maps_response(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(
-        "app.services.llm.ollama.get_settings",
-        lambda: SimpleNamespace(ollama_base_url="http://localhost:11434", ollama_model="llama3"),
-    )
-
-    class _FakeOllamaClient:
-        def __init__(self, **_: object) -> None:
-            pass
-
-        async def chat(self, **_: object) -> dict[str, object]:
-            return {
-                "message": {"content": "ollama-answer"},
-                "prompt_eval_count": 3,
-                "eval_count": 7,
-            }
-
-    monkeypatch.setattr("app.services.llm.ollama.AsyncClient", _FakeOllamaClient)
+    _fake_ollama(monkeypatch, installed=["llama3"], tokens=(3, 7))
     provider = OllamaProvider()
     result = await provider.chat([{"role": "user", "content": "hello"}])
     assert result.provider == "ollama"
@@ -180,40 +215,63 @@ async def test_ollama_provider_maps_response(monkeypatch: pytest.MonkeyPatch) ->
 
 
 @pytest.mark.asyncio
-async def test_ollama_provider_retries_default_model_when_override_not_found(
+async def test_ollama_provider_falls_back_to_configured_model_for_a_cloud_override(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(
-        "app.services.llm.ollama.get_settings",
-        lambda: SimpleNamespace(ollama_base_url="http://localhost:11434", ollama_model="llama3"),
-    )
-    attempted_models: list[str] = []
-
-    class _FakeOllamaClient:
-        def __init__(self, **_: object) -> None:
-            pass
-
-        async def chat(self, **kwargs: object) -> dict[str, object]:
-            model = str(kwargs["model"])
-            attempted_models.append(model)
-            if model == "deepseek-chat":
-                raise RuntimeError("model 'deepseek-chat' not found")
-            return {
-                "message": {"content": "ollama-fallback-answer"},
-                "prompt_eval_count": 2,
-                "eval_count": 5,
-            }
-
-    monkeypatch.setattr("app.services.llm.ollama.AsyncClient", _FakeOllamaClient)
+    """A cloud model name reaches Ollama when a user keeps both preferences."""
+    attempted = _fake_ollama(monkeypatch, installed=["llama3"])
     provider = OllamaProvider()
     result = await provider.chat(
         [{"role": "user", "content": "hello"}],
-        model="deepseek-chat",
+        model="deepseek-v4-pro",
     )
-    assert attempted_models == ["deepseek-chat", "llama3"]
-    assert result.provider == "ollama"
+    assert attempted == ["llama3"]
     assert result.model == "llama3"
-    assert result.content == "ollama-fallback-answer"
+
+
+@pytest.mark.asyncio
+async def test_ollama_provider_uses_an_installed_model_when_the_configured_one_is_missing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The configured default is only a guess until someone pulls it.
+
+    Without this, every S3/S4 turn fails and there is no cloud provider to take
+    over.
+    """
+    attempted = _fake_ollama(monkeypatch, installed=["gemma3:12b", "qwen3:14b"])
+    result = await OllamaProvider().chat([{"role": "user", "content": "hello"}])
+    assert attempted == ["gemma3:12b"]
+    assert result.model == "gemma3:12b"
+
+
+@pytest.mark.asyncio
+async def test_ollama_provider_matches_a_configured_model_without_its_tag(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _fake_ollama(monkeypatch, installed=["llama3:latest"])
+    result = await OllamaProvider().chat([{"role": "user", "content": "hello"}])
+    assert result.model == "llama3:latest"
+
+
+@pytest.mark.asyncio
+async def test_ollama_provider_streaming_also_picks_an_installed_model(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Chat streams, so a fix that only covers chat() fixes nothing in practice."""
+    attempted = _fake_ollama(monkeypatch, installed=["gemma3:12b"])
+    provider = OllamaProvider()
+    chunks = [item async for item in provider.chat_stream([{"role": "user", "content": "hi"}])]
+    assert attempted == ["gemma3:12b"]
+    assert chunks[0] == "streamed"
+    assert isinstance(chunks[-1], LLMResponse)
+    assert chunks[-1].model == "gemma3:12b"
+
+
+@pytest.mark.asyncio
+async def test_ollama_provider_reports_an_empty_runtime(monkeypatch: pytest.MonkeyPatch) -> None:
+    _fake_ollama(monkeypatch, installed=[])
+    with pytest.raises(ServiceError, match="no chat model installed"):
+        await OllamaProvider().chat([{"role": "user", "content": "hello"}])
 
 
 @pytest.mark.asyncio
@@ -420,23 +478,7 @@ async def test_gemini_provider_reports_token_breakdown(monkeypatch: pytest.Monke
 
 @pytest.mark.asyncio
 async def test_ollama_provider_reports_token_breakdown(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(
-        "app.services.llm.ollama.get_settings",
-        lambda: SimpleNamespace(ollama_base_url="http://localhost:11434", ollama_model="llama3"),
-    )
-
-    class _FakeOllamaClient:
-        def __init__(self, **_: object) -> None:
-            pass
-
-        async def chat(self, **_: object) -> dict[str, object]:
-            return {
-                "message": {"content": "ollama-answer"},
-                "prompt_eval_count": 33,
-                "eval_count": 11,
-            }
-
-    monkeypatch.setattr("app.services.llm.ollama.AsyncClient", _FakeOllamaClient)
+    _fake_ollama(monkeypatch, installed=["llama3"], tokens=(33, 11))
     result = await OllamaProvider().chat([{"role": "user", "content": "hello"}])
     assert result.prompt_tokens == 33
     assert result.completion_tokens == 11
