@@ -28,6 +28,11 @@ from app.services.llm.usage import (
     tool_name_from_request,
 )
 
+_LOCAL_PROVIDERS = frozenset({"ollama", "lmstudio"})
+
+#: Sensitivities that must not reach a cloud provider without explicit consent.
+_LOCAL_ONLY = frozenset({Sensitivity.S3, Sensitivity.S4})
+
 
 class LLMRouter:
     """Route LLM calls to the correct provider based on intent and sensitivity."""
@@ -137,18 +142,16 @@ class LLMRouter:
                 continue
 
             # Skip cloud providers that have exceeded their daily token limit.
-            if provider_name not in {"ollama", "lmstudio"} and tracker.is_limit_exceeded(
-                provider_name
-            ):
+            if provider_name not in _LOCAL_PROVIDERS and tracker.is_limit_exceeded(provider_name):
                 last_exc = ServiceError(f"Daily token limit reached for '{provider_name}'")
                 continue
 
             model_override = preferred_model
-            if provider_name in {"ollama", "lmstudio"}:
+            if provider_name in _LOCAL_PROVIDERS:
                 # Prevent cloud model names from leaking through local overrides.
                 if preferred_local_model:
                     model_override = preferred_local_model
-                elif enforce_local and sensitivity in {Sensitivity.S3, Sensitivity.S4}:
+                elif enforce_local and sensitivity in _LOCAL_ONLY:
                     model_override = None
 
             api_key = api_keys.get(provider_name) if api_keys else None
@@ -187,17 +190,11 @@ class LLMRouter:
                     exc=exc,
                 )
                 # S3/S4 local-only failure — surface immediately with structured error.
-                if (
-                    provider_name in {"ollama", "lmstudio"}
-                    and enforce_local
-                    and sensitivity in {Sensitivity.S3, Sensitivity.S4}
-                    and _is_connection_error(exc)
-                ):
-                    raise LocalProviderUnavailableError(
-                        provider=provider_name,
-                        sensitivity=sensitivity.value,
-                        fallback_allowed=sensitivity is Sensitivity.S3,
-                        detail=str(exc),
+                if _is_local_only_attempt(provider_name, enforce_local, sensitivity):
+                    raise _local_only_failure(
+                        provider_name=provider_name,
+                        sensitivity=sensitivity,
+                        exc=exc,
                     ) from exc
 
                 # Auth / permission errors are hard failures — no point retrying other providers.
@@ -246,17 +243,15 @@ class LLMRouter:
             if provider is None:
                 continue
 
-            if provider_name not in {"ollama", "lmstudio"} and tracker.is_limit_exceeded(
-                provider_name
-            ):
+            if provider_name not in _LOCAL_PROVIDERS and tracker.is_limit_exceeded(provider_name):
                 last_exc = ServiceError(f"Daily token limit reached for '{provider_name}'")
                 continue
 
             model_override = preferred_model
-            if provider_name in {"ollama", "lmstudio"}:
+            if provider_name in _LOCAL_PROVIDERS:
                 if preferred_local_model:
                     model_override = preferred_local_model
-                elif enforce_local and sensitivity in {Sensitivity.S3, Sensitivity.S4}:
+                elif enforce_local and sensitivity in _LOCAL_ONLY:
                     model_override = None
 
             api_key = api_keys.get(provider_name) if api_keys else None
@@ -306,17 +301,11 @@ class LLMRouter:
                     started=started,
                     exc=exc,
                 )
-                if (
-                    provider_name in {"ollama", "lmstudio"}
-                    and enforce_local
-                    and sensitivity in {Sensitivity.S3, Sensitivity.S4}
-                    and _is_connection_error(exc)
-                ):
-                    raise LocalProviderUnavailableError(
-                        provider=provider_name,
-                        sensitivity=sensitivity.value,
-                        fallback_allowed=sensitivity is Sensitivity.S3,
-                        detail=str(exc),
+                if _is_local_only_attempt(provider_name, enforce_local, sensitivity):
+                    raise _local_only_failure(
+                        provider_name=provider_name,
+                        sensitivity=sensitivity,
+                        exc=exc,
                     ) from exc
                 if _is_auth_error(exc) or emitted:
                     # Auth errors are hard failures; after the first delta there
@@ -391,7 +380,7 @@ class LLMRouter:
         S3/S4 with enforce_local: only local providers, no cloud fallback.
         """
         # S3/S4 hard-local: one entry only.
-        if enforce_local and sensitivity in {Sensitivity.S3, Sensitivity.S4}:
+        if enforce_local and sensitivity in _LOCAL_ONLY:
             try:
                 local = self._get_local_provider(preferred_local_provider=preferred_local_provider)
                 return [local]
@@ -464,7 +453,7 @@ class LLMRouter:
         if preferred_local_provider:
             normalized_local_provider = preferred_local_provider.strip().lower()
             if (
-                normalized_local_provider in {"ollama", "lmstudio"}
+                normalized_local_provider in _LOCAL_PROVIDERS
                 and normalized_local_provider in self._providers
             ):
                 return normalized_local_provider
@@ -487,17 +476,36 @@ def get_llm_router() -> LLMRouter:
     return LLMRouter()
 
 
-def _is_connection_error(exc: Exception) -> bool:
-    error_text = str(exc).lower()
-    markers = (
-        "failed to connect",
-        "connection refused",
-        "connecterror",
-        "connection error",
-        "all connection attempts failed",
-        "unreachable",
+def _is_local_only_attempt(
+    provider_name: str, enforce_local: bool, sensitivity: Sensitivity
+) -> bool:
+    """True when this attempt had no cloud provider left to fall back to."""
+    return provider_name in _LOCAL_PROVIDERS and enforce_local and sensitivity in _LOCAL_ONLY
+
+
+def _local_only_failure(
+    *, provider_name: str, sensitivity: Sensitivity, exc: Exception
+) -> LocalProviderUnavailableError:
+    """Turn a failed local-only attempt into an error the client can act on.
+
+    Every cause counts, not just an unreachable runtime: a model that was never
+    pulled fails just as hard, and reporting that as a generic internal error
+    hides the one thing the user can fix.
+    """
+    reason = str(exc).strip() or type(exc).__name__
+    if sensitivity is Sensitivity.S4:
+        message = (
+            f"S4 content never leaves this machine, and the local provider "
+            f"'{provider_name}' could not answer: {reason}"
+        )
+    else:
+        message = f"The local provider '{provider_name}' could not answer: {reason}"
+    return LocalProviderUnavailableError(
+        provider=provider_name,
+        sensitivity=sensitivity.value,
+        fallback_allowed=sensitivity is Sensitivity.S3,
+        detail=message,
     )
-    return any(marker in error_text for marker in markers)
 
 
 def _is_auth_error(exc: Exception) -> bool:

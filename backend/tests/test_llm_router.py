@@ -9,6 +9,7 @@ from typing import Any
 import pytest
 
 from app.schemas import Sensitivity
+from app.services.errors import LocalProviderUnavailableError
 from app.services.llm.base import LLMMessage, LLMResponse, LLMStreamItem
 from app.services.llm.router import LLMRouter
 from app.services.llm.usage import LLMCallUsage
@@ -726,3 +727,103 @@ async def test_route_raises_last_error_when_all_providers_fail(
             sensitivity=Sensitivity.S1,
             messages=[{"role": "user", "content": "test"}],
         )
+
+
+def _break_ollama(router: LLMRouter, exc: Exception) -> None:
+    provider = router._providers["ollama"]
+    assert isinstance(provider, _FakeProvider)
+
+    async def _fail(
+        messages: list[LLMMessage],
+        *,
+        tools: object = None,
+        model: object = None,
+        api_key: object = None,
+    ) -> LLMResponse:
+        raise exc
+
+    async def _fail_stream(
+        messages: list[LLMMessage],
+        *,
+        tools: object = None,
+        model: object = None,
+        api_key: object = None,
+    ) -> AsyncIterator[LLMStreamItem]:
+        raise exc
+        yield ""  # pragma: no cover — makes this an async generator
+
+    provider.chat = _fail  # type: ignore[method-assign]
+    provider.chat_stream = _fail_stream  # type: ignore[method-assign]
+
+
+@pytest.mark.asyncio
+async def test_s3_local_failure_offers_a_cloud_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
+    """S3 has a way out, but only if the client learns the local run failed."""
+    _patch_router_dependencies(monkeypatch)
+    router = LLMRouter()
+    _break_ollama(router, RuntimeError("model 'llama3.2' not found (status code: 404)"))
+
+    with pytest.raises(LocalProviderUnavailableError) as raised:
+        await router.route(
+            intent="general_turn",
+            sensitivity=Sensitivity.S3,
+            messages=[{"role": "user", "content": "test"}],
+        )
+    assert raised.value.provider == "ollama"
+    assert raised.value.fallback_allowed is True
+    assert "llama3.2" in str(raised.value)
+
+
+@pytest.mark.asyncio
+async def test_s4_local_failure_never_offers_a_cloud_fallback(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _patch_router_dependencies(monkeypatch)
+    router = LLMRouter()
+    _break_ollama(router, RuntimeError("no chat model installed"))
+
+    with pytest.raises(LocalProviderUnavailableError) as raised:
+        await router.route(
+            intent="general_turn",
+            sensitivity=Sensitivity.S4,
+            messages=[{"role": "user", "content": "test"}],
+        )
+    assert raised.value.fallback_allowed is False
+    assert "never leaves this machine" in str(raised.value)
+
+
+@pytest.mark.asyncio
+async def test_s3_local_failure_is_structured_for_streaming_too(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The chat UI streams, so the non-streaming path alone helps nobody."""
+    _patch_router_dependencies(monkeypatch)
+    router = LLMRouter()
+    _break_ollama(router, RuntimeError("model 'llama3.2' not found"))
+
+    with pytest.raises(LocalProviderUnavailableError) as raised:
+        async for _ in router.route_stream(
+            intent="general_turn",
+            sensitivity=Sensitivity.S3,
+            messages=[{"role": "user", "content": "test"}],
+        ):
+            pass
+    assert raised.value.fallback_allowed is True
+
+
+@pytest.mark.asyncio
+async def test_local_failure_below_s3_still_reaches_the_cloud(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Only S3/S4 are local-only; a broken Ollama must not break normal chat."""
+    _patch_router_dependencies(monkeypatch)
+    router = LLMRouter()
+    _break_ollama(router, RuntimeError("model 'llama3.2' not found"))
+
+    result = await router.route(
+        intent="general_turn",
+        sensitivity=Sensitivity.S1,
+        preferred_provider="ollama",
+        messages=[{"role": "user", "content": "test"}],
+    )
+    assert result.provider == "mistral"
