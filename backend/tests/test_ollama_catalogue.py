@@ -7,6 +7,7 @@ from typing import Any
 
 import pytest
 
+from app.services.errors import ServiceError
 from app.services.llm import ollama_catalogue
 
 
@@ -137,6 +138,88 @@ async def test_malformed_payload_yields_no_models(monkeypatch: pytest.MonkeyPatc
     _install(monkeypatch, {"models": "not-a-list"})
 
     assert await ollama_catalogue.chat_models() == []
+
+
+@pytest.mark.asyncio
+async def test_resolve_model_prefers_the_first_installed_candidate(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _install(
+        monkeypatch,
+        _tags_payload({"model": "gemma3:12b"}, {"model": "qwen3:8b"}),
+    )
+
+    resolved = await ollama_catalogue.resolve_model(
+        "deepseek-v4-pro",
+        "qwen3:8b",
+        fallback="largest",
+    )
+    assert resolved == "qwen3:8b"
+
+
+@pytest.mark.asyncio
+async def test_resolve_model_answers_with_the_largest_installed_model(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """An answer to the user should come from the most capable model there is."""
+    _install(
+        monkeypatch,
+        _tags_payload(
+            {"model": "gemma3:12b", "size": 8_150_000_000},
+            {"model": "nemotron-3-nano:4b", "size": 2_840_000_000},
+        ),
+    )
+
+    assert await ollama_catalogue.resolve_model("llama3.2", fallback="largest") == "gemma3:12b"
+
+
+@pytest.mark.asyncio
+async def test_resolve_model_classifies_with_the_smallest_installed_model(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A one-token classification runs on every message, so speed wins."""
+    _install(
+        monkeypatch,
+        _tags_payload(
+            {"model": "gemma3:12b", "size": 8_150_000_000},
+            {"model": "nemotron-3-nano:4b", "size": 2_840_000_000},
+        ),
+    )
+
+    resolved = await ollama_catalogue.resolve_model("llama3.2", fallback="smallest")
+    assert resolved == "nemotron-3-nano:4b"
+
+
+@pytest.mark.asyncio
+async def test_resolve_model_reports_a_substitution_once(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """This runs on every message; a line per turn would bury the rest."""
+    _install(monkeypatch, _tags_payload({"model": "gemma3:12b"}))
+
+    with caplog.at_level("WARNING"):
+        await ollama_catalogue.resolve_model("llama3.2", fallback="largest")
+        await ollama_catalogue.resolve_model("llama3.2", fallback="largest")
+
+    substitutions = [record for record in caplog.records if "is installed" in record.getMessage()]
+    assert len(substitutions) == 1
+
+
+@pytest.mark.asyncio
+async def test_resolve_model_matches_a_candidate_without_its_tag(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _install(monkeypatch, _tags_payload({"model": "llama3.2:latest"}))
+
+    assert await ollama_catalogue.resolve_model("llama3.2", fallback="largest") == "llama3.2:latest"
+
+
+@pytest.mark.asyncio
+async def test_resolve_model_reports_an_empty_runtime(monkeypatch: pytest.MonkeyPatch) -> None:
+    _install(monkeypatch, _tags_payload({"model": "nomic-embed-text:latest"}))
+
+    with pytest.raises(ServiceError, match="no chat model installed"):
+        await ollama_catalogue.resolve_model("llama3.2", fallback="largest")
 
 
 @pytest.mark.asyncio

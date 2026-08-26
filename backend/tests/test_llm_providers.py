@@ -14,6 +14,7 @@ from app.services.llm.deepseek import DeepSeekProvider
 from app.services.llm.gemini import GeminiProvider
 from app.services.llm.lmstudio import LMStudioProvider
 from app.services.llm.ollama import OllamaProvider
+from app.services.llm.ollama_catalogue import LocalModel
 from app.services.llm.openai_provider import OpenAIProvider
 
 
@@ -51,8 +52,13 @@ def _fake_ollama(
             "eval_count": completion_tokens,
         }
 
-    async def _chat_models() -> list[str]:
-        return list(installed)
+    async def _installed_models() -> list[LocalModel]:
+        # Ascending size, so a test expecting the largest model cannot pass by
+        # accidentally picking the first entry.
+        return [
+            LocalModel(tag=tag, size_bytes=(index + 1) * 1_000_000_000)
+            for index, tag in enumerate(installed)
+        ]
 
     monkeypatch.setattr(
         "app.services.llm.ollama.get_settings",
@@ -62,7 +68,7 @@ def _fake_ollama(
         ),
     )
     monkeypatch.setattr("app.services.llm.ollama.AsyncClient", _FakeOllamaClient)
-    monkeypatch.setattr("app.services.llm.ollama_catalogue.chat_models", _chat_models)
+    monkeypatch.setattr("app.services.llm.ollama_catalogue.installed_models", _installed_models)
     return attempted
 
 
@@ -230,15 +236,15 @@ async def test_ollama_provider_falls_back_to_configured_model_for_a_cloud_overri
 
 
 @pytest.mark.asyncio
-async def test_ollama_provider_uses_an_installed_model_when_the_configured_one_is_missing(
+async def test_ollama_provider_uses_the_largest_installed_model_as_a_substitute(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """The configured default is only a guess until someone pulls it.
 
-    Without this, every S3/S4 turn fails and there is no cloud provider to take
-    over.
+    Without a substitute every S3/S4 turn fails, and there is no cloud provider
+    allowed to take over. This one answers the user, so capability wins.
     """
-    attempted = _fake_ollama(monkeypatch, installed=["gemma3:12b", "qwen3:14b"])
+    attempted = _fake_ollama(monkeypatch, installed=["nemotron-3-nano:4b", "gemma3:12b"])
     result = await OllamaProvider().chat([{"role": "user", "content": "hello"}])
     assert attempted == ["gemma3:12b"]
     assert result.model == "gemma3:12b"

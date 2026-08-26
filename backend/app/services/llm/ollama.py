@@ -2,14 +2,12 @@
 
 from __future__ import annotations
 
-import logging
 from collections.abc import AsyncIterator
 from typing import Any, cast
 
 from ollama import AsyncClient
 
 from app.config import get_settings
-from app.services.errors import ServiceError
 from app.services.llm import ollama_catalogue
 from app.services.llm.base import (
     LLMMessage,
@@ -18,8 +16,6 @@ from app.services.llm.base import (
     LLMStreamItem,
     TokenDetail,
 )
-
-logger = logging.getLogger(__name__)
 
 
 class OllamaProvider(LLMProvider):
@@ -111,36 +107,9 @@ class OllamaProvider(LLMProvider):
         configured one. Cloud model names arrive here as `requested` whenever a
         user keeps one cloud and one local preference, hence the same treatment.
         """
-        installed = await ollama_catalogue.chat_models()
-        if not installed:
-            raise ServiceError(
-                "Ollama has no chat model installed. Pull one, for example "
-                "'ollama pull llama3.2', to use local-only processing."
-            )
-
-        for candidate in (requested, self._model_name):
-            match = _match_tag(candidate, installed)
-            if match is not None:
-                return match
-
-        substitute = installed[0]
-        logger.warning(
-            "ollama: model %r is not installed, using %r instead",
-            requested or self._model_name,
-            substitute,
+        return await ollama_catalogue.resolve_model(
+            requested,
+            self._model_name,
+            # This answers the user; the most capable local model wins.
+            fallback="largest",
         )
-        return substitute
-
-
-def _match_tag(candidate: str | None, installed: list[str]) -> str | None:
-    """Find `candidate` among installed tags, tolerating an implicit `:latest`."""
-    if not candidate:
-        return None
-    wanted = candidate.strip().lower()
-    if not wanted:
-        return None
-    for tag in installed:
-        known = tag.lower()
-        if known == wanted or known == f"{wanted}:latest":
-            return tag
-    return None
