@@ -11,10 +11,11 @@
 Alle LLM-Provider werden über Umgebungsvariablen in der `.env`-Datei konfiguriert. Provider ohne gesetzten API-Key sind beim Start nicht verfügbar.
 
 **Faustregel:**
-- `DEEPSEEK_API_KEY` → Arbeitstier (günstig, 128K Kontext)
+- `DEEPSEEK_API_KEY` → Arbeitstier (günstig, 1M Kontext)
 - `OLLAMA_BASE_URL` → Immer verfügbar (lokal, kein Key nötig), **Pflicht für S3/S4**
 - `OPENAI_API_KEY` → Für Tool-Calls, Whisper STT, TTS
 - `GEMINI_API_KEY` → Für Gespräche, Kreatives
+- `OPENROUTER_API_KEY` → Für Modelle ohne eigenen Client
 - `LMSTUDIO_MODEL` → Alternative zu Ollama
 
 ---
@@ -23,14 +24,14 @@ Alle LLM-Provider werden über Umgebungsvariablen in der `.env`-Datei konfigurie
 
 **Rolle:** Default / Work / Claim-Extraktion  
 **Sensitivity:** S0–S2 (kein S3/S4)  
-**Kosten:** ~$0.28/1M Input, $0.42/1M Output (Cache-Miss) | $0.028/1M (Cache-Hit)
+**Kosten:** $0.22/1M Input, $0.66/1M Output (Cache-Miss) | $0.007/1M (Cache-Hit), jeweils Off-Peak
 
 ### Konfiguration
 
 ```env
 DEEPSEEK_API_KEY=<DEEPSEEK_API_KEY>
 DEEPSEEK_BASE_URL=https://api.deepseek.com/v1
-DEEPSEEK_MODEL=deepseek-chat
+DEEPSEEK_MODEL=deepseek-v4-flash
 ```
 
 ### API-Key erhalten
@@ -44,8 +45,14 @@ DEEPSEEK_MODEL=deepseek-chat
 
 | Modell | Kontext | Verwendung |
 |---|---|---|
-| `deepseek-chat` | 128K | Standard, Work, Extraktion |
-| `deepseek-reasoner` | 64K | Für komplexe Reasoning-Aufgaben |
+| `deepseek-v4-flash` | 1M | Standard, Work, Extraktion |
+| `deepseek-v4-pro` | 1M | Für komplexe Reasoning-Aufgaben (3× teurer) |
+
+`deepseek-chat` und `deepseek-reasoner` existieren seit dem 24.07.2026 nicht mehr; Aufrufe mit diesen Namen schlagen fehl. Thinking wird auf V4 pro Request gesteuert.
+
+### Peak-Pricing
+
+Seit dem 16.08.2026 kostet DeepSeek zwischen 01:00–04:00 und 06:00–10:00 UTC das Doppelte. Die Kostenberechnung in `pricing.py` berücksichtigt das automatisch anhand des Aufrufzeitpunkts.
 
 ### Prompt-Caching
 
@@ -127,6 +134,46 @@ GEMINI_MODEL=gemini-2.0-flash
 | `gemini-2.0-flash` | 1M | Standard, schnell, günstig |
 | `gemini-2.5-pro` | 1M | Komplex, teurer |
 | `gemini-1.5-pro` | 2M | Sehr langer Kontext |
+
+---
+
+## OpenRouter
+
+**Rolle:** Broker für Modelle, für die Ozymandias keinen eigenen Client hat  
+**Sensitivity:** S0–S2 (kein S3/S4)  
+**Kosten:** pro Modell unterschiedlich; solche Calls bleiben in der Usage-Auswertung unbepreist
+
+### Konfiguration
+
+```env
+OPENROUTER_API_KEY=<OPENROUTER_API_KEY>
+OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
+OPENROUTER_MODEL=~openai/gpt-mini-latest
+```
+
+### API-Key erhalten
+
+1. Gehe zu [openrouter.ai/keys](https://openrouter.ai/keys)
+2. Account erstellen / einloggen
+3. „Create key" → Guthaben aufladen
+4. Key beginnt mit `sk-or-v1-`
+
+### Modell-Optionen
+
+Mehrere hundert. Die Auswahl in den Einstellungen lädt den Katalog live von
+`GET /llm/openrouter/models` und bietet ein Suchfeld; die Liste wird 15 Minuten
+gecacht.
+
+Slugs mit `~` sind rollende Aliase und zeigen immer auf die aktuelle Version:
+
+| Slug | Bedeutung |
+|---|---|
+| `~openai/gpt-mini-latest` | aktuelles kleines OpenAI-Modell (Default) |
+| `~anthropic/claude-sonnet-latest` | aktuelles Claude Sonnet |
+| `~google/gemini-flash-latest` | aktuelles Gemini Flash |
+| `~deepseek/deepseek-v4-flash-latest` | aktuelles DeepSeek Flash |
+
+OpenRouter steht zuletzt in der Cloud-Fallback-Kette: der direkte Weg zum Anbieter ist günstiger und kürzer.
 
 ---
 
@@ -266,7 +313,7 @@ OWNER_EMAIL=deine@gmail.com
 curl http://localhost:8080/health | python3 -m json.tool
 
 # Erwartete Ausgabe bei vollständiger Konfiguration:
-# "llm_providers": ["deepseek", "openai", "gemini", "ollama"]
+# "llm_providers": ["deepseek", "openai", "gemini", "mistral", "anthropic", "openrouter", "ollama"]
 ```
 
 ---
@@ -290,9 +337,10 @@ Mit dieser Minimalkonfiguration funktioniert der System-Core, aber keine Cloud-L
 
 ```env
 # Primäre Cloud-Provider
-DEEPSEEK_API_KEY=sk-xxx        # Work, Extraktion (güngstig)
+DEEPSEEK_API_KEY=sk-xxx        # Work, Extraktion (günstig)
 OPENAI_API_KEY=sk-xxx          # Tool-Calls, Whisper, TTS
 GEMINI_API_KEY=AIzaSy-xxx      # Talk, Kreativ
+OPENROUTER_API_KEY=sk-or-v1-xxx  # Optional: alles, was sonst fehlt
 
 # Lokaler Provider (Pflicht für S3/S4)
 OLLAMA_BASE_URL=http://host.docker.internal:11434

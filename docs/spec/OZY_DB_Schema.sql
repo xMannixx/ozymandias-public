@@ -887,6 +887,23 @@ ALTER TABLE user_settings
 
 
 -- ============================================================
+-- DEEPSEEK V4
+-- ============================================================
+-- deepseek-chat und deepseek-reasoner wurden am 24.07.2026 abgeschaltet.
+-- Gespeicherte Praeferenzen zeigen sonst auf ein Modell, das die API nicht
+-- mehr kennt, und jeder DeepSeek-Turn schlaegt fehl.
+UPDATE user_settings
+   SET preferred_model = 'deepseek-v4-flash'
+ WHERE preferred_provider = 'deepseek'
+   AND preferred_model = 'deepseek-chat';
+
+UPDATE user_settings
+   SET preferred_model = 'deepseek-v4-pro'
+ WHERE preferred_provider = 'deepseek'
+   AND preferred_model = 'deepseek-reasoner';
+
+
+-- ============================================================
 -- OPENROUTER ALS PROVIDER
 -- ============================================================
 ALTER TABLE user_settings

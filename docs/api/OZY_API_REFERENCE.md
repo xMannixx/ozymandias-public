@@ -61,6 +61,7 @@ Wenn `AUTH_DEV_BYPASS=true` gesetzt ist, wird ein fixer Dev-User (`user_id = "de
 | GET | `/files` | Dateien auflisten |
 | POST | `/files/upload` | Datei hochladen |
 | GET | `/llm/providers` | Konfigurierte Provider |
+| GET | `/llm/{provider}/models` | Wählbare Modelle eines Providers |
 | POST | `/voice/transcribe` | Sprachaufnahme transkribieren |
 | POST | `/voice/synthesize` | Text zu Sprache |
 | POST | `/memory/facts` | Fakt lane- und policy-bewusst schreiben |
@@ -122,7 +123,7 @@ Haupt-Endpunkt für KI-Konversation. Verarbeitet einen vollständigen Turn inklu
   "intent": "work",
   "conversation_id": "uuid (optional)",
   "preferred_provider": "deepseek (optional)",
-  "preferred_model": "deepseek-chat (optional)",
+  "preferred_model": "deepseek-v4-flash (optional)",
   "preferred_local_provider": "ollama (optional)",
   "preferred_local_model": "llama3.1:8b (optional)"
 }
@@ -134,7 +135,7 @@ Haupt-Endpunkt für KI-Konversation. Verarbeitet einen vollständigen Turn inklu
 ```json
 {
   "reply": "string",
-  "model": "deepseek-chat",
+  "model": "deepseek-v4-flash",
   "provider": "deepseek",
   "tokens_used": 1234,
   "sensitivity": "S0",
@@ -334,7 +335,7 @@ Bestätigt einen tentative Claim.
   "cb_window_seconds_override": null,
   "cb_cooldown_seconds_override": null,
   "preferred_provider": "deepseek",
-  "preferred_model": "deepseek-chat",
+  "preferred_model": "deepseek-v4-flash",
   "preferred_local_provider": "ollama",
   "preferred_local_model": "llama3.1:8b",
   "voice_enabled": false,
