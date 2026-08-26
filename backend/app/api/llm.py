@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends
 from app.auth.jwt import get_current_user
 from app.config import get_settings
 from app.schemas.api_models import LLMProviderInfo
+from app.services.llm import openrouter_catalogue
 from app.services.llm.router import get_llm_router
 
 router = APIRouter(tags=["llm"])
@@ -85,8 +86,12 @@ async def list_lmstudio_models(_user_id: str = Depends(get_current_user)) -> lis
 
 @router.get("/deepseek/models", response_model=list[str])
 async def list_deepseek_models(_user_id: str = Depends(get_current_user)) -> list[str]:
-    """Return selectable DeepSeek API model ids (static list)."""
-    return ["deepseek-chat", "deepseek-reasoner"]
+    """Return selectable DeepSeek API model ids (static list).
+
+    The deepseek-chat and deepseek-reasoner aliases were retired on 24 July 2026;
+    on V4 the thinking mode is a request parameter, not a model of its own.
+    """
+    return ["deepseek-v4-flash", "deepseek-v4-pro"]
 
 
 @router.get("/mistral/models", response_model=list[str])
@@ -120,3 +125,13 @@ async def list_gemini_models(_user_id: str = Depends(get_current_user)) -> list[
         "gemini-2.5-flash",
         "gemini-2.0-flash",
     ]
+
+
+@router.get("/openrouter/models", response_model=list[str])
+async def list_openrouter_models(_user_id: str = Depends(get_current_user)) -> list[str]:
+    """Return OpenRouter's live model catalogue.
+
+    Several hundred entries from many vendors, so this is read from OpenRouter
+    itself instead of a hand-kept list.
+    """
+    return await openrouter_catalogue.list_models()

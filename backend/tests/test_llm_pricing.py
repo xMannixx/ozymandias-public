@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime, timedelta, timezone
 from decimal import Decimal
 
-from app.services.llm.pricing import cost_usd, price_for
+from app.services.llm.pricing import cost_usd, price_for, time_of_day_factor
+
+#: A DeepSeek off-peak moment, so time-of-day pricing stays out of the way.
+OFF_PEAK = datetime(2026, 8, 26, 14, 0, tzinfo=UTC)
 
 
 def test_cost_splits_fresh_and_cached_prompt_tokens() -> None:
@@ -22,11 +26,44 @@ def test_cost_splits_fresh_and_cached_prompt_tokens() -> None:
 def test_cost_without_cache_charges_full_input_rate() -> None:
     cost = cost_usd(
         provider="deepseek",
-        model="deepseek-chat",
+        model="deepseek-v4-flash",
         prompt_tokens=1_000_000,
         completion_tokens=0,
+        at=OFF_PEAK,
     )
-    assert cost == Decimal("0.270000")
+    assert cost == Decimal("0.220000")
+
+
+def test_retired_deepseek_aliases_are_no_longer_priced() -> None:
+    # deepseek-chat and deepseek-reasoner stopped answering in July 2026; a
+    # price for them would quietly bill traffic that cannot exist.
+    assert price_for("deepseek", "deepseek-chat") is None
+    assert price_for("deepseek", "deepseek-reasoner") is None
+
+
+def test_deepseek_costs_double_during_peak_hours() -> None:
+    peak = datetime(2026, 8, 26, 7, 30, tzinfo=UTC)
+    charged = cost_usd(
+        provider="deepseek",
+        model="deepseek-v4-pro",
+        prompt_tokens=1_000_000,
+        completion_tokens=0,
+        at=peak,
+    )
+    assert charged == Decimal("1.320000")
+
+
+def test_only_deepseek_bills_by_the_clock() -> None:
+    peak = datetime(2026, 8, 26, 7, 30, tzinfo=UTC)
+    assert time_of_day_factor("deepseek", peak) == Decimal(2)
+    assert time_of_day_factor("openai", peak) == Decimal(1)
+
+
+def test_peak_windows_are_read_in_utc() -> None:
+    # 11:30 in Berlin is 09:30 UTC, which is inside the second peak window.
+    berlin = timezone(timedelta(hours=2))
+    berlin_late_morning = datetime(2026, 8, 26, 11, 30, tzinfo=berlin)
+    assert time_of_day_factor("deepseek", berlin_late_morning) == Decimal(2)
 
 
 def test_dated_model_snapshots_inherit_the_family_price() -> None:

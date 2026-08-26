@@ -8,6 +8,7 @@ shows up as "unpriced calls" in usage reports rather than as free traffic.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from decimal import ROUND_HALF_UP, Decimal
 
 #: Providers that run on your own hardware and therefore bill nothing per token.
@@ -15,6 +16,11 @@ LOCAL_PROVIDERS = frozenset({"ollama", "lmstudio"})
 
 _CENT_FRACTION = Decimal("0.000001")
 _PER_MILLION = Decimal(1_000_000)
+
+#: DeepSeek bills double during these UTC hours (since 16 August 2026). The
+#: table below holds off-peak rates, which apply the other 17 hours of the day.
+_DEEPSEEK_PEAK_HOURS = frozenset({1, 2, 3, 6, 7, 8, 9})
+_DEEPSEEK_PEAK_FACTOR = Decimal(2)
 
 
 @dataclass(frozen=True)
@@ -50,9 +56,10 @@ _PRICES: dict[str, dict[str, ModelPrice]] = {
         "o3-mini": _price("1.10", "4.40", "0.55"),
         "o4-mini": _price("1.10", "4.40", "0.275"),
     },
+    # Off-peak rates; see _DEEPSEEK_PEAK_HOURS for the doubling window.
     "deepseek": {
-        "deepseek-chat": _price("0.27", "1.10", "0.07"),
-        "deepseek-reasoner": _price("0.55", "2.19", "0.14"),
+        "deepseek-v4-flash": _price("0.22", "0.66", "0.007"),
+        "deepseek-v4-pro": _price("0.66", "1.98", "0.022"),
     },
     "anthropic": {
         "claude-3-5-haiku": _price("0.80", "4.00", "0.08"),
@@ -104,6 +111,17 @@ def price_for(provider: str, model: str) -> ModelPrice | None:
     return table[max(matches, key=len)]
 
 
+def time_of_day_factor(provider: str, at: datetime | None = None) -> Decimal:
+    """Multiplier for providers that charge by the clock.
+
+    Only DeepSeek does this today: peak hours cost twice the off-peak rate.
+    """
+    if provider.strip().lower() != "deepseek":
+        return Decimal(1)
+    moment = (at or datetime.now(tz=UTC)).astimezone(UTC)
+    return _DEEPSEEK_PEAK_FACTOR if moment.hour in _DEEPSEEK_PEAK_HOURS else Decimal(1)
+
+
 def cost_usd(
     *,
     provider: str,
@@ -111,16 +129,25 @@ def cost_usd(
     prompt_tokens: int,
     completion_tokens: int,
     cached_prompt_tokens: int = 0,
+    at: datetime | None = None,
 ) -> Decimal | None:
-    """Price one call, or return None when the model has no known price."""
+    """Price one call, or return None when the model has no known price.
+
+    ``at`` is the moment of the call, which matters for providers with
+    time-of-day rates; it defaults to now because usage is priced on the way in.
+    """
     price = price_for(provider, model)
     if price is None:
         return None
     cached = max(0, min(cached_prompt_tokens, prompt_tokens))
     fresh_prompt = max(0, prompt_tokens - cached)
     total = (
-        Decimal(fresh_prompt) * price.input
-        + Decimal(cached) * price.cached_rate()
-        + Decimal(max(0, completion_tokens)) * price.output
-    ) / _PER_MILLION
+        (
+            Decimal(fresh_prompt) * price.input
+            + Decimal(cached) * price.cached_rate()
+            + Decimal(max(0, completion_tokens)) * price.output
+        )
+        * time_of_day_factor(provider, at)
+        / _PER_MILLION
+    )
     return total.quantize(_CENT_FRACTION, rounding=ROUND_HALF_UP)

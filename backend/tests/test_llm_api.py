@@ -132,10 +132,25 @@ async def test_list_lmstudio_models_returns_empty_when_unreachable(
 
 
 @pytest.mark.asyncio
-async def test_list_deepseek_models_returns_static_list(client: AsyncClient) -> None:
+async def test_list_deepseek_models_returns_the_v4_family(client: AsyncClient) -> None:
+    """deepseek-chat and deepseek-reasoner were retired in July 2026."""
     response = await client.get("/llm/deepseek/models")
     assert response.status_code == 200
-    assert response.json() == ["deepseek-chat", "deepseek-reasoner"]
+    assert response.json() == ["deepseek-v4-flash", "deepseek-v4-pro"]
+
+
+@pytest.mark.asyncio
+async def test_list_openrouter_models_returns_the_live_catalogue(
+    client: AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    async def _catalogue() -> list[str]:
+        return ["anthropic/claude-sonnet-5", "openai/gpt-5.6"]
+
+    monkeypatch.setattr("app.api.llm.openrouter_catalogue.list_models", _catalogue)
+
+    response = await client.get("/llm/openrouter/models")
+    assert response.status_code == 200
+    assert response.json() == ["anthropic/claude-sonnet-5", "openai/gpt-5.6"]
 
 
 @pytest.mark.asyncio
