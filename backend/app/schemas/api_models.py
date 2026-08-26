@@ -156,6 +156,16 @@ class UpdateConversationRequest(BaseModel):
     title: str = Field(min_length=1, max_length=200)
 
 
+class ChatStarterResponse(BaseModel):
+    """One suggestion on the empty chat screen."""
+
+    id: str
+    #: Semantic icon name; unknown values fall back to a neutral icon.
+    icon: str
+    title: str
+    prompt: str
+
+
 class CreateClaimRequest(BaseModel):
     """Request to create one claim directly."""
 

@@ -221,6 +221,14 @@ export type LiveWebHealth = {
   native_provider_candidates: string[];
 };
 
+export type ChatStarter = {
+  id: string;
+  /** Semantic icon name; the empty state falls back if it does not know one. */
+  icon: string;
+  title: string;
+  prompt: string;
+};
+
 export type BriefingSection = {
   key: string;
   title: string;

@@ -63,6 +63,9 @@ class FakeScalarResult:
     def all(self) -> list[object]:
         return self._values
 
+    def first(self) -> object | None:
+        return self._values[0] if self._values else None
+
 
 class FakeQueryResult:
     """Simple execute result wrapper for test doubles."""
@@ -73,6 +76,9 @@ class FakeQueryResult:
 
     def scalars(self) -> FakeScalarResult:
         return FakeScalarResult(self._values)
+
+    def scalar(self) -> object | None:
+        return self._single
 
     def scalar_one_or_none(self) -> object | None:
         return self._single
