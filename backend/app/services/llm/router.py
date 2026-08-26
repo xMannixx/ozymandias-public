@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import time
 from collections.abc import AsyncIterator
 from functools import lru_cache
@@ -27,6 +28,8 @@ from app.services.llm.usage import (
     call_type_for_intent,
     tool_name_from_request,
 )
+
+logger = logging.getLogger(__name__)
 
 _LOCAL_PROVIDERS = frozenset({"ollama", "lmstudio"})
 
@@ -392,8 +395,16 @@ class LLMRouter:
         # 1. User's explicit preferred provider (highest priority).
         if preferred_provider:
             norm = preferred_provider.strip().lower()
-            if norm in self._providers and norm not in chain:
-                chain.append(norm)
+            if norm in self._providers:
+                if norm not in chain:
+                    chain.append(norm)
+            else:
+                # Silently handing the turn to a different cloud provider is
+                # confusing enough to explain in the log.
+                logger.warning(
+                    "llm: preferred provider %r has no key, falling back to the chain",
+                    norm,
+                )
 
         # 2. Intent-based primary provider.
         intent_primary = self._intent_primary(intent)
