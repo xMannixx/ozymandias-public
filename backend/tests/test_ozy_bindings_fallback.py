@@ -115,8 +115,28 @@ def test_validate_audit_entry_returns_valid() -> None:
     assert result == "Valid"
 
 
-def test_evaluate_decay_returns_empty_list() -> None:
+def test_evaluate_decay_without_claims_returns_no_actions() -> None:
     result = json.loads(evaluate_decay(json.dumps([]), "2026-01-01T00:00:00Z"))
+    assert result == []
+
+
+def test_evaluate_decay_answers_one_action_per_claim() -> None:
+    """Callers pair claims and actions by position and refuse a mismatch.
+
+    A short list would turn the nightly decay run into an error rather than the
+    no-op this fallback is meant to be.
+    """
+    claims = json.dumps([{"source_ref": "turn-1"}, {"source_ref": "turn-1"}, {}])
+    result = json.loads(evaluate_decay(claims, "2026-01-01T00:00:00Z"))
+    assert result == [
+        {"claim_ref": "turn-1", "action": "Keep"},
+        {"claim_ref": "turn-1", "action": "Keep"},
+        {"claim_ref": "", "action": "Keep"},
+    ]
+
+
+def test_evaluate_decay_survives_a_payload_that_is_not_a_list() -> None:
+    result = json.loads(evaluate_decay(json.dumps({"claims": []}), "2026-01-01T00:00:00Z"))
     assert result == []
 
 

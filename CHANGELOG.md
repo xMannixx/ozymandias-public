@@ -61,6 +61,9 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
 - Ein über die Oberfläche gespeicherter Cloud-Schlüssel machte den Provider nicht auswählbar („needs an API key first"), ein gelöschter Schlüssel blieb bis zum Neustart wirksam
 - Die Vorklassifikation war unbemerkt tot und stufte damit jede Nachricht ohne Keyword-Treffer auf S1 herunter, also in die Cloud: Sie lief gegen `OLLAMA_MODEL`, ohne zu prüfen, ob das Modell installiert ist. Sie nimmt jetzt das kleinste installierte Modell, hält es geladen (~0,15 s pro Nachricht statt Sekunden), unterdrückt den Denkschritt von Reasoning-Modellen — der sonst das Token-Budget verbraucht und eine leere Antwort liefert — und protokolliert jede Degradierung
 - Ein bevorzugter Provider ohne Schlüssel wurde stillschweigend durch einen anderen Cloud-Anbieter ersetzt; das steht jetzt im Log
+- Der nächtliche Decay-Lauf brach ohne kompilierten Rust-Kern mit einem Fehler ab: Der Dev-Fallback antwortete mit einer leeren Aktionsliste, während der Aufrufer eine Aktion pro Claim erwartet. Er hält jetzt jeden Claim und antwortet in der erwarteten Länge
+- `/health` beantwortete einen unbrauchbaren Rust-Kern mit HTTP 500, sobald der Import nicht an einem fehlenden Modul scheiterte, sondern etwa an einem Wheel für eine andere Python-Version
+- Der Audit-Validator akzeptierte unmögliche Datumsangaben wie `2026-02-31`, weil er einen eigenen, laxeren ISO-8601-Parser mitführte als die Decay Engine. Beide nutzen jetzt `ozy-core::iso8601`, das zusätzlich Bruchteile feiner als Nanosekunden abschneidet statt den Zeitstempel abzulehnen
 
 ---
 

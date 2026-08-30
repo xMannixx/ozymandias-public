@@ -1,5 +1,20 @@
 use ozy_contracts::{CircuitBreakerConfig, CircuitBreakerDecision, CircuitBreakerStatus, OzyError};
 
+/// Decide whether one more action may run.
+///
+/// Read the states as the physical switch, not as the usual library wording —
+/// they are the opposite way round here:
+///
+/// - `Open`: the circuit conducts, traffic flows. Trips once the count reaches
+///   the limit. This is the state a caller passes for normal operation.
+/// - `Closed`: the switch is shut after a trip; the only question left is how
+///   much cooldown remains.
+/// - `Tripped`: it just shut, so the full cooldown remains.
+///
+/// `seconds_since_last_trip` therefore only matters while `Closed`. `None` means
+/// the caller knows the breaker is shut but not since when, and blocking for a
+/// full cooldown is the safe answer to that — not `Allow`, which would let the
+/// gap in our own bookkeeping wave the action through.
 pub fn check_circuit_breaker(
     config: &CircuitBreakerConfig,
     current_count: u32,

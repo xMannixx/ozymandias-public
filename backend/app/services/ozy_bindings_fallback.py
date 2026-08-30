@@ -80,9 +80,24 @@ def validate_audit_entry(json_input: str) -> str:
 
 
 def evaluate_decay(claims_json: str, now: str) -> str:
-    del claims_json
+    """Keep every claim, but answer one action per claim like the engine does.
+
+    Callers pair claims and actions by position and refuse a mismatch, so an
+    empty list turns the nightly decay run into a hard error instead of a no-op.
+    """
     del now
-    return json.dumps([])
+    claims = json.loads(claims_json)
+    if not isinstance(claims, list):
+        return json.dumps([])
+    return json.dumps([{"claim_ref": _source_ref(claim), "action": "Keep"} for claim in claims])
+
+
+def _source_ref(claim: object) -> str:
+    if isinstance(claim, dict):
+        value = claim.get("source_ref")
+        if isinstance(value, str):
+            return value
+    return ""
 
 
 def check_circuit_breaker(

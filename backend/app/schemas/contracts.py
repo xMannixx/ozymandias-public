@@ -10,19 +10,6 @@ from pydantic import BaseModel, Field, field_validator
 U32_MAX = 4_294_967_295
 U64_MAX = 18_446_744_073_709_551_615
 
-KNOWN_MEMORY_TYPES = {
-    "profile",
-    "health",
-    "preference",
-    "relationship",
-    "event",
-    "location",
-    "work",
-    "finance",
-    "security",
-    "intimate",
-}
-
 
 class Sensitivity(StrEnum):
     S0 = "S0"
@@ -122,6 +109,15 @@ class MessageDetail(BaseModel):
 
 
 class ClaimData(BaseModel):
+    """Mirror of the Rust `ClaimData`, plus what only Python needs.
+
+    `authority_class` has no counterpart in Rust: lanes are decided in
+    `app.memory.lanes`, and serde drops the field on the way in. `memory_type`
+    stays a free string here because the column is TEXT and Rust maps unknown
+    values to `MemoryType::Other` instead of rejecting them; which values it
+    knows by name is defined there, not mirrored in a second list.
+    """
+
     subject: str
     attribute: str | None = None
     value: str
@@ -144,10 +140,13 @@ class ClaimData(BaseModel):
     @field_validator("memory_type")
     @classmethod
     def validate_memory_type(cls, value: str) -> str:
+        """Reject only an empty value.
+
+        The set is deliberately open: a new memory type should not need a schema
+        change on both sides of the bridge before it can be stored.
+        """
         if not value:
             raise ValueError("memory_type must be a non-empty string")
-        if value in KNOWN_MEMORY_TYPES:
-            return value
         return value
 
 

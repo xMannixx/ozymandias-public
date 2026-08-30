@@ -2,6 +2,8 @@ use ozy_contracts::{
     AuditEntry, AuditEventType, AuditResult, AuditValidationResult, OzyError, Sensitivity,
 };
 
+use crate::iso8601;
+
 pub fn validate_audit_entry(entry: &AuditEntry) -> Result<AuditValidationResult, OzyError> {
     let mut errors = Vec::new();
     let mut warnings = Vec::new();
@@ -16,7 +18,7 @@ pub fn validate_audit_entry(entry: &AuditEntry) -> Result<AuditValidationResult,
 
     if is_blank(&entry.timestamp) {
         errors.push("timestamp must not be empty".to_owned());
-    } else if !is_valid_iso8601(&entry.timestamp) {
+    } else if !iso8601::is_valid(&entry.timestamp) {
         errors.push("timestamp must be a valid ISO 8601 datetime".to_owned());
     }
 
@@ -61,109 +63,4 @@ fn sensitivity_rank(value: Sensitivity) -> u8 {
         Sensitivity::S3 => 3,
         Sensitivity::S4 => 4,
     }
-}
-
-fn is_valid_iso8601(value: &str) -> bool {
-    let bytes = value.as_bytes();
-
-    if bytes.len() < 20 {
-        return false;
-    }
-
-    if bytes.get(4) != Some(&b'-')
-        || bytes.get(7) != Some(&b'-')
-        || bytes.get(10) != Some(&b'T')
-        || bytes.get(13) != Some(&b':')
-        || bytes.get(16) != Some(&b':')
-    {
-        return false;
-    }
-
-    let month = match parse_two_digits(bytes, 5) {
-        Some(v) => v,
-        None => return false,
-    };
-    let day = match parse_two_digits(bytes, 8) {
-        Some(v) => v,
-        None => return false,
-    };
-    let hour = match parse_two_digits(bytes, 11) {
-        Some(v) => v,
-        None => return false,
-    };
-    let minute = match parse_two_digits(bytes, 14) {
-        Some(v) => v,
-        None => return false,
-    };
-    let second = match parse_two_digits(bytes, 17) {
-        Some(v) => v,
-        None => return false,
-    };
-
-    if !(1..=12).contains(&month)
-        || !(1..=31).contains(&day)
-        || hour > 23
-        || minute > 59
-        || second > 59
-    {
-        return false;
-    }
-
-    if !digits_only(bytes, 0, 4) {
-        return false;
-    }
-
-    let mut index = 19;
-
-    if bytes.get(index) == Some(&b'.') {
-        index += 1;
-        let start = index;
-        while index < bytes.len() && bytes[index].is_ascii_digit() {
-            index += 1;
-        }
-
-        if index == start {
-            return false;
-        }
-    }
-
-    match bytes.get(index) {
-        Some(b'Z') => index + 1 == bytes.len(),
-        Some(b'+') | Some(b'-') => {
-            if index + 6 != bytes.len() {
-                return false;
-            }
-
-            if bytes.get(index + 3) != Some(&b':') {
-                return false;
-            }
-
-            let tz_hour = match parse_two_digits(bytes, index + 1) {
-                Some(v) => v,
-                None => return false,
-            };
-            let tz_minute = match parse_two_digits(bytes, index + 4) {
-                Some(v) => v,
-                None => return false,
-            };
-
-            tz_hour <= 23 && tz_minute <= 59
-        }
-        _ => false,
-    }
-}
-
-fn parse_two_digits(bytes: &[u8], start: usize) -> Option<u8> {
-    let first = *bytes.get(start)?;
-    let second = *bytes.get(start + 1)?;
-
-    if !first.is_ascii_digit() || !second.is_ascii_digit() {
-        return None;
-    }
-
-    Some((first - b'0') * 10 + (second - b'0'))
-}
-
-fn digits_only(bytes: &[u8], start: usize, len: usize) -> bool {
-    (start..start + len).all(|index| bytes[index].is_ascii_digit())
 }
