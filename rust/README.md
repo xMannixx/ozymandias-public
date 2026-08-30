@@ -48,7 +48,7 @@ cargo doc --workspace --open
 
 **Enthält:**
 - Security/Trust-Enums: `Sensitivity` (S0–S4), `TrustLevel` (T0–T3), `AuthorityLevel` (A0–A2), `HandlingPolicy`
-- Memory-Enums: `VerificationState`, `Lifecycle`, `SourceType`, `MemoryType`, `ProposalStatus`, `ConflictGroupStatus`, `ChangedBy`
+- Memory-Enums: `VerificationState`, `Lifecycle`, `SourceType`, `MemoryType`, `AuthorityClass`, `ProposalStatus`, `ConflictGroupStatus`, `ChangedBy`
 - Governance-Enums: `ApprovalClass` (0–4), `ConflictResult`, `AuditEventType`, `AuditResult`
 - Infrastruktur-Enums: `Channel`, `Role`, `RuleCategory`, `FilterReason`
 - Memory-Structs: `ClaimData`, `ProposalData`, `ConflictGroupData`
@@ -187,6 +187,15 @@ result = ozy_bindings.validate_schema(gate_input)
 ```
 
 **Fallback-Modus:** Wenn `AUTH_DEV_BYPASS=true` und `ozy_bindings` nicht installiert ist, wird `ozy_bindings_fallback.py` verwendet. Dieser Fallback gibt immer `"Valid"`/`"Allow"` zurück — **nur für lokale Entwicklung ohne Rust-Build**.
+
+### Schema-Sync mit Python
+
+Python spiegelt jede Struct hier von Hand in `backend/app/schemas/contracts.py`. Damit ein Feld, das nur auf einer Seite existiert, nicht stillschweigend verschwindet:
+
+- Rust-Structs tragen `#[serde(deny_unknown_fields)]`
+- die Pydantic-Modelle erben von `_Contract` mit `extra="forbid"`
+
+Beides zusammen macht Drift zum Fehler statt zum Datenverlust. Geprüft wird das in `backend/tests/test_rust_bridge_live.py`: Die Datei ruft jede Bindung einmal mit voll besetzter Nutzlast auf und überspringt sich selbst, wenn `ozy_bindings` fehlt. In CI läuft sie im Job `bindings-smoke` — die übrige Testsuite spricht mit dem Fallback und würde eine Divergenz nie sehen.
 
 ### Rust für Python bauen
 

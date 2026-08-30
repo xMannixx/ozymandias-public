@@ -1,5 +1,5 @@
 use ozy_contracts::{
-    ApprovalClass, AuditEventType, AuditResult, AuthorityLevel, ChangedBy, Channel,
+    ApprovalClass, AuditEventType, AuditResult, AuthorityClass, AuthorityLevel, ChangedBy, Channel,
     ConflictGroupStatus, DecayActionType, HandlingPolicy, Lifecycle, MemoryType, ProposalStatus,
     Role, RuleCategory, Sensitivity, SourceType, TrustLevel, VerificationState,
 };
@@ -40,6 +40,37 @@ enum_case!(trust_t3, TrustLevel, TrustLevel::T3, "\"T3\"");
 enum_case!(authority_a0, AuthorityLevel, AuthorityLevel::A0, "\"A0\"");
 enum_case!(authority_a1, AuthorityLevel, AuthorityLevel::A1, "\"A1\"");
 enum_case!(authority_a2, AuthorityLevel, AuthorityLevel::A2, "\"A2\"");
+
+enum_case!(
+    authority_class_identity,
+    AuthorityClass,
+    AuthorityClass::Identity,
+    "\"identity\""
+);
+enum_case!(
+    authority_class_preference,
+    AuthorityClass,
+    AuthorityClass::Preference,
+    "\"preference\""
+);
+enum_case!(
+    authority_class_evidence,
+    AuthorityClass,
+    AuthorityClass::Evidence,
+    "\"evidence\""
+);
+enum_case!(
+    authority_class_authorization,
+    AuthorityClass,
+    AuthorityClass::Authorization,
+    "\"authorization\""
+);
+enum_case!(
+    authority_class_procedural,
+    AuthorityClass,
+    AuthorityClass::Procedural,
+    "\"procedural\""
+);
 
 enum_case!(
     handling_cloud_ok_encrypted,
@@ -452,6 +483,7 @@ invalid_closed_enum_case!(
     "\"cloud_plain\""
 );
 invalid_closed_enum_case!(invalid_source_type_fails, SourceType, "\"external_feed\"");
+invalid_closed_enum_case!(invalid_authority_class_fails, AuthorityClass, "\"secrets\"");
 invalid_closed_enum_case!(invalid_approval_class_fails, ApprovalClass, "\"class9\"");
 invalid_closed_enum_case!(invalid_audit_result_fails, AuditResult, "\"unknown\"");
 invalid_closed_enum_case!(invalid_channel_fails, Channel, "\"email\"");

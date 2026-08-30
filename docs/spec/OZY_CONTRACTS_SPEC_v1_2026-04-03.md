@@ -60,6 +60,10 @@
 - Profile, Health, Preference, Relationship, Event, Location, Work, Finance, Security, Intimate
 - Erweiterbar. MemoryType ist unabhängig von Sensitivity — ein Relationship-Claim kann S0 oder S4 sein.
 
+**AuthorityClass**
+- Identity, Preference, Evidence, Authorization, Procedural
+- Die Lane bestimmt TTL, Confidence-Untergrenze und welche Quellen hineinschreiben dürfen. Geschlossene Menge; die Policy dazu liegt in `app/memory/lanes.py`.
+
 **ProposalStatus**
 - Pending — Wartet auf Entscheidung.
 - Confirmed — Bestätigt, Claim erstellt.
@@ -150,6 +154,7 @@
 - value: String — Der Wert ("beispielstadt", "softwareentwicklung")
 - content: String — Menschenlesbare Beschreibung
 - memory_type: MemoryType
+- authority_class: AuthorityClass — Lane, in der der Claim liegt. Default `evidence`, damit Payloads ohne das Feld weiter parsen.
 - sensitivity: Sensitivity
 - trust_level: TrustLevel
 - handling_policy: HandlingPolicy

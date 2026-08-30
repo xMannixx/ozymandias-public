@@ -68,6 +68,22 @@ pub enum Lifecycle {
     Expiry,
 }
 
+/// Memory lane a claim belongs to, each with its own lifecycle and write policy.
+///
+/// Which lane a claim may be written to depends on the trust of its source;
+/// today that check lives on the Python side, the claim carries the lane here so
+/// the write gates can see it.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AuthorityClass {
+    Identity,
+    Preference,
+    #[default]
+    Evidence,
+    Authorization,
+    Procedural,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum SourceType {
