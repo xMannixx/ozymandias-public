@@ -112,7 +112,8 @@ class ChatStarterService:
     def __init__(self, db: AsyncSession, *, rng: random.Random | None = None) -> None:
         self.db = db
         # Injectable so tests get a fixed draw instead of a fresh one per call.
-        self._rng = rng or random.Random()
+        # It decides which suggestion is on screen, so no crypto source needed.
+        self._rng = rng or random.Random()  # nosec B311
 
     async def suggest(self, *, user_id: str, limit: int = MAX_STARTERS) -> list[ChatStarter]:
         """Personal suggestions first, generic ones for whatever is left over.
