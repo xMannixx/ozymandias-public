@@ -8,7 +8,7 @@
 
 ## Überblick
 
-Ozymandias unterstützt fünf LLM-Provider, die je nach **Sensitivity** und **Intent** automatisch gewählt werden. Kein Provider ist fest verdrahtet — das Routing ist vollständig konfigurierbar.
+Ozymandias unterstützt sieben LLM-Provider, die je nach **Sensitivity** und **Intent** automatisch gewählt werden. Kein Provider ist fest verdrahtet — das Routing ist vollständig konfigurierbar.
 
 ### Provider-Übersicht
 
@@ -17,6 +17,9 @@ Ozymandias unterstützt fünf LLM-Provider, die je nach **Sensitivity** und **In
 | **DeepSeek** | Cloud API | `DEEPSEEK_API_KEY` | Work, Extraktion, Allgemein |
 | **Gemini** | Cloud API | `GEMINI_API_KEY` | Kreativ, Unterhaltung |
 | **OpenAI** | Cloud API | `OPENAI_API_KEY` | Tool-Calls, TTS, Whisper |
+| **Mistral** | Cloud API | `MISTRAL_API_KEY` | Erster Cloud-Fallback |
+| **Anthropic** | Cloud API | `ANTHROPIC_API_KEY` | Lange Kontexte |
+| **OpenRouter** | Cloud-Broker | `OPENROUTER_API_KEY` | Modelle ohne eigenen Client |
 | **Ollama** | Lokal | `OLLAMA_BASE_URL` | S3/S4, Privacy, Offline |
 | **LM Studio** | Lokal | `LMSTUDIO_MODEL` | S3/S4, Alternativ zu Ollama |
 
@@ -58,7 +61,7 @@ Der Nutzer kann in den Einstellungen einen bevorzugten Provider setzen:
 ```json
 {
   "preferred_provider": "deepseek",
-  "preferred_model": "deepseek-chat",
+  "preferred_model": "deepseek-v4-flash",
   "preferred_local_provider": "ollama",
   "preferred_local_model": "llama3.1:8b"
 }
@@ -81,7 +84,7 @@ Wichtig: User-Overrides können **nie** die S3/S4-Sicherheitsregel außer Kraft 
 
 ```python
 # Nur wenn AUTH_DEV_BYPASS=true
-for candidate in ("deepseek", "openai", "gemini", "ollama", "lmstudio"):
+for candidate in ("mistral", "deepseek", "openai", "anthropic", "gemini", "openrouter", "ollama", "lmstudio"):
     if candidate in configured_providers:
         return candidate
 ```
@@ -98,30 +101,60 @@ Im Produktionsmodus gibt es keinen Fallback — ein fehlender API-Key führt zu 
 # backend/app/services/llm/deepseek.py
 class DeepSeekProvider(LLMProvider):
     _base_url = "https://api.deepseek.com/v1"
-    _default_model = "deepseek-chat"  # oder "deepseek-reasoner"
+    _default_model = "deepseek-v4-flash"  # oder "deepseek-v4-pro"
 ```
 
 **Konfiguration:**
 ```env
 DEEPSEEK_API_KEY=sk-...
-DEEPSEEK_MODEL=deepseek-chat        # Optional
+DEEPSEEK_MODEL=deepseek-v4-flash    # Optional
 ```
 
 **Besonderheiten:**
-- `deepseek-reasoner` gibt `reasoning_content` zurück (Chain-of-Thought)
+- Die Aliase `deepseek-chat` und `deepseek-reasoner` wurden am 24.07.2026 abgeschaltet. Auf V4 ist Thinking ein Request-Parameter, kein eigenes Modell; `reasoning_content` kommt weiterhin zurück, wenn es aktiv ist.
 - Automatisches Disk-Caching: Stabile Prefixe (System-Prompt) werden gecacht
 - Batch-API: 50% Rabatt für zeitunkritische Jobs (noch nicht integriert)
-- Kontextfenster: 128K Tokens
+- Kontextfenster: 1M Tokens
 
 **Standard-Use-Cases in Ozy:**
 - `work` Intent (Strukturierte Arbeit, Akten, Extraktion)
 - `claim_extraction` (Fakten aus Gespräch extrahieren)
 - Default-Provider wenn nichts anderes passt
 
-**Kosten-Richtwerte:**
-- DeepSeek-Chat: $0.28/1M Input · $1.10/1M Output
-- DeepSeek-Reasoner: $0.55/1M Input · $2.19/1M Output
-- Cache-Hit: $0.07/1M (deutlich günstiger)
+**Kosten-Richtwerte (Off-Peak, USD pro 1M Tokens):**
+
+| Modell | Input | Cache-Hit | Output |
+|---|---|---|---|
+| deepseek-v4-flash | $0.22 | $0.007 | $0.66 |
+| deepseek-v4-pro | $0.66 | $0.022 | $1.98 |
+
+Seit 16.08.2026 gilt Peak-Pricing: zwischen 01:00–04:00 und 06:00–10:00 UTC kostet alles doppelt. `pricing.time_of_day_factor()` rechnet das mit, deshalb ist der Zeitpunkt eines Calls Teil der Kostenberechnung.
+
+---
+
+### OpenRouter
+
+```python
+# backend/app/services/llm/openrouter.py
+class OpenRouterProvider(LLMProvider):
+    _base_url = "https://openrouter.ai/api/v1"   # OpenAI-kompatibel
+    _default_model = "~openai/gpt-mini-latest"
+```
+
+**Konfiguration:**
+```env
+OPENROUTER_API_KEY=sk-or-v1-...
+OPENROUTER_MODEL=~openai/gpt-mini-latest   # Optional
+```
+
+**Besonderheiten:**
+- Broker, kein Labor: ein Key erreicht mehrere hundert Modelle vieler Anbieter. Gedacht für Modelle, für die Ozymandias keinen eigenen Client hat.
+- Der Modellkatalog kommt live von `GET /llm/openrouter/models` (öffentlich, ohne Key) und wird 15 Minuten gecacht. Ist OpenRouter nicht erreichbar, liefert der Endpoint die letzte gute Liste, sonst eine kleine Auswahl rollender Aliase.
+- Slugs mit `~` (z. B. `~anthropic/claude-sonnet-latest`) zeigen immer auf die aktuelle Version und veralten nicht.
+- Steht **zuletzt** in der Cloud-Fallback-Kette: der direkte Weg zum Labor ist günstiger.
+- Kosten werden nicht berechnet, weil sie pro Modell gelten; solche Calls erscheinen in der Usage-Auswertung als „unpriced".
+
+**Sensitivity:** ein Cloud-Provider wie jeder andere — S3 und S4 erreichen ihn nie.
 
 ---
 
@@ -194,6 +227,12 @@ OLLAMA_MODEL=llama3.1:8b               # Optional
 - Fallback wenn alle Cloud-Provider ausfallen
 
 **Immer verfügbar:** Ollama ist der einzige Provider, der **immer** in `_providers` registriert ist — auch ohne API-Key. (Läuft lokal auf dem VPS.)
+
+**Modellwahl gegen die installierte Liste:** `OLLAMA_MODEL` ist nur eine Vermutung, solange das Modell niemand gezogen hat. Der Provider prüft die Wunschmodelle deshalb gegen `/api/tags` (60 s Cache, `ollama_catalogue`) und weicht auf ein installiertes Modell aus, statt jeden S3/S4-Turn an einem 404 scheitern zu lassen — dort gibt es keinen Cloud-Provider, der einspringen darf. Embedding-Modelle (`nomic-embed-text` und Verwandte) sind ausgeschlossen: sie stehen in derselben Tag-Liste, können aber keinen Turn beantworten. Ist überhaupt kein Chat-Modell installiert, meldet der Provider das als Fehler mit Handlungsanweisung.
+
+**Welches Modell einspringt, hängt an der Aufgabe:** `ollama_catalogue.resolve_model(..., fallback=...)` ist die eine Stelle dafür. Eine Antwort an den Nutzer nimmt das **größte** installierte Modell, die Vorklassifikation das **kleinste** — sie läuft bei jeder Nachricht und braucht genau ein Token. Details zum Classifier in @SENSITIVITY_ROUTING.md.
+
+**Fehler bei S3/S4:** Jeder gescheiterte lokale Versuch wird als `LocalProviderUnavailableError` gemeldet — nicht nur Verbindungsfehler. Nur so erfährt der Client den echten Grund und kann bei S3 den einmaligen Cloud-Fallback anbieten; bei S4 bleibt es beim Hinweis, dass die Daten lokal bleiben.
 
 ---
 
@@ -364,9 +403,17 @@ Akzeptiert: WAV, MP3, WebM, MP4, M4A, OGG (max 25 MB).
 GET /llm/providers
 
 Response:
-{
-  "providers": ["deepseek", "gemini", "ollama"],
-  "default_provider": "deepseek",
-  "default_model": "deepseek-chat"
-}
+[
+  {"name": "deepseek", "is_local": false, "current_model": "deepseek-v4-flash"},
+  {"name": "openrouter", "is_local": false, "current_model": "~openai/gpt-mini-latest"},
+  {"name": "ollama", "is_local": true, "current_model": "llama3.1:8b"}
+]
 ```
+
+## Modellliste eines Providers abfragen
+
+```
+GET /llm/{provider}/models   →  ["deepseek-v4-flash", "deepseek-v4-pro"]
+```
+
+Vorhanden für `ollama`, `lmstudio`, `deepseek`, `mistral`, `openai`, `gemini` und `openrouter`. Provider ohne Liste (derzeit Anthropic) liefern im Frontend ein Freitextfeld statt eines Dropdowns.

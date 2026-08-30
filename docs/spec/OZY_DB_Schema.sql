@@ -728,8 +728,9 @@ CREATE INDEX IF NOT EXISTS idx_rule_conflicts_rule
 --    (Write-Gate / Human-in-the-loop), nicht bereits auf DB-Ebene verworfen.
 --
 -- 2) Embedding-Strategie:
---    episodes.embedding bleibt im MVP als vector(1536) bestehen.
---    Für Modellwechsel ist ein späteres episode_embeddings-Design vorgesehen
+--    episodes.embedding fuehrt lokale Embeddings (siehe Migrationsblock am
+--    Dateiende, vector(768)). Für Modellwechsel ist ein späteres
+--    episode_embeddings-Design vorgesehen
 --    (episode_id, model_name, embedding_version, embedding) + Reindex-Migration.
 
 -- 3) Mistral API Integration: Update CHECK constraint for preferred_provider
@@ -820,5 +821,111 @@ BEGIN
 
         DROP TABLE project_risks;
     END IF;
+END
+$$;
+
+
+-- ============================================================
+-- SEMANTISCHER RECALL: lokale Embeddings
+-- ============================================================
+-- Die Breite 1536 stammte aus der OpenAI-Annahme. Embeddings entstehen jetzt
+-- lokal (Ollama, nomic-embed-text, 768 Dimensionen), damit auch S3/S4-Inhalte
+-- indexiert werden duerfen, ohne die Maschine zu verlassen.
+-- Vorhandene Vektoren passen nicht mehr und werden verworfen; der Indexer
+-- (ozy.episodes.index_all) baut sie neu auf. Der Block laeuft nur, solange die
+-- Spalte noch anders dimensioniert ist.
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1
+        FROM pg_attribute
+        WHERE attrelid = 'public.episodes'::regclass
+          AND attname = 'embedding'
+          AND NOT attisdropped
+          AND format_type(atttypid, atttypmod) <> 'vector(768)'
+    ) THEN
+        DROP INDEX IF EXISTS idx_episodes_embedding;
+        ALTER TABLE episodes DROP COLUMN embedding;
+        ALTER TABLE episodes ADD COLUMN embedding vector(768);
+
+        CREATE INDEX idx_episodes_embedding
+            ON episodes USING ivfflat (embedding vector_cosine_ops)
+            WITH (lists = 100);
+    END IF;
+END
+$$;
+
+-- Der Indexer sucht Nachrichten, die noch keine Episode haben.
+CREATE INDEX IF NOT EXISTS idx_episodes_user_created
+    ON episodes(user_id, created_at DESC);
+
+
+-- ============================================================
+-- HEARTBEAT-BRIEFING
+-- ============================================================
+-- Ein Briefing pro Tag und User, deterministisch aus Kalender, Mail,
+-- Proposals, Claims und Aufgaben erzeugt (kein LLM: Mail-Betreffe und
+-- Kalendereintraege sind untrusted). content ist der fertige Text,
+-- payload die strukturierte Fassung fuer die Dashboard-Karte.
+CREATE TABLE IF NOT EXISTS briefings (
+    briefing_id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id             UUID NOT NULL,
+    briefing_date       DATE NOT NULL,
+    content             TEXT NOT NULL,
+    payload             JSONB NOT NULL DEFAULT '{}'::jsonb,
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (user_id, briefing_date)
+);
+
+CREATE INDEX IF NOT EXISTS idx_briefings_user_date
+    ON briefings(user_id, briefing_date DESC);
+
+-- briefing_hour ist UTC, weil Beat in UTC laeuft.
+ALTER TABLE user_settings
+    ADD COLUMN IF NOT EXISTS briefing_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+    ADD COLUMN IF NOT EXISTS briefing_hour INT NOT NULL DEFAULT 7;
+
+
+-- ============================================================
+-- DEEPSEEK V4
+-- ============================================================
+-- deepseek-chat und deepseek-reasoner wurden am 24.07.2026 abgeschaltet.
+-- Gespeicherte Praeferenzen zeigen sonst auf ein Modell, das die API nicht
+-- mehr kennt, und jeder DeepSeek-Turn schlaegt fehl.
+UPDATE user_settings
+   SET preferred_model = 'deepseek-v4-flash'
+ WHERE preferred_provider = 'deepseek'
+   AND preferred_model = 'deepseek-chat';
+
+UPDATE user_settings
+   SET preferred_model = 'deepseek-v4-pro'
+ WHERE preferred_provider = 'deepseek'
+   AND preferred_model = 'deepseek-reasoner';
+
+
+-- ============================================================
+-- OPENROUTER ALS PROVIDER
+-- ============================================================
+ALTER TABLE user_settings
+    ADD COLUMN IF NOT EXISTS openrouter_api_key TEXT;
+
+-- Der CHECK oben kannte weder anthropic noch openrouter, obwohl beide
+-- Provider implementiert sind — ein Speichern waere fehlgeschlagen.
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1
+        FROM pg_constraint
+        WHERE conname = 'user_settings_preferred_provider_check'
+    ) THEN
+        ALTER TABLE user_settings DROP CONSTRAINT user_settings_preferred_provider_check;
+    END IF;
+
+    ALTER TABLE user_settings
+        ADD CONSTRAINT user_settings_preferred_provider_check
+        CHECK (preferred_provider IN (
+            'deepseek', 'openai', 'ollama', 'gemini', 'lmstudio',
+            'mistral', 'anthropic', 'openrouter'
+        ));
 END
 $$;

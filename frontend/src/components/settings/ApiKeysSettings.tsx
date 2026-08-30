@@ -3,24 +3,18 @@ import { Eye, EyeOff, Trash2 } from "lucide-react";
 import Button from "@/components/common/Button";
 import Spinner from "@/components/common/Spinner";
 import SettingsCard from "@/components/settings/SettingsCard";
-import type { UserSettingsResponse } from "@/api/types";
+import type { ProviderKeyId, ProviderKeys, UserSettingsResponse } from "@/api/types";
 
 type ApiKeysSettingsProps = {
   settings: UserSettingsResponse | null;
   saving: boolean;
-  onSave: (
-    openaiKey: string | null,
-    deepseekKey: string | null,
-    geminiKey: string | null,
-    mistralKey: string | null,
-    anthropicKey: string | null,
-  ) => Promise<void>;
+  onSave: (keys: ProviderKeys) => Promise<void>;
 };
 
 const MASKED_KEY = "••••••••";
 
 type KeyFieldConfig = {
-  id: string;
+  id: ProviderKeyId;
   label: string;
   placeholder: string;
   /** Where the user goes to create this key. */
@@ -33,49 +27,46 @@ const keyFields: KeyFieldConfig[] = [
   { id: "gemini", label: "Google Gemini", placeholder: "AIzaSy…", source: "aistudio.google.com" },
   { id: "mistral", label: "Mistral", placeholder: "…", source: "console.mistral.ai" },
   { id: "anthropic", label: "Anthropic Claude", placeholder: "sk-ant-…", source: "console.anthropic.com" },
+  {
+    id: "openrouter",
+    label: "OpenRouter",
+    placeholder: "sk-or-v1-…",
+    source: "openrouter.ai/keys",
+  },
 ];
 
+function keysFromSettings(settings: UserSettingsResponse | null): ProviderKeys {
+  return {
+    openai: settings?.openai_api_key ?? "",
+    deepseek: settings?.deepseek_api_key ?? "",
+    gemini: settings?.gemini_api_key ?? "",
+    mistral: settings?.mistral_api_key ?? "",
+    anthropic: settings?.anthropic_api_key ?? "",
+    openrouter: settings?.openrouter_api_key ?? "",
+  };
+}
+
 function ApiKeysSettings({ settings, saving, onSave }: ApiKeysSettingsProps): JSX.Element {
-  const [values, setValues] = useState<Record<string, string>>({
-    openai: "",
-    deepseek: "",
-    gemini: "",
-    mistral: "",
-    anthropic: "",
-  });
+  const [values, setValues] = useState<ProviderKeys>(keysFromSettings(null));
   const [revealed, setRevealed] = useState<Record<string, boolean>>({});
   const [saveSuccess, setSaveSuccess] = useState(false);
 
   useEffect(() => {
     if (settings) {
-      setValues({
-        openai: settings.openai_api_key ?? "",
-        deepseek: settings.deepseek_api_key ?? "",
-        gemini: settings.gemini_api_key ?? "",
-        mistral: settings.mistral_api_key ?? "",
-        anthropic: settings.anthropic_api_key ?? "",
-      });
+      setValues(keysFromSettings(settings));
     }
   }, [settings]);
 
-  const originalKeys: Record<string, string | null | undefined> = {
-    openai: settings?.openai_api_key,
-    deepseek: settings?.deepseek_api_key,
-    gemini: settings?.gemini_api_key,
-    mistral: settings?.mistral_api_key,
-    anthropic: settings?.anthropic_api_key,
-  };
-
-  const configuredCount = keyFields.filter((field) => originalKeys[field.id] === MASKED_KEY).length;
+  const storedKeys = keysFromSettings(settings);
+  const configuredCount = keyFields.filter((field) => storedKeys[field.id] === MASKED_KEY).length;
 
   const handleSave = async (): Promise<void> => {
-    await onSave(
-      values.openai.trim() === "" ? "" : values.openai,
-      values.deepseek.trim() === "" ? "" : values.deepseek,
-      values.gemini.trim() === "" ? "" : values.gemini,
-      values.mistral.trim() === "" ? "" : values.mistral,
-      values.anthropic.trim() === "" ? "" : values.anthropic,
-    );
+    // A field left blank clears the stored key; the masked value means "keep".
+    const trimmed = { ...values };
+    for (const field of keyFields) {
+      trimmed[field.id] = values[field.id].trim();
+    }
+    await onSave(trimmed);
     setSaveSuccess(true);
     window.setTimeout(() => setSaveSuccess(false), 3000);
   };
@@ -110,8 +101,8 @@ function ApiKeysSettings({ settings, saving, onSave }: ApiKeysSettingsProps): JS
 
       <div className="space-y-4">
         {keyFields.map((field) => {
-          const value = values[field.id] ?? "";
-          const isConfigured = originalKeys[field.id] === MASKED_KEY;
+          const value = values[field.id];
+          const isConfigured = storedKeys[field.id] === MASKED_KEY;
           const isRevealed = revealed[field.id] === true;
 
           return (

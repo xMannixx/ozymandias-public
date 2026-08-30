@@ -1,5 +1,6 @@
 import type {
   AuditEntryResponse,
+  BriefingResponse,
   ClaimResponse,
   ClaimVersionResponse,
   DashboardStats,
@@ -355,7 +356,25 @@ export const mockSettings: UserSettingsResponse = {
   tts_voice: "ash",
   tts_model: "tts-1",
   tts_autoplay: true,
+  briefing_enabled: true,
+  briefing_hour: 7,
   updated_at: "2026-04-06T12:00:00Z",
+};
+
+export const mockBriefing: BriefingResponse = {
+  briefing_id: "b1",
+  briefing_date: "2026-04-06",
+  content: "Briefing for Monday, 06 April 2026\n\nToday's calendar (1)\n- 09:00 Standup\n",
+  sections: [
+    { key: "calendar", title: "Today's calendar", items: ["09:00 Standup"], total: 1 },
+    {
+      key: "mail",
+      title: "Unread mail since yesterday",
+      items: ["Invoice — billing@hetzner.com"],
+      total: 3,
+    },
+  ],
+  created_at: "2026-04-06T07:05:00Z",
 };
 
 export const mockSettingsAutopilot: UserSettingsResponse = withOverrides(mockSettings, {

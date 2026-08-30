@@ -14,8 +14,9 @@ from app.models.claim import Claim
 from app.models.contact import Contact
 from app.models.project import Project, ProjectTask
 from app.schemas import Sensitivity
+from app.services.episode_recall_service import RecalledEpisode
 from app.services.llm.context_assembler import ContextAssembler
-from tests.conftest import FakeAsyncSession
+from tests.conftest import FakeAsyncSession, await_kwargs
 
 
 def _claim(
@@ -136,6 +137,11 @@ def _assembler() -> ContextAssembler:
     return ContextAssembler(cast(AsyncSession, FakeAsyncSession()))
 
 
+def _recalled(content: str, *, role: str = "user", when: date | None = None) -> RecalledEpisode:
+    moment = datetime(when.year, when.month, when.day, 9, tzinfo=UTC) if when else None
+    return RecalledEpisode(role=role, content=content, created_at=moment, distance=0.2)
+
+
 def _patch_services(
     assembler: ContextAssembler,
     *,
@@ -143,6 +149,7 @@ def _patch_services(
     projects: list[Project],
     tasks: list[ProjectTask],
     contacts: list[Contact],
+    episodes: list[RecalledEpisode] | None = None,
 ) -> None:
     assembler.claim_service.list_claims = (  # type: ignore[method-assign]
         AsyncMock(return_value=claims)
@@ -155,6 +162,9 @@ def _patch_services(
     )
     assembler.contact_service.list_contacts = (  # type: ignore[method-assign]
         AsyncMock(return_value=contacts)
+    )
+    assembler.episode_recall.recall = (  # type: ignore[method-assign]
+        AsyncMock(return_value=episodes if episodes is not None else [])
     )
 
 
@@ -537,3 +547,100 @@ async def test_context_assembler_renders_project_without_date_range() -> None:
     )
     assert "Project: OhneDatum | Status: active | Priority: high" in output
     assert "?" not in output
+
+
+@pytest.mark.asyncio
+async def test_earlier_conversations_are_recalled_with_their_date() -> None:
+    assembler = _assembler()
+    _patch_services(
+        assembler,
+        claims=[],
+        projects=[],
+        tasks=[],
+        contacts=[],
+        episodes=[
+            _recalled(
+                "We settled on Hetzner for the VPS.",
+                role="assistant",
+                when=date(2026, 5, 12),
+            )
+        ],
+    )
+
+    result = await assembler.assemble_with_report(
+        user_id="user-1",
+        sensitivity=Sensitivity.S1,
+        provider_is_local=True,
+        query="Which host did we pick?",
+    )
+
+    assert '<past_conversations count="1">' in result.text
+    assert "- 2026-05-12 (Ozy): We settled on Hetzner for the VPS." in result.text
+    assert result.recalled_episodes == 1
+
+
+@pytest.mark.asyncio
+async def test_the_current_chat_is_passed_to_recall_so_it_can_be_skipped() -> None:
+    assembler = _assembler()
+    _patch_services(assembler, claims=[], projects=[], tasks=[], contacts=[])
+
+    await assembler.assemble_with_report(
+        user_id="user-1",
+        sensitivity=Sensitivity.S1,
+        provider_is_local=False,
+        query="anything",
+        conversation_id="conv-7",
+    )
+
+    kwargs = await_kwargs(assembler.episode_recall.recall)
+    assert kwargs["exclude_conversation_id"] == "conv-7"
+    assert kwargs["provider_is_local"] is False
+
+
+@pytest.mark.asyncio
+async def test_recall_alone_is_enough_to_render_a_context_block() -> None:
+    """With nothing else stored, an old exchange still beats "memory is empty"."""
+    assembler = _assembler()
+    _patch_services(
+        assembler,
+        claims=[],
+        projects=[],
+        tasks=[],
+        contacts=[],
+        episodes=[_recalled("The mail domain runs at Mailbox.org.", when=date(2026, 3, 1))],
+    )
+
+    result = await assembler.assemble_with_report(
+        user_id="user-1",
+        sensitivity=Sensitivity.S1,
+        provider_is_local=True,
+        query="Who hosts my mail?",
+    )
+
+    assert "Memory is empty" not in result.text
+    assert "Mailbox.org" in result.text
+
+
+@pytest.mark.asyncio
+async def test_recall_is_dropped_first_when_the_block_is_too_large() -> None:
+    """Stored facts outrank a guess about which old chat is relevant."""
+    assembler = _assembler()
+    _patch_services(
+        assembler,
+        claims=[_claim(content=f"Claim-{idx}-" + ("x" * 300)) for idx in range(50)],
+        projects=[],
+        tasks=[],
+        contacts=[],
+        episodes=[_recalled("An old exchange about storage.", when=date(2026, 1, 4))],
+    )
+
+    result = await assembler.assemble_with_report(
+        user_id="user-1",
+        sensitivity=Sensitivity.S1,
+        provider_is_local=True,
+        query="storage",
+    )
+
+    assert len(result.text) <= 6000
+    assert "past_conversations" not in result.text
+    assert result.recalled_episodes == 0

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { ApiError } from "@/api/client";
 import { getSettings, updateSettings } from "@/api/settings";
-import type { LLMProviderName, UserSettingsResponse, VoiceMode } from "@/api/types";
+import type { LLMProviderName, ProviderKeys, UserSettingsResponse, VoiceMode } from "@/api/types";
 
 type UseSettingsResult = {
   settings: UserSettingsResponse | null;
@@ -26,13 +26,8 @@ type UseSettingsResult = {
     ttsModel: "tts-1" | "tts-1-hd",
     ttsAutoplay: boolean,
   ) => Promise<void>;
-  updateApiKeys: (
-    openaiKey: string | null,
-    deepseekKey: string | null,
-    geminiKey: string | null,
-    mistralKey: string | null,
-    anthropicKey: string | null,
-  ) => Promise<void>;
+  updateBriefing: (enabled: boolean, hour: number) => Promise<void>;
+  updateApiKeys: (keys: ProviderKeys) => Promise<void>;
 };
 
 function normalizeError(error: unknown): string {
@@ -139,20 +134,22 @@ export function useSettings(): UseSettingsResult {
     [patchSettings],
   );
 
+  const updateBriefing = useCallback(
+    async (enabled: boolean, hour: number) => {
+      await patchSettings({ briefing_enabled: enabled, briefing_hour: hour });
+    },
+    [patchSettings],
+  );
+
   const updateApiKeys = useCallback(
-    async (
-      openaiKey: string | null,
-      deepseekKey: string | null,
-      geminiKey: string | null,
-      mistralKey: string | null,
-      anthropicKey: string | null,
-    ) => {
+    async (keys: ProviderKeys) => {
       await patchSettings({
-        openai_api_key: openaiKey,
-        deepseek_api_key: deepseekKey,
-        gemini_api_key: geminiKey,
-        mistral_api_key: mistralKey,
-        anthropic_api_key: anthropicKey,
+        openai_api_key: keys.openai,
+        deepseek_api_key: keys.deepseek,
+        gemini_api_key: keys.gemini,
+        mistral_api_key: keys.mistral,
+        anthropic_api_key: keys.anthropic,
+        openrouter_api_key: keys.openrouter,
       });
     },
     [patchSettings],
@@ -171,6 +168,7 @@ export function useSettings(): UseSettingsResult {
     updateCircuitBreaker,
     updateProviderPreference,
     updateVoiceSettings,
+    updateBriefing,
     updateApiKeys,
   };
 }

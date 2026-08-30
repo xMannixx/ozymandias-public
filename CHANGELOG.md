@@ -28,6 +28,11 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
 - Der Context Assembler liefert für genannte Personen den vollständigen Eintrag statt nur den Namen; das Audit-Log hält fest, welche Kontakte das Modell gesehen hat und wie viele zurückgehalten wurden
 - Frontend: Datenschutzstufe im Kontaktdetail wählbar, Karten zeigen „Local only"
 
+#### OpenRouter als Provider
+- `OPENROUTER_API_KEY` schaltet einen Broker mit mehreren hundert Modellen frei; der Katalog wird live von OpenRouter gelesen (15 min Cache) statt per Hand gepflegt
+- Modellauswahl überall über ein gemeinsames, durchsuchbares Dropdown (`ModelPicker`, `useProviderModels`) — nötig, weil eine Liste dieser Größe ohne Filter unbenutzbar ist
+- OpenRouter steht am Ende der Cloud-Fallback-Kette: als Broker erreicht er dieselben Anbieter, nur mit Aufschlag und einem Hop mehr
+
 #### Hintergrund-Jobs laufen wirklich
 - `backend/app/celery_app.py` mit Redis-Broker, JSON-Serialisierung, UTC und Beat-Zeitplan: Memory-Decay 03:00 UTC, Lane-Cleanup 03:30 UTC
 - Neue Beat-Einstiegspunkte `ozy.decay.run_all` und `ozy.memory.cleanup_all`, die ihre Zielnutzer selbst aus den Claims auflösen
@@ -40,6 +45,8 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
 - Oberfläche vollständig englisch; letzte deutsche Beschriftungen in Event-Details und Dashboard ersetzt
 - Navigation, Einstellungshierarchie und visuelle Dichte vereinfacht, Chat auf Mobilgeräten nutzbar, Barrierefreiheits-Grundlagen ergänzt
 - Projektlöschung räumt abhängige Zeilen jetzt über Postgres-Kaskaden ab
+- DeepSeek auf V4 umgestellt (`deepseek-v4-flash`, `deepseek-v4-pro`); die Preistabelle kennt jetzt das Peak-Fenster, in dem DeepSeek doppelt abrechnet, und gespeicherte Präferenzen auf den alten Aliassen werden migriert
+- Ob ein Provider verfügbar ist, entscheidet jetzt der vorhandene Schlüssel und nicht der Router-Zustand
 
 ### Behoben
 
@@ -49,6 +56,11 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
 - `/usage` wird als API-Aufruf beantwortet, Navigationen dagegen an die App weitergereicht; ungültige Report-Payloads werden abgewiesen
 - Referenz-Links akzeptieren eine reine Webadresse, Eingabefelder ohne expliziten Typ sind gestylt
 - Toasts schweben im Viewport statt im Layout, das Dist-Volume wird vor einem neuen Frontend-Build geleert
+- Jeder S3/S4-Turn scheiterte mit „Turn processing failed", wenn `OLLAMA_MODEL` auf ein nicht gezogenes Modell zeigte: Die Modellwahl läuft jetzt gegen die installierte Tag-Liste, Streaming inbegriffen, und Embedding-Modelle werden aus Routing und Dropdown ausgeschlossen
+- Ein gescheiterter lokaler Versuch wird bei S3/S4 als solcher gemeldet — bisher nur bei Verbindungsfehlern, weshalb der einmalige Cloud-Fallback bei S3 gar nicht angeboten wurde
+- Ein über die Oberfläche gespeicherter Cloud-Schlüssel machte den Provider nicht auswählbar („needs an API key first"), ein gelöschter Schlüssel blieb bis zum Neustart wirksam
+- Die Vorklassifikation war unbemerkt tot und stufte damit jede Nachricht ohne Keyword-Treffer auf S1 herunter, also in die Cloud: Sie lief gegen `OLLAMA_MODEL`, ohne zu prüfen, ob das Modell installiert ist. Sie nimmt jetzt das kleinste installierte Modell, hält es geladen (~0,15 s pro Nachricht statt Sekunden), unterdrückt den Denkschritt von Reasoning-Modellen — der sonst das Token-Budget verbraucht und eine leere Antwort liefert — und protokolliert jede Degradierung
+- Ein bevorzugter Provider ohne Schlüssel wurde stillschweigend durch einen anderen Cloud-Anbieter ersetzt; das steht jetzt im Log
 
 ---
 

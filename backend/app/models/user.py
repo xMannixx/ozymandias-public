@@ -3,11 +3,15 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Boolean, Float, Integer, Text, text
-from sqlalchemy.dialects.postgresql import ARRAY, UUID
+from pgvector.sqlalchemy import Vector
+from sqlalchemy import Boolean, Integer, Text, text
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models import Base
+
+EMBEDDING_DIMENSIONS = 768
+"""Output width of the local embedding model (Ollama nomic-embed-text)."""
 
 
 class ProceduralRule(Base):
@@ -49,6 +53,5 @@ class Episode(Base):
     sensitivity: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'S0'"))
     extracted: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))
     extraction_job_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
-    # Schema uses pgvector(1536); ARRAY(Float) keeps this scaffold dependency-light.
-    embedding: Mapped[list[float] | None] = mapped_column(ARRAY(Float))
+    embedding: Mapped[list[float] | None] = mapped_column(Vector(EMBEDDING_DIMENSIONS))
     created_at: Mapped[datetime] = mapped_column(nullable=False, server_default=text("now()"))

@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
-from contextlib import suppress
 from typing import Any, cast
 
 from ollama import AsyncClient
 
 from app.config import get_settings
+from app.services.llm import ollama_catalogue
 from app.services.llm.base import (
     LLMMessage,
     LLMProvider,
@@ -34,60 +34,9 @@ class OllamaProvider(LLMProvider):
         model: str | None = None,
         api_key: str | None = None,
     ) -> LLMResponse:
-        selected_model = model or self._model_name
         del api_key, tools  # Ollama tools are currently not used in this backend.
-        exc_to_raise = None
-        try:
-            response = await self._client.chat(model=selected_model, messages=messages)
-        except Exception as exc:
-            exc_to_raise = exc
-            error_text = str(exc).lower()
-            should_retry_with_default = (
-                model is not None
-                and selected_model != self._model_name
-                and "model" in error_text
-                and "not found" in error_text
-            )
-            if should_retry_with_default:
-                selected_model = self._model_name
-                try:
-                    response = await self._client.chat(model=selected_model, messages=messages)
-                    exc_to_raise = None
-                except Exception as inner_exc:
-                    exc_to_raise = inner_exc
-                    error_text = str(inner_exc).lower()
-
-            if exc_to_raise is not None and (
-                "not found" in error_text or "not_found" in error_text
-            ):
-                with suppress(Exception):
-                    import httpx
-
-                    settings = get_settings()
-                    tags_url = f"{settings.ollama_base_url.rstrip('/')}/api/tags"
-                    async with httpx.AsyncClient(timeout=3.0) as client:
-                        resp = await client.get(tags_url)
-                        if resp.status_code == 200:
-                            payload = resp.json()
-                            models = payload.get("models", [])
-                            names = []
-                            for m in models:
-                                if isinstance(m, dict):
-                                    name = m.get("model") or m.get("name")
-                                    if isinstance(name, str) and name.strip():
-                                        names.append(name.strip())
-                            if names:
-                                selected_model = names[0]
-                                response = await self._client.chat(
-                                    model=selected_model,
-                                    messages=messages,
-                                )
-                                exc_to_raise = None
-
-            if exc_to_raise is not None:
-                if exc_to_raise is exc:
-                    raise
-                raise exc_to_raise from exc
+        selected_model = await self._resolve_model(model)
+        response = await self._client.chat(model=selected_model, messages=messages)
 
         raw_response: dict[str, Any]
         if hasattr(response, "model_dump"):
@@ -119,7 +68,7 @@ class OllamaProvider(LLMProvider):
         api_key: str | None = None,
     ) -> AsyncIterator[LLMStreamItem]:
         del api_key, tools
-        selected_model = model or self._model_name
+        selected_model = await self._resolve_model(model)
         stream = await self._client.chat(model=selected_model, messages=messages, stream=True)
         content_parts: list[str] = []
         prompt_tokens = 0
@@ -148,4 +97,19 @@ class OllamaProvider(LLMProvider):
                 completion_tokens=completion_tokens,
                 total_tokens=prompt_tokens + completion_tokens,
             ),
+        )
+
+    async def _resolve_model(self, requested: str | None) -> str:
+        """Return a model this Ollama instance can actually run.
+
+        A model name that was never pulled fails every turn, and S3/S4 content
+        has no cloud provider to fall back to, so an installed model beats the
+        configured one. Cloud model names arrive here as `requested` whenever a
+        user keeps one cloud and one local preference, hence the same treatment.
+        """
+        return await ollama_catalogue.resolve_model(
+            requested,
+            self._model_name,
+            # This answers the user; the most capable local model wins.
+            fallback="largest",
         )

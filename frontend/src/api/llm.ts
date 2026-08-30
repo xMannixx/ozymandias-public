@@ -29,6 +29,11 @@ export function listGeminiModels(): Promise<string[]> {
   return request<string[]>("/llm/gemini/models");
 }
 
+/** Several hundred entries, read live from OpenRouter's catalogue. */
+export function listOpenRouterModels(): Promise<string[]> {
+  return request<string[]>("/llm/openrouter/models");
+}
+
 export function listModelsForProvider(provider: string): Promise<string[]> {
   switch (provider) {
     case "ollama":
@@ -43,7 +48,11 @@ export function listModelsForProvider(provider: string): Promise<string[]> {
       return listOpenAIModels();
     case "gemini":
       return listGeminiModels();
+    case "openrouter":
+      return listOpenRouterModels();
     default:
+      // Providers without a catalogue, such as Anthropic: the caller then
+      // offers a free-text field instead of a dropdown.
       return Promise.resolve([]);
   }
 }

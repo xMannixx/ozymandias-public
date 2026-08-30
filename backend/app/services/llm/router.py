@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import time
 from collections.abc import AsyncIterator
 from functools import lru_cache
@@ -18,6 +19,7 @@ from app.services.llm.lmstudio import LMStudioProvider
 from app.services.llm.mistral import MistralProvider
 from app.services.llm.ollama import OllamaProvider
 from app.services.llm.openai_provider import OpenAIProvider
+from app.services.llm.openrouter import OpenRouterProvider
 from app.services.llm.token_usage_tracker import get_token_usage_tracker
 from app.services.llm.usage import (
     STATUS_ERROR,
@@ -26,6 +28,13 @@ from app.services.llm.usage import (
     call_type_for_intent,
     tool_name_from_request,
 )
+
+logger = logging.getLogger(__name__)
+
+_LOCAL_PROVIDERS = frozenset({"ollama", "lmstudio"})
+
+#: Sensitivities that must not reach a cloud provider without explicit consent.
+_LOCAL_ONLY = frozenset({Sensitivity.S3, Sensitivity.S4})
 
 
 class LLMRouter:
@@ -47,6 +56,8 @@ class LLMRouter:
             self._providers["mistral"] = MistralProvider()
         if settings.anthropic_api_key:
             self._providers["anthropic"] = AnthropicProvider()
+        if settings.openrouter_api_key:
+            self._providers["openrouter"] = OpenRouterProvider()
 
     @property
     def available_providers(self) -> list[str]:
@@ -134,18 +145,16 @@ class LLMRouter:
                 continue
 
             # Skip cloud providers that have exceeded their daily token limit.
-            if provider_name not in {"ollama", "lmstudio"} and tracker.is_limit_exceeded(
-                provider_name
-            ):
+            if provider_name not in _LOCAL_PROVIDERS and tracker.is_limit_exceeded(provider_name):
                 last_exc = ServiceError(f"Daily token limit reached for '{provider_name}'")
                 continue
 
             model_override = preferred_model
-            if provider_name in {"ollama", "lmstudio"}:
+            if provider_name in _LOCAL_PROVIDERS:
                 # Prevent cloud model names from leaking through local overrides.
                 if preferred_local_model:
                     model_override = preferred_local_model
-                elif enforce_local and sensitivity in {Sensitivity.S3, Sensitivity.S4}:
+                elif enforce_local and sensitivity in _LOCAL_ONLY:
                     model_override = None
 
             api_key = api_keys.get(provider_name) if api_keys else None
@@ -184,17 +193,11 @@ class LLMRouter:
                     exc=exc,
                 )
                 # S3/S4 local-only failure — surface immediately with structured error.
-                if (
-                    provider_name in {"ollama", "lmstudio"}
-                    and enforce_local
-                    and sensitivity in {Sensitivity.S3, Sensitivity.S4}
-                    and _is_connection_error(exc)
-                ):
-                    raise LocalProviderUnavailableError(
-                        provider=provider_name,
-                        sensitivity=sensitivity.value,
-                        fallback_allowed=sensitivity is Sensitivity.S3,
-                        detail=str(exc),
+                if _is_local_only_attempt(provider_name, enforce_local, sensitivity):
+                    raise _local_only_failure(
+                        provider_name=provider_name,
+                        sensitivity=sensitivity,
+                        exc=exc,
                     ) from exc
 
                 # Auth / permission errors are hard failures — no point retrying other providers.
@@ -243,17 +246,15 @@ class LLMRouter:
             if provider is None:
                 continue
 
-            if provider_name not in {"ollama", "lmstudio"} and tracker.is_limit_exceeded(
-                provider_name
-            ):
+            if provider_name not in _LOCAL_PROVIDERS and tracker.is_limit_exceeded(provider_name):
                 last_exc = ServiceError(f"Daily token limit reached for '{provider_name}'")
                 continue
 
             model_override = preferred_model
-            if provider_name in {"ollama", "lmstudio"}:
+            if provider_name in _LOCAL_PROVIDERS:
                 if preferred_local_model:
                     model_override = preferred_local_model
-                elif enforce_local and sensitivity in {Sensitivity.S3, Sensitivity.S4}:
+                elif enforce_local and sensitivity in _LOCAL_ONLY:
                     model_override = None
 
             api_key = api_keys.get(provider_name) if api_keys else None
@@ -303,17 +304,11 @@ class LLMRouter:
                     started=started,
                     exc=exc,
                 )
-                if (
-                    provider_name in {"ollama", "lmstudio"}
-                    and enforce_local
-                    and sensitivity in {Sensitivity.S3, Sensitivity.S4}
-                    and _is_connection_error(exc)
-                ):
-                    raise LocalProviderUnavailableError(
-                        provider=provider_name,
-                        sensitivity=sensitivity.value,
-                        fallback_allowed=sensitivity is Sensitivity.S3,
-                        detail=str(exc),
+                if _is_local_only_attempt(provider_name, enforce_local, sensitivity):
+                    raise _local_only_failure(
+                        provider_name=provider_name,
+                        sensitivity=sensitivity,
+                        exc=exc,
                     ) from exc
                 if _is_auth_error(exc) or emitted:
                     # Auth errors are hard failures; after the first delta there
@@ -362,6 +357,7 @@ class LLMRouter:
             "gemini": GeminiProvider,
             "mistral": MistralProvider,
             "anthropic": AnthropicProvider,
+            "openrouter": OpenRouterProvider,
         }
         for provider_name, api_key in api_keys.items():
             if api_key and api_key.strip() and provider_name not in self._providers:
@@ -382,12 +378,12 @@ class LLMRouter:
 
         Fallback priority (S0–S2):
             preferred_provider → intent primary → Mistral → DeepSeek → OpenAI →
-            Anthropic → Gemini → local (last resort)
+            Anthropic → Gemini → OpenRouter → local (last resort)
 
         S3/S4 with enforce_local: only local providers, no cloud fallback.
         """
         # S3/S4 hard-local: one entry only.
-        if enforce_local and sensitivity in {Sensitivity.S3, Sensitivity.S4}:
+        if enforce_local and sensitivity in _LOCAL_ONLY:
             try:
                 local = self._get_local_provider(preferred_local_provider=preferred_local_provider)
                 return [local]
@@ -399,8 +395,16 @@ class LLMRouter:
         # 1. User's explicit preferred provider (highest priority).
         if preferred_provider:
             norm = preferred_provider.strip().lower()
-            if norm in self._providers and norm not in chain:
-                chain.append(norm)
+            if norm in self._providers:
+                if norm not in chain:
+                    chain.append(norm)
+            else:
+                # Silently handing the turn to a different cloud provider is
+                # confusing enough to explain in the log.
+                logger.warning(
+                    "llm: preferred provider %r has no key, falling back to the chain",
+                    norm,
+                )
 
         # 2. Intent-based primary provider.
         intent_primary = self._intent_primary(intent)
@@ -408,7 +412,9 @@ class LLMRouter:
             chain.append(intent_primary)
 
         # 3. Remaining cloud providers in defined cost/quality priority order.
-        _CLOUD_PRIORITY = ("mistral", "deepseek", "openai", "anthropic", "gemini")
+        # OpenRouter sits last: it is a broker, so reaching a lab directly is
+        # both cheaper and one hop shorter.
+        _CLOUD_PRIORITY = ("mistral", "deepseek", "openai", "anthropic", "gemini", "openrouter")
         for name in _CLOUD_PRIORITY:
             if name in self._providers and name not in chain:
                 chain.append(name)
@@ -428,6 +434,7 @@ class LLMRouter:
                     "openai",
                     "anthropic",
                     "gemini",
+                    "openrouter",
                     "ollama",
                     "lmstudio",
                 ):
@@ -457,7 +464,7 @@ class LLMRouter:
         if preferred_local_provider:
             normalized_local_provider = preferred_local_provider.strip().lower()
             if (
-                normalized_local_provider in {"ollama", "lmstudio"}
+                normalized_local_provider in _LOCAL_PROVIDERS
                 and normalized_local_provider in self._providers
             ):
                 return normalized_local_provider
@@ -480,17 +487,36 @@ def get_llm_router() -> LLMRouter:
     return LLMRouter()
 
 
-def _is_connection_error(exc: Exception) -> bool:
-    error_text = str(exc).lower()
-    markers = (
-        "failed to connect",
-        "connection refused",
-        "connecterror",
-        "connection error",
-        "all connection attempts failed",
-        "unreachable",
+def _is_local_only_attempt(
+    provider_name: str, enforce_local: bool, sensitivity: Sensitivity
+) -> bool:
+    """True when this attempt had no cloud provider left to fall back to."""
+    return provider_name in _LOCAL_PROVIDERS and enforce_local and sensitivity in _LOCAL_ONLY
+
+
+def _local_only_failure(
+    *, provider_name: str, sensitivity: Sensitivity, exc: Exception
+) -> LocalProviderUnavailableError:
+    """Turn a failed local-only attempt into an error the client can act on.
+
+    Every cause counts, not just an unreachable runtime: a model that was never
+    pulled fails just as hard, and reporting that as a generic internal error
+    hides the one thing the user can fix.
+    """
+    reason = str(exc).strip() or type(exc).__name__
+    if sensitivity is Sensitivity.S4:
+        message = (
+            f"S4 content never leaves this machine, and the local provider "
+            f"'{provider_name}' could not answer: {reason}"
+        )
+    else:
+        message = f"The local provider '{provider_name}' could not answer: {reason}"
+    return LocalProviderUnavailableError(
+        provider=provider_name,
+        sensitivity=sensitivity.value,
+        fallback_allowed=sensitivity is Sensitivity.S3,
+        detail=message,
     )
-    return any(marker in error_text for marker in markers)
 
 
 def _is_auth_error(exc: Exception) -> bool:

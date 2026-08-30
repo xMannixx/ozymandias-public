@@ -11,6 +11,22 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.settings import UserSettings
 from app.services.utils import normalize_user_id
 
+#: Settings columns holding a provider secret. They share one rule: a masked
+#: value means "unchanged" and an empty string means "delete".
+API_KEY_FIELDS = frozenset(
+    {
+        "openai_api_key",
+        "deepseek_api_key",
+        "gemini_api_key",
+        "mistral_api_key",
+        "anthropic_api_key",
+        "openrouter_api_key",
+    }
+)
+
+#: What the API sends back instead of a stored key.
+MASKED_VALUES = frozenset({"••••••••", "********"})
+
 
 class SettingsService:
     """Load and mutate per-user runtime settings."""
@@ -25,11 +41,7 @@ class SettingsService:
             "preferred_model",
             "preferred_local_provider",
             "preferred_local_model",
-            "openai_api_key",
-            "deepseek_api_key",
-            "gemini_api_key",
-            "mistral_api_key",
-            "anthropic_api_key",
+            *API_KEY_FIELDS,
         }
 
     async def get_or_create(self, user_id: str) -> UserSettings:
@@ -54,15 +66,9 @@ class SettingsService:
             if value is None and key not in self._nullable_update_fields:
                 continue
 
-            # API Key masking logic
-            if key in {
-                "openai_api_key",
-                "deepseek_api_key",
-                "gemini_api_key",
-                "mistral_api_key",
-                "anthropic_api_key",
-            }:
-                if value in {"••••••••", "********"}:
+            if key in API_KEY_FIELDS:
+                # A masked value is what the API handed out, so it means "keep".
+                if value in MASKED_VALUES:
                     continue
                 if value == "":
                     value = None

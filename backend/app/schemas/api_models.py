@@ -17,6 +17,7 @@ ProviderLiteral = Literal[
     "lmstudio",
     "mistral",
     "anthropic",
+    "openrouter",
 ]
 LocalProviderLiteral = Literal["ollama", "lmstudio"]
 
@@ -154,6 +155,16 @@ class UpdateConversationRequest(BaseModel):
     """Rename payload for one conversation."""
 
     title: str = Field(min_length=1, max_length=200)
+
+
+class ChatStarterResponse(BaseModel):
+    """One suggestion on the empty chat screen."""
+
+    id: str
+    #: Semantic icon name; unknown values fall back to a neutral icon.
+    icon: str
+    title: str
+    prompt: str
 
 
 class CreateClaimRequest(BaseModel):
@@ -381,6 +392,26 @@ class UsageReport(BaseModel):
     series: list[UsageBucket]
 
 
+class BriefingSectionResponse(BaseModel):
+    """One block of a briefing, ready to render."""
+
+    key: str
+    title: str
+    items: list[str]
+    #: Items before truncation, so the card can say how many were left out.
+    total: int = Field(ge=0)
+
+
+class BriefingResponse(BaseModel):
+    """The most recent daily briefing."""
+
+    briefing_id: str
+    briefing_date: date
+    content: str
+    sections: list[BriefingSectionResponse]
+    created_at: datetime
+
+
 class UserSettingsResponse(BaseModel):
     """Serialized per-user runtime settings."""
 
@@ -403,11 +434,15 @@ class UserSettingsResponse(BaseModel):
     tts_voice: str
     tts_model: Literal["tts-1", "tts-1-hd"]
     tts_autoplay: bool
+    briefing_enabled: bool
+    #: Hour of day in UTC.
+    briefing_hour: int = Field(ge=0, le=23)
     openai_api_key: str | None = None
     deepseek_api_key: str | None = None
     gemini_api_key: str | None = None
     mistral_api_key: str | None = None
     anthropic_api_key: str | None = None
+    openrouter_api_key: str | None = None
     updated_at: datetime
 
 
@@ -432,11 +467,14 @@ class UpdateSettingsRequest(BaseModel):
     tts_voice: str | None = Field(default=None, min_length=1, max_length=50)
     tts_model: Literal["tts-1", "tts-1-hd"] | None = None
     tts_autoplay: bool | None = None
+    briefing_enabled: bool | None = None
+    briefing_hour: int | None = Field(default=None, ge=0, le=23)
     openai_api_key: str | None = None
     deepseek_api_key: str | None = None
     gemini_api_key: str | None = None
     mistral_api_key: str | None = None
     anthropic_api_key: str | None = None
+    openrouter_api_key: str | None = None
 
 
 class KillSwitchRequest(BaseModel):

@@ -1,10 +1,15 @@
 import { request } from "@/api/client";
-import type { ConversationMessageResponse, ConversationResponse } from "@/api/types";
+import type { ChatStarter, ConversationMessageResponse, ConversationResponse } from "@/api/types";
 
 /** Lists chats, narrowed to one workspace when a project id is given. */
 export async function listConversations(projectId?: string): Promise<ConversationResponse[]> {
   const query = projectId ? `?project_id=${encodeURIComponent(projectId)}` : "";
   return request<ConversationResponse[]>(`/conversations${query}`);
+}
+
+/** Suggestions for the empty chat screen, built from the account's open items. */
+export async function listChatStarters(): Promise<ChatStarter[]> {
+  return request<ChatStarter[]>("/conversations/starters");
 }
 
 export async function getConversationMessages(

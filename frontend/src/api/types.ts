@@ -1,6 +1,26 @@
 export type Sensitivity = "S0" | "S1" | "S2" | "S3" | "S4";
-export type LLMProviderName = "deepseek" | "openai" | "ollama" | "gemini" | "lmstudio" | "mistral";
+export type LLMProviderName =
+  | "deepseek"
+  | "openai"
+  | "ollama"
+  | "gemini"
+  | "lmstudio"
+  | "mistral"
+  | "anthropic"
+  | "openrouter";
 export type VoiceMode = "push_to_talk" | "hands_free";
+
+/** Cloud providers that authenticate with a key stored in user settings. */
+export type ProviderKeyId =
+  | "openai"
+  | "deepseek"
+  | "gemini"
+  | "mistral"
+  | "anthropic"
+  | "openrouter";
+
+/** One value per provider: a key, the mask (keep) or an empty string (delete). */
+export type ProviderKeys = Record<ProviderKeyId, string>;
 
 export type ClaimResponse = {
   claim_id: string;
@@ -221,6 +241,30 @@ export type LiveWebHealth = {
   native_provider_candidates: string[];
 };
 
+export type ChatStarter = {
+  id: string;
+  /** Semantic icon name; the empty state falls back if it does not know one. */
+  icon: string;
+  title: string;
+  prompt: string;
+};
+
+export type BriefingSection = {
+  key: string;
+  title: string;
+  items: string[];
+  /** Items before truncation, so the card can say how many were left out. */
+  total: number;
+};
+
+export type BriefingResponse = {
+  briefing_id: string;
+  briefing_date: string;
+  content: string;
+  sections: BriefingSection[];
+  created_at: string;
+};
+
 export type UserSettingsResponse = {
   mode: "guardian" | "autopilot";
   kill_switch: boolean;
@@ -241,11 +285,15 @@ export type UserSettingsResponse = {
   tts_voice: string;
   tts_model: "tts-1" | "tts-1-hd";
   tts_autoplay: boolean;
+  briefing_enabled: boolean;
+  /** Hour of day in UTC. */
+  briefing_hour: number;
   openai_api_key?: string | null;
   deepseek_api_key?: string | null;
   gemini_api_key?: string | null;
   mistral_api_key?: string | null;
   anthropic_api_key?: string | null;
+  openrouter_api_key?: string | null;
   updated_at: string;
 };
 
@@ -268,11 +316,14 @@ export type UpdateSettingsRequest = {
   tts_voice?: string;
   tts_model?: "tts-1" | "tts-1-hd";
   tts_autoplay?: boolean;
+  briefing_enabled?: boolean;
+  briefing_hour?: number;
   openai_api_key?: string | null;
   deepseek_api_key?: string | null;
   gemini_api_key?: string | null;
   mistral_api_key?: string | null;
   anthropic_api_key?: string | null;
+  openrouter_api_key?: string | null;
 };
 
 export type TurnAttachment = {

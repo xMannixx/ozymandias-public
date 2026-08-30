@@ -54,7 +54,8 @@ def select_provider(intent, sensitivity, preferred_provider, preferred_local_pro
     
     # 4. Dev-Fallback (nur wenn AUTH_DEV_BYPASS=true)
     if settings.auth_dev_bypass:
-        for candidate in ["deepseek", "openai", "gemini", "ollama", "lmstudio"]:
+        for candidate in ["mistral", "deepseek", "openai", "anthropic",
+                          "gemini", "openrouter", "ollama", "lmstudio"]:
             if candidate in providers: return providers[candidate]
     
     # 5. Fehler — kein unsicherer Fallback
@@ -106,6 +107,8 @@ Wenn ein Provider temporär nicht erreichbar ist (Netzwerkfehler, API-Timeout), 
 
 Beispiel: DeepSeek nicht erreichbar → Fallback auf Gemini (beide S0–S2).
 
+Die Reihenfolge für S0–S2 lautet Mistral → DeepSeek → OpenAI → Anthropic → Gemini → OpenRouter → lokal. OpenRouter steht bewusst am Ende: als Broker erreicht er dieselben Anbieter, nur mit Aufschlag und einem Hop mehr.
+
 ### Safety-/Policy-Blocks (verboten)
 
 Wenn ein Provider einen Request ablehnt, weil er gegen seine Content-Policy verstößt (z.B. OpenAI blockt S4-Content), darf **nicht blind** ein anderer Cloud-Provider versucht werden. Das würde die Privacy-Grenzen unterlaufen.
@@ -135,8 +138,8 @@ Neben dem Provider-Routing können auch spezifische Modelle überschrieben werde
 
 ```python
 # Per User-Settings
-preferred_provider: str   # z.B. "deepseek" | "openai" | "gemini"
-preferred_model: str      # z.B. "deepseek-chat" | "gpt-4o" | "gemini-2.0-flash"
+preferred_provider: str   # z.B. "deepseek" | "openai" | "gemini" | "openrouter"
+preferred_model: str      # z.B. "deepseek-v4-flash" | "gpt-4o" | "~openai/gpt-latest"
 preferred_local_provider: str  # z.B. "ollama" | "lmstudio"
 preferred_local_model: str     # z.B. "llama3.1:8b" | "mistral-7b"
 

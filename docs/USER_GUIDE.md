@@ -24,7 +24,7 @@ Ozymandias ist kein einfacher Chatbot, sondern ein autonomer Assistent, der dein
 ### Das Gedächtnissystem (Memory Tiers)
 Ozy merkt sich Informationen auf vier Ebenen:
 - **Arbeitsgedächtnis:** Der Kontext des aktuellen Gesprächs (worüber ihr gerade redet).
-- **Episodisches Gedächtnis:** Chronologische Aufzeichnungen vergangener Gespräche.
+- **Episodisches Gedächtnis:** Chronologische Aufzeichnungen vergangener Gespräche. Ozy durchsucht sie nicht nur nach Stichworten, sondern nach Bedeutung — fragst du „was hatten wir zu dem Angebot besprochen?", findet er die Stelle auch ohne wörtliche Übereinstimmung. Die dafür nötige Analyse läuft auf deinem eigenen Rechner, nicht in der Cloud.
 - **Semantisches Gedächtnis:** Strukturierte Fakten (sogenannte **Claims**), z. B. deine Hobbys, deine Familie oder wichtige Kontakte.
 - **Prozedurales Gedächtnis:** Regeln, die festlegen, wie Ozy sich verhalten soll (z. B. "Schreibe E-Mails immer kurz und professionell").
 
@@ -35,7 +35,8 @@ Ozy merkt sich Informationen auf vier Ebenen:
 Die Oberfläche ist ruhig und dunkel gehalten (Glass-Design) und durchgehend englisch beschriftet. Sie gibt dir vollen Einblick in das Gedächtnis der KI und ermöglicht dir die Freigabe kritischer Aktionen.
 
 ### Wichtige Bereiche:
-- **Chat:** Schreibe oder sprich (Voice STT/TTS) mit Ozy.
+- **Übersicht (Dashboard):** Oben steht dein Tages-Briefing — Termine, offene Mails, wartende Vorschläge und was sich im Gedächtnis verändert hat. Es entsteht rein aus deinen Daten, ohne dass ein Sprachmodell mitschreibt; derselbe Tag liest sich also nicht bei jedem Aufruf anders. Wann es erzeugt wird, stellst du in den Einstellungen ein.
+- **Chat:** Schreibe oder sprich (Voice STT/TTS) mit Ozy. Ist der Chat leer, schlägt Ozy vor, was gerade offen ist — wartende Vorschläge, Konflikte, Termine des Tages.
 - **Gedächtnis (Memory Browser):** Suche und filtere alle Fakten, die Ozy über dich weiß.
 - **Vorschläge (Proposals):** Alle Fakten, die Ozy aus deinen Gesprächen ableitet, landen hier als Vorschlag zur Freigabe.
 - **Regeln (Rules):** Hier verwaltest du die Verhaltensweisen der KI.
@@ -108,7 +109,10 @@ Ozymandias schützt deine Privatsphäre durch automatische Daten-Klassifizierung
 | **S4** | Intim | Sehr persönliche Gedanken, Beziehungen | **Nur lokal**, strikt isoliert im S4-Lockdown |
 
 > [!WARNING]
-> **Sicherheits-Routing:** Ozy routet Daten der Stufe S3 und S4 niemals unverschlüsselt an öffentliche Cloud-Modelle. Wenn kein lokales Modell (z. B. Ollama) läuft, werden diese Anfragen blockiert (Fail-Closed), anstatt deine Daten zu gefährden.
+> **Sicherheits-Routing:** Ozy routet Daten der Stufe S3 und S4 niemals unbestätigt an öffentliche Cloud-Modelle. Kann das lokale Modell nicht antworten, wird die Anfrage abgebrochen statt ausgelagert — bei S3 mit dem Angebot, sie einmalig und ausdrücklich doch in die Cloud zu geben, bei S4 ohne diese Möglichkeit. Ozy nennt dabei den echten Grund, etwa ein Modell, das noch nie geladen wurde.
+
+> [!NOTE]
+> **Ein lokales Modell brauchst du in jedem Fall.** Auch bei harmlosen Nachrichten läuft zuerst eine kurze Einstufung auf deinem Rechner — sie entscheidet überhaupt erst, ob die Nachricht lokal bleiben muss. Deshalb startet auch bei einer Frage zum Wetter kurz ein lokales Modell, während die Antwort selbst von einem Cloud-Anbieter kommen kann. Ist kein lokales Modell installiert, kann Ozy nicht einstufen und behandelt alles als „intern" (S1).
 
 ---
 

@@ -96,7 +96,7 @@ Im [Benutzerhandbuch (docs/USER_GUIDE.md)](docs/USER_GUIDE.md) findest du detail
 
 **Frontend** — React + TypeScript, Vite + Tailwind. Ruhiges, dunkles Glass-Design, durchgehend englische Oberfläche, PWA-tauglich.
 
-**Hintergrund-Jobs** — Eigener Worker-Container mit Celery und Beat: Memory-Decay um 03:00 UTC, Lane-Cleanup um 03:30 UTC.
+**Hintergrund-Jobs** — Eigener Worker-Container mit Celery und Beat: Memory-Decay um 03:00 UTC, Lane-Cleanup um 03:30 UTC, Episoden-Indexierung alle 30 Minuten, Briefing-Lauf zu jeder Stunde (damit jeder Nutzer seine eigene Briefing-Zeit wählen kann).
 
 **Datenbank** — Postgres + pgvector. Claims als strukturierte Fakten, Episoden als chronologisches Archiv, Vektor-Index für semantische Suche.
 
@@ -110,11 +110,11 @@ Detaillierte Spezifikation: [`docs/OZY_ZUSAMMENFASSUNG_v5_2026-04-03.md`](docs/O
 
 **5 Write-Gates** — Schema-Validierung → Source Provenance → Conflict Detection → Human-in-the-Loop → Append-Only Commit. Kein LLM schreibt direkt in die DB.
 
-**Sensitivity-Routing** — S0 (öffentlich) bis S4 (intimate). Der Sensitivity Router entscheidet pro Claim, welcher Provider ihn sehen darf. S4 läuft ausschließlich lokal, S3 lokal-bevorzugt. Fällt der lokale Classifier aus, degradiert das System nachvollziehbar (mit Provenance) statt hart fail-closed — der Chat bleibt nutzbar. → [`docs/OZY_CONTRACTS_SPEC_v1_2026-04-03.md`](docs/OZY_CONTRACTS_SPEC_v1_2026-04-03.md)
+**Sensitivity-Routing** — S0 (öffentlich) bis S4 (intimate). Der Sensitivity Router entscheidet pro Claim, welcher Provider ihn sehen darf. S4 läuft ausschließlich lokal, S3 lokal-bevorzugt. Eingestuft wird zuerst über Keyword-Listen und den Kanal, alles andere über ein lokales Modell — bewusst das kleinste installierte, weil es bei jeder Nachricht läuft und genau ein Token liefern muss. Fällt es aus, degradiert das System nachvollziehbar (mit Provenance und Log-Eintrag) statt hart fail-closed — der Chat bleibt nutzbar. → [`docs/OZY_CONTRACTS_SPEC_v1_2026-04-03.md`](docs/OZY_CONTRACTS_SPEC_v1_2026-04-03.md)
 
 **5 Approval-Klassen** — Klasse 0 (Read) bis Klasse 4 (Destructive, High-Friction). Das System stuft immer nach oben, nie nach unten.
 
-**Provider-Routing** — DeepSeek, Gemini, OpenAI, lokale Modelle (Ollama/LM Studio). Routing nach Taskklasse, Risiko, Datenschutz, Latenz und Kosten, mit resilientem Fallback bei nicht erreichbaren lokalen Providern.
+**Provider-Routing** — DeepSeek, Gemini, OpenAI, Anthropic, Mistral, OpenRouter und lokale Modelle (Ollama/LM Studio). Routing nach Taskklasse, Risiko, Datenschutz, Latenz und Kosten. Ein lokales Modell wird gegen die installierte Liste gewählt, statt sich auf einen konfigurierten Namen zu verlassen; scheitert der lokale Versuch bei S3/S4, meldet das System den echten Grund statt eines generischen Fehlers.
 
 **Live-Web** — Optionaler Web-Zugriff: provider-nativ zuerst, alternativ über einen konfigurierbaren Connector. S3-Zugriffe erfordern explizite Bestätigung.
 
@@ -123,6 +123,12 @@ Detaillierte Spezifikation: [`docs/OZY_ZUSAMMENFASSUNG_v5_2026-04-03.md`](docs/O
 **Projekt-Workspaces** — Jedes Projekt hat einen eigenen Chat, Wissensdokumente und Custom Instructions. Was dort liegt, geht automatisch in den Kontext der Antworten.
 
 **Kontakte im Kontext** — Nennt eine Nachricht einen Namen, eine Firma, eine Rolle oder ein Tag, landet der passende Eintrag vollständig im Prompt. Als privat markierte Kontakte (S3/S4) bleiben dabei lokal.
+
+**Morgen-Briefing** — Ein deterministisch erzeugter Tagesüberblick aus Kalender, Mail, offenen Proposals und Memory-Änderungen, zur selbst gewählten Stunde. Kein LLM schreibt daran mit, damit derselbe Tag nicht zweimal anders klingt.
+
+**Semantischer Recall** — Frühere Gespräche werden als Episoden lokal eingebettet (Ollama, kein Cloud-Aufruf) und bei passender Frage in den Kontext geholt. So bleibt ein Gespräch von letzter Woche auffindbar, ohne dass daraus ein Claim werden musste.
+
+**Chat-Vorschläge** — Der leere Chat schlägt vor, was gerade offen ist: wartende Proposals, Konflikte, Termine des Tages, unbeantwortete Mails.
 
 **Verbrauch** — Die Usage-Seite zeigt Tokens, Kosten, Latenz, Cache-Trefferquote und Fehler pro Zeitraum, aufgeschlüsselt nach Modell, Provider und Kanal.
 
@@ -136,7 +142,8 @@ Detaillierte Spezifikation: [`docs/OZY_ZUSAMMENFASSUNG_v5_2026-04-03.md`](docs/O
 | Hintergrund-Jobs | Celery |
 | Frontend | React, TypeScript, Vite, Tailwind |
 | Deployment | Docker, Nginx Reverse Proxy |
-| LLM-Provider | DeepSeek, Gemini, OpenAI, Ollama/LM Studio |
+| LLM-Provider | DeepSeek, Gemini, OpenAI, Anthropic, Mistral, OpenRouter, Ollama/LM Studio |
+| Embeddings | Ollama (lokal), pgvector |
 
 ## Projektstruktur
 
@@ -170,8 +177,8 @@ ozymandias/
 | `ozy-contracts` | ✅ Fertig | Typen, Enums, Error-Types implementiert und validiert |
 | `ozy-core` | ✅ Fertig | Sensitivity Router, Write-Gates, PolicyResolver, Circuit Breaker, Taint Tracker, Decay Engine, Token Budget |
 | `ozy-bindings` | ✅ Fertig | PyO3-Bridge implementiert, Fallback-Modus vorhanden |
-| `backend` | ✅ Fertig | FastAPI, Claims/Memory inkl. Memory v2 (Authority Lanes), Proposals, Audit, Voice (STT/TTS), Mail/Kalender, Kontakte, Projekt-Workspaces, Live-Web, Provider-Routing, Usage-Tracking, Celery-Worker mit Beat, Auth |
-| `frontend` | ✅ Fertig | React-Dashboard im Glass-Design: Chat, Projekt-Workspaces, Settings, Voice, Memory-/Regel-Review, System-Health, Proposals, Audit, Usage |
+| `backend` | ✅ Fertig | FastAPI, Claims/Memory inkl. Memory v2 (Authority Lanes), Proposals, Audit, Voice (STT/TTS), Mail/Kalender, Kontakte, Projekt-Workspaces, Live-Web, Provider-Routing, semantischer Recall, Tages-Briefing, Usage-Tracking, Celery-Worker mit Beat, Auth |
+| `frontend` | ✅ Fertig | React-Dashboard im Glass-Design: Chat mit Vorschlägen, Briefing-Karte, Projekt-Workspaces, Settings, Voice, Memory-/Regel-Review, System-Health, Proposals, Audit, Usage |
 | Deployment | 🚧 In Arbeit | Docker Compose + Nginx vorhanden; Public-Deployment-Härtung und Mobile-Distribution sind noch Roadmap-Themen |
 
 Aktuelle Phase: **Phase 4 — Connectors** (Gmail/Kalender und Taint-Tracking stehen, MCP-Grundlage fehlt noch)
@@ -207,6 +214,8 @@ Der `worker`-Container fährt mit `docker compose up -d` hoch und bringt Celery 
 ```bash
 docker compose exec worker celery -A app.celery_app call ozy.decay.run_all
 docker compose exec worker celery -A app.celery_app call ozy.memory.cleanup_all
+docker compose exec worker celery -A app.celery_app call ozy.episodes.index_all
+docker compose exec worker celery -A app.celery_app call ozy.heartbeat.run_all
 docker compose logs -f worker
 ```
 

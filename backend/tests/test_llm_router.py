@@ -9,6 +9,7 @@ from typing import Any
 import pytest
 
 from app.schemas import Sensitivity
+from app.services.errors import LocalProviderUnavailableError
 from app.services.llm.base import LLMMessage, LLMResponse, LLMStreamItem
 from app.services.llm.router import LLMRouter
 from app.services.llm.usage import LLMCallUsage
@@ -61,6 +62,7 @@ def _patch_router_dependencies(
     gemini_key: str = "gak",
     mistral_key: str = "mrk",
     anthropic_key: str = "ank",
+    openrouter_key: str = "ork",
     lmstudio_model: str = "",
 ) -> None:
     monkeypatch.setattr(
@@ -71,6 +73,7 @@ def _patch_router_dependencies(
             gemini_api_key=gemini_key,
             mistral_api_key=mistral_key,
             anthropic_api_key=anthropic_key,
+            openrouter_api_key=openrouter_key,
             lmstudio_model=lmstudio_model,
             auth_dev_bypass=False,
         ),
@@ -94,6 +97,10 @@ def _patch_router_dependencies(
     monkeypatch.setattr(
         "app.services.llm.router.AnthropicProvider",
         lambda: _FakeProvider("anthropic"),
+    )
+    monkeypatch.setattr(
+        "app.services.llm.router.OpenRouterProvider",
+        lambda: _FakeProvider("openrouter"),
     )
     monkeypatch.setattr(
         "app.services.llm.router.OllamaProvider",
@@ -172,6 +179,24 @@ def test_router_selects_gemini_when_preferred_provider_set(
     assert provider.provider_name == "gemini"
 
 
+def test_router_selects_openrouter_when_preferred(monkeypatch: pytest.MonkeyPatch) -> None:
+    _patch_router_dependencies(monkeypatch)
+    router = LLMRouter()
+    provider = router.select_provider(
+        intent="general_turn",
+        sensitivity=Sensitivity.S1,
+        preferred_provider="openrouter",
+    )
+    assert isinstance(provider, _FakeProvider)
+    assert provider.provider_name == "openrouter"
+
+
+def test_openrouter_is_absent_without_a_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    _patch_router_dependencies(monkeypatch, openrouter_key="")
+    router = LLMRouter()
+    assert "openrouter" not in router.available_providers
+
+
 def test_router_falls_back_when_preferred_provider_not_configured(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -218,6 +243,7 @@ def test_router_falls_back_to_ollama_when_no_cloud_provider_available(
         gemini_key="",
         mistral_key="",
         anthropic_key="",
+        openrouter_key="",
     )
     router = LLMRouter()
     provider = router.select_provider(intent="general_turn", sensitivity=Sensitivity.S1)
@@ -234,6 +260,7 @@ def test_router_available_providers_contains_only_configured(
         gemini_key="",
         mistral_key="",
         anthropic_key="",
+        openrouter_key="",
     )
     router = LLMRouter()
     assert sorted(router.available_providers) == ["ollama", "openai"]
@@ -320,7 +347,10 @@ def test_router_selects_mistral_when_preferred_provider_set(
 
 
 def test_fallback_chain_cloud_priority_order(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Chain for S0–S2 general_turn follows Mistral→DeepSeek→OpenAI→Anthropic→Gemini→local."""
+    """S0–S2 general_turn: Mistral→DeepSeek→OpenAI→Anthropic→Gemini→OpenRouter→local.
+
+    OpenRouter comes last because it brokers the same labs at a markup.
+    """
     _patch_router_dependencies(monkeypatch)
     router = LLMRouter()
     chain = router._build_fallback_chain(
@@ -329,7 +359,7 @@ def test_fallback_chain_cloud_priority_order(monkeypatch: pytest.MonkeyPatch) ->
         enforce_local=True,
     )
     cloud_part = [p for p in chain if p not in {"ollama", "lmstudio"}]
-    assert cloud_part == ["mistral", "deepseek", "openai", "anthropic", "gemini"]
+    assert cloud_part == ["mistral", "deepseek", "openai", "anthropic", "gemini", "openrouter"]
 
 
 def test_fallback_chain_s4_is_local_only(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -697,3 +727,103 @@ async def test_route_raises_last_error_when_all_providers_fail(
             sensitivity=Sensitivity.S1,
             messages=[{"role": "user", "content": "test"}],
         )
+
+
+def _break_ollama(router: LLMRouter, exc: Exception) -> None:
+    provider = router._providers["ollama"]
+    assert isinstance(provider, _FakeProvider)
+
+    async def _fail(
+        messages: list[LLMMessage],
+        *,
+        tools: object = None,
+        model: object = None,
+        api_key: object = None,
+    ) -> LLMResponse:
+        raise exc
+
+    async def _fail_stream(
+        messages: list[LLMMessage],
+        *,
+        tools: object = None,
+        model: object = None,
+        api_key: object = None,
+    ) -> AsyncIterator[LLMStreamItem]:
+        raise exc
+        yield ""  # pragma: no cover — makes this an async generator
+
+    provider.chat = _fail  # type: ignore[method-assign]
+    provider.chat_stream = _fail_stream  # type: ignore[method-assign]
+
+
+@pytest.mark.asyncio
+async def test_s3_local_failure_offers_a_cloud_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
+    """S3 has a way out, but only if the client learns the local run failed."""
+    _patch_router_dependencies(monkeypatch)
+    router = LLMRouter()
+    _break_ollama(router, RuntimeError("model 'llama3.2' not found (status code: 404)"))
+
+    with pytest.raises(LocalProviderUnavailableError) as raised:
+        await router.route(
+            intent="general_turn",
+            sensitivity=Sensitivity.S3,
+            messages=[{"role": "user", "content": "test"}],
+        )
+    assert raised.value.provider == "ollama"
+    assert raised.value.fallback_allowed is True
+    assert "llama3.2" in str(raised.value)
+
+
+@pytest.mark.asyncio
+async def test_s4_local_failure_never_offers_a_cloud_fallback(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _patch_router_dependencies(monkeypatch)
+    router = LLMRouter()
+    _break_ollama(router, RuntimeError("no chat model installed"))
+
+    with pytest.raises(LocalProviderUnavailableError) as raised:
+        await router.route(
+            intent="general_turn",
+            sensitivity=Sensitivity.S4,
+            messages=[{"role": "user", "content": "test"}],
+        )
+    assert raised.value.fallback_allowed is False
+    assert "never leaves this machine" in str(raised.value)
+
+
+@pytest.mark.asyncio
+async def test_s3_local_failure_is_structured_for_streaming_too(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The chat UI streams, so the non-streaming path alone helps nobody."""
+    _patch_router_dependencies(monkeypatch)
+    router = LLMRouter()
+    _break_ollama(router, RuntimeError("model 'llama3.2' not found"))
+
+    with pytest.raises(LocalProviderUnavailableError) as raised:
+        async for _ in router.route_stream(
+            intent="general_turn",
+            sensitivity=Sensitivity.S3,
+            messages=[{"role": "user", "content": "test"}],
+        ):
+            pass
+    assert raised.value.fallback_allowed is True
+
+
+@pytest.mark.asyncio
+async def test_local_failure_below_s3_still_reaches_the_cloud(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Only S3/S4 are local-only; a broken Ollama must not break normal chat."""
+    _patch_router_dependencies(monkeypatch)
+    router = LLMRouter()
+    _break_ollama(router, RuntimeError("model 'llama3.2' not found"))
+
+    result = await router.route(
+        intent="general_turn",
+        sensitivity=Sensitivity.S1,
+        preferred_provider="ollama",
+        messages=[{"role": "user", "content": "test"}],
+    )
+    assert result.provider == "mistral"

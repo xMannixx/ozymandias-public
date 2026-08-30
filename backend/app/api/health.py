@@ -22,8 +22,38 @@ from app.services.llm.token_usage_tracker import get_token_usage_tracker
 
 router = APIRouter(tags=["health"])
 
-KNOWN_LLM_PROVIDERS = ("ollama", "lmstudio", "deepseek", "openai", "gemini", "mistral", "anthropic")
+KNOWN_LLM_PROVIDERS = (
+    "ollama",
+    "lmstudio",
+    "deepseek",
+    "openai",
+    "gemini",
+    "mistral",
+    "anthropic",
+    "openrouter",
+)
 LOCAL_LLM_PROVIDERS = {"ollama", "lmstudio"}
+
+
+def _configured_providers(user_settings: object | None, active: set[str]) -> set[str]:
+    """Providers this user can pick right now.
+
+    A cloud provider counts as soon as a key exists, in the environment or in
+    the user's settings. Asking the router instead would hide every key entered
+    through the UI, because it only instantiates env-configured providers at
+    startup — and it keeps the ones a single request registered long after that
+    key was deleted.
+    """
+    settings = get_settings()
+    configured = active & LOCAL_LLM_PROVIDERS
+    for name in KNOWN_LLM_PROVIDERS:
+        if name in LOCAL_LLM_PROVIDERS:
+            continue
+        field = f"{name}_api_key"
+        keys = (getattr(settings, field, None), getattr(user_settings, field, None))
+        if any(key and key.strip() for key in keys):
+            configured.add(name)
+    return configured
 
 
 async def _get_provider_runtime_status(
@@ -86,17 +116,14 @@ async def health(
         redis_status = "unavailable"
 
     llm_router = get_llm_router()
-    configured_providers = set(llm_router.available_providers)
+    active_providers = set(llm_router.available_providers)
+    configured_providers = _configured_providers(user_settings, active_providers)
     tracker = get_token_usage_tracker()
     all_token_usage = tracker.get_all_usage()
 
     llm_provider_health: list[LLMProviderHealth] = []
     for provider_name in KNOWN_LLM_PROVIDERS:
         is_configured = provider_name in configured_providers
-        if not is_configured and user_settings:
-            db_key = getattr(user_settings, f"{provider_name}_api_key", None)
-            if db_key and db_key.strip():
-                is_configured = True
 
         # Build token usage block for cloud providers.
         token_usage: LLMProviderTokenUsage | None = None
@@ -123,10 +150,9 @@ async def health(
             continue
 
         status_value, detail = await _get_provider_runtime_status(provider_name)
-        model_name = "default"
-        if provider_name in configured_providers:
+        if provider_name in active_providers:
             model_name = llm_router.get_model_name(provider_name)
-        elif user_settings:
+        else:
             model_name = getattr(settings, f"{provider_name}_model", "default")
 
         # Elevate status when token budget is exhausted or warning.
@@ -168,12 +194,14 @@ async def health(
         ],
     )
 
+    usable_providers = [item.name for item in llm_provider_health if item.configured]
+
     return HealthResponse(
         status="ok",
         database="ok",
         redis=redis_status,
         rust_bindings=rust_bindings,
-        llm_providers=llm_router.available_providers,
+        llm_providers=usable_providers,
         llm_provider_health=llm_provider_health,
         live_web=live_web_health,
     )

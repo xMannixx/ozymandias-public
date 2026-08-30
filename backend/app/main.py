@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.audit import router as audit_router
 from app.api.auth import router as auth_router
+from app.api.briefings import router as briefings_router
 from app.api.calendar import router as calendar_router
 from app.api.claims import router as claims_router
 from app.api.contacts import router as contacts_router
@@ -53,6 +54,7 @@ def create_app() -> FastAPI:
     app.include_router(health_router)
     app.include_router(audit_router, prefix="/audit")
     app.include_router(auth_router, prefix="/auth")
+    app.include_router(briefings_router, prefix="/briefings")
     app.include_router(calendar_router, prefix="/calendar")
     app.include_router(claims_router, prefix="/claims")
     app.include_router(contacts_router, prefix="/contacts")

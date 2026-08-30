@@ -9,10 +9,12 @@ from app.auth.jwt import get_current_user
 from app.database import get_db
 from app.models.conversation import Conversation, ConversationMessage
 from app.schemas.api_models import (
+    ChatStarterResponse,
     ConversationMessageResponse,
     ConversationResponse,
     UpdateConversationRequest,
 )
+from app.services.chat_starter_service import ChatStarterService
 from app.services.conversation_service import ConversationService
 from app.services.errors import NotFoundError
 
@@ -31,6 +33,25 @@ async def list_conversations(
     except NotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     return [_to_conversation_response(item) for item in conversations]
+
+
+# Declared before the parameterised routes so "starters" is never read as an id.
+@router.get("/starters", response_model=list[ChatStarterResponse])
+async def list_starters(
+    user_id: str = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> list[ChatStarterResponse]:
+    """Suggestions for the empty chat screen, drawn from what is open right now."""
+    starters = await ChatStarterService(db).suggest(user_id=user_id)
+    return [
+        ChatStarterResponse(
+            id=starter.id,
+            icon=starter.icon,
+            title=starter.title,
+            prompt=starter.prompt,
+        )
+        for starter in starters
+    ]
 
 
 @router.get("/{conversation_id}/messages", response_model=list[ConversationMessageResponse])
