@@ -11,6 +11,11 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
 
 ### Hinzugefügt
 
+#### Schema-Sync zwischen Rust und Python
+- Rust-Structs lehnen unbekannte Felder ab (`deny_unknown_fields`), die Pydantic-Gegenstücke ebenso (`extra="forbid"`). Vorher ignorierten beide Seiten Fremdfelder — ein Feld, das nur eine Seite kannte, ging beim Übersetzen verloren, statt als Abweichung aufzufallen
+- `authority_class` ist damit Teil des geteilten Contracts: neues Enum `AuthorityClass` in `ozy-contracts` (`identity`, `preference`, `evidence`, `authorization`, `procedural`), Default `evidence`. Die Lane war bisher nur auf Python-Seite bekannt und wurde beim Rust-Aufruf stillschweigend verworfen
+- `backend/tests/test_rust_bridge_live.py` ruft jede Bindung einmal mit voll besetzter Nutzlast gegen den kompilierten Kern auf; der CI-Job `bindings-smoke` führt sie aus. Die übrige Testsuite spricht mit dem Dev-Fallback und hätte eine Divergenz nie gesehen
+
 #### Projekt-Workspaces
 - Projekte sind Arbeitsbereiche statt Ablagen: eigener Gesprächsverlauf pro Projekt (`conversation_service`), Wissensdokumente, Custom Instructions und Referenz-Links
 - `project_context_service` legt Projektwissen und Instruktionen automatisch in den Kontext der Antworten
@@ -47,6 +52,7 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
 - Projektlöschung räumt abhängige Zeilen jetzt über Postgres-Kaskaden ab
 - DeepSeek auf V4 umgestellt (`deepseek-v4-flash`, `deepseek-v4-pro`); die Preistabelle kennt jetzt das Peak-Fenster, in dem DeepSeek doppelt abrechnet, und gespeicherte Präferenzen auf den alten Aliassen werden migriert
 - Ob ein Provider verfügbar ist, entscheidet jetzt der vorhandene Schlüssel und nicht der Router-Zustand
+- Requests mit unbekannten Feldern in `claims`, `claim` oder `proposal` werden mit HTTP 422 abgelehnt statt still ignoriert — Folge der Contract-Strictness
 
 ### Behoben
 
