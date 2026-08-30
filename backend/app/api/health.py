@@ -34,6 +34,11 @@ KNOWN_LLM_PROVIDERS = (
 )
 LOCAL_LLM_PROVIDERS = {"ollama", "lmstudio"}
 
+#: Ways the compiled core can be unavailable. A missing module is only the
+#: obvious one — a wheel built against another Python or a shared library that
+#: cannot be loaded fails here too, and means the same for this endpoint.
+_UNUSABLE_BINDINGS = (ImportError, OSError)
+
 
 def _configured_providers(user_settings: object | None, active: set[str]) -> set[str]:
     """Providers this user can pick right now.
@@ -104,7 +109,7 @@ async def health(
     try:
         import_module("ozy_bindings")
         rust_bindings = "ok"
-    except ModuleNotFoundError:
+    except _UNUSABLE_BINDINGS:
         if settings.auth_dev_bypass:
             rust_bindings = "dev-fallback"
         else:

@@ -7,6 +7,7 @@ from _pytest.monkeypatch import MonkeyPatch
 from httpx import AsyncClient
 
 from app.auth.jwt import create_access_token
+from app.config import get_settings
 
 
 class _RouterStub:
@@ -121,6 +122,33 @@ async def test_health_drops_a_provider_whose_key_was_removed(
     assert response.status_code == 200
     payload = response.json()
     assert "openrouter" not in payload["llm_providers"]
+
+
+@pytest.mark.asyncio
+async def test_health_reports_unusable_bindings_as_the_dev_fallback(
+    client: AsyncClient, monkeypatch: MonkeyPatch
+) -> None:
+    """A wheel built against another Python raises ImportError, not a missing module.
+
+    Reporting that as a 500 hides the one thing the endpoint exists to say.
+    """
+
+    def _broken_import(_module: str) -> object:
+        raise ImportError("dynamic module does not define module export function")
+
+    settings = get_settings().model_copy(update={"auth_dev_bypass": True})
+    monkeypatch.setattr("app.api.health.get_settings", lambda: settings)
+    monkeypatch.setattr("app.api.health.import_module", _broken_import)
+    monkeypatch.setattr("app.api.health.get_llm_router", lambda: _RouterStub(["ollama"]))
+
+    async def _probe(_provider_name: str) -> tuple[str, str | None]:
+        return "ok", None
+
+    monkeypatch.setattr("app.api.health._get_provider_runtime_status", _probe)
+
+    response = await client.get("/health")
+    assert response.status_code == 200
+    assert response.json()["rust_bindings"] == "dev-fallback"
 
 
 @pytest.mark.asyncio
