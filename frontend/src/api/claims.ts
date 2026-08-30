@@ -44,13 +44,6 @@ export function getClaim(id: string): Promise<ClaimResponse> {
   return request<ClaimResponse>(`/claims/${id}`);
 }
 
-export function createClaim(claim: Partial<ClaimResponse>): Promise<ClaimResponse> {
-  return request<ClaimResponse>("/claims", {
-    method: "POST",
-    body: claim as Record<string, unknown>,
-  });
-}
-
 export function archiveClaim(id: string): Promise<ArchiveRetractResponse> {
   return request<ArchiveRetractResponse>(`/claims/${id}/archive`, {
     method: "PATCH",
