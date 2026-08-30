@@ -1,7 +1,7 @@
 use ozy_contracts::{
-    ApprovalClass, Channel, ClaimData, FilterReason, HandlingPolicy, Lifecycle, MemoryType,
-    PayloadSensitivityInput, PayloadSensitivityResult, Sensitivity, SensitivityFilterInput,
-    SourceType, TrustLevel, VerificationState,
+    ApprovalClass, AuthorityClass, Channel, ClaimData, FilterReason, HandlingPolicy, Lifecycle,
+    MemoryType, PayloadSensitivityInput, PayloadSensitivityResult, Sensitivity,
+    SensitivityFilterInput, SourceType, TrustLevel, VerificationState,
 };
 use ozy_core::{check_payload_sensitivity, filter_claims};
 
@@ -12,6 +12,7 @@ fn mk_claim(sensitivity: Sensitivity) -> ClaimData {
         value: "value".to_owned(),
         content: "content".to_owned(),
         memory_type: MemoryType::Profile,
+        authority_class: AuthorityClass::Evidence,
         sensitivity,
         trust_level: TrustLevel::T2,
         handling_policy: HandlingPolicy::LocalPreferred,

@@ -1,10 +1,10 @@
 use ozy_contracts::{
-    ApprovalClass, ApprovalRequest, AuditEntry, AuditEventType, AuditResult, AuthorityLevel,
-    Channel, CircuitBreakerConfig, ClaimData, ConflictGroupData, ConflictGroupStatus,
-    ConflictResult, DecayAction, DecayActionType, FilterReason, G2Result, G3Result, HandlingPolicy,
-    Lifecycle, MemoryType, PayloadSensitivityInput, ProposalData, Sensitivity,
-    SensitivityFilterInput, SensitivityFilterOutput, SourceType, TokenBudgetAllocation,
-    TokenBudgetRequest, TrustLevel, VerificationState, WriteGateInput,
+    ApprovalClass, ApprovalRequest, AuditEntry, AuditEventType, AuditResult, AuthorityClass,
+    AuthorityLevel, Channel, CircuitBreakerConfig, ClaimData, ConflictGroupData,
+    ConflictGroupStatus, ConflictResult, DecayAction, DecayActionType, FilterReason, G2Result,
+    G3Result, HandlingPolicy, Lifecycle, MemoryType, PayloadSensitivityInput, ProposalData,
+    Sensitivity, SensitivityFilterInput, SensitivityFilterOutput, SourceType,
+    TokenBudgetAllocation, TokenBudgetRequest, TrustLevel, VerificationState, WriteGateInput,
 };
 use serde::Serialize;
 use serde::de::DeserializeOwned;
@@ -26,6 +26,7 @@ fn sample_claim() -> ClaimData {
         value: "Berlin".to_owned(),
         content: "User lives in Berlin".to_owned(),
         memory_type: MemoryType::Profile,
+        authority_class: AuthorityClass::Identity,
         sensitivity: Sensitivity::S1,
         trust_level: TrustLevel::T3,
         handling_policy: HandlingPolicy::LocalPreferred,
@@ -44,6 +45,43 @@ fn sample_claim() -> ClaimData {
 #[test]
 fn claim_data_roundtrip() {
     assert_roundtrip(&sample_claim());
+}
+
+#[test]
+fn claim_data_without_authority_class_defaults_to_evidence() {
+    let json = r#"{
+        "subject": "user:42",
+        "attribute": null,
+        "value": "Berlin",
+        "content": "User lives in Berlin",
+        "memory_type": "profile",
+        "sensitivity": "S1",
+        "trust_level": "T3",
+        "handling_policy": "local_preferred",
+        "verification_state": "confirmed",
+        "confidence": 0.95,
+        "source_type": "user_explicit",
+        "source_ref": null,
+        "user_locked": false,
+        "decay_eligible": true,
+        "lifecycle": "permanent",
+        "valid_from": null,
+        "valid_to": null
+    }"#;
+    let parsed: ClaimData = from_str(json).expect("a payload predating the field must still parse");
+    assert_eq!(parsed.authority_class, AuthorityClass::Evidence);
+}
+
+#[test]
+fn claim_data_rejects_a_field_it_does_not_know() {
+    // Python mirrors this shape by hand. Ignoring an unknown key would drop a
+    // governance flag in silence instead of reporting the mismatch.
+    let mut payload = to_string(&sample_claim()).expect("serialize");
+    payload.pop();
+    payload.push_str(r#","priority":3}"#);
+
+    let parsed: Result<ClaimData, _> = from_str(&payload);
+    assert!(parsed.is_err(), "unknown field must not be ignored");
 }
 
 #[test]

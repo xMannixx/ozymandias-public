@@ -1,5 +1,5 @@
 use ozy_contracts::{
-    ClaimData, FilterReason, HandlingPolicy, Lifecycle, MemoryType, Sensitivity,
+    AuthorityClass, ClaimData, FilterReason, HandlingPolicy, Lifecycle, MemoryType, Sensitivity,
     SensitivityFilterInput, SensitivityFilterOutput, SourceType, TrustLevel, VerificationState,
 };
 use ozy_core::filter_claims;
@@ -11,6 +11,7 @@ fn claim_with_sensitivity(sensitivity: Sensitivity) -> ClaimData {
         value: "value".to_owned(),
         content: "content".to_owned(),
         memory_type: MemoryType::Profile,
+        authority_class: AuthorityClass::Evidence,
         sensitivity,
         trust_level: TrustLevel::T3,
         handling_policy: HandlingPolicy::LocalPreferred,

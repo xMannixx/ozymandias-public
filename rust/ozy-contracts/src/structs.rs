@@ -1,19 +1,29 @@
 //! Struct payloads from the Ozy contracts specification.
 
+//! Every struct here denies unknown fields. Python mirrors these shapes by hand,
+//! and both serde and Pydantic ignore extra keys by default — a field added on
+//! one side only would be dropped in silence, which for a governance payload
+//! means losing a flag rather than noticing a mismatch.
+
 use crate::enums::{
-    ApprovalClass, AuditEventType, AuditResult, AuthorityLevel, Channel, ConflictGroupStatus,
-    ConflictResult, DecayActionType, FilterReason, HandlingPolicy, Lifecycle, MemoryType,
-    Sensitivity, SourceType, TrustLevel, VerificationState,
+    ApprovalClass, AuditEventType, AuditResult, AuthorityClass, AuthorityLevel, Channel,
+    ConflictGroupStatus, ConflictResult, DecayActionType, FilterReason, HandlingPolicy, Lifecycle,
+    MemoryType, Sensitivity, SourceType, TrustLevel, VerificationState,
 };
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ClaimData {
     pub subject: String,
     pub attribute: Option<String>,
     pub value: String,
     pub content: String,
     pub memory_type: MemoryType,
+    /// Defaults to `Evidence` so a payload written before this field existed
+    /// still parses.
+    #[serde(default)]
+    pub authority_class: AuthorityClass,
     pub sensitivity: Sensitivity,
     pub trust_level: TrustLevel,
     pub handling_policy: HandlingPolicy,
@@ -29,6 +39,7 @@ pub struct ClaimData {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ProposalData {
     pub proposed_claim: ClaimData,
     pub source_ref: Option<String>,
@@ -36,6 +47,7 @@ pub struct ProposalData {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ConflictGroupData {
     pub group_id: String,
     pub claim_ids: Vec<String>,
@@ -43,23 +55,27 @@ pub struct ConflictGroupData {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct WriteGateInput {
     pub proposal: ProposalData,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct G2Result {
     pub auto_confirm_eligible: bool,
     pub locked_to_tentative: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct G3Result {
     pub result: ConflictResult,
     pub matched_claim_id: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct SensitivityFilterInput {
     pub claims: Vec<ClaimData>,
     pub intent_type: String,
@@ -73,6 +89,7 @@ pub struct SensitivityFilterInput {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct SensitivityFilterOutput {
     pub allowed: Vec<ClaimData>,
     pub filtered_count: u32,
@@ -80,6 +97,7 @@ pub struct SensitivityFilterOutput {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct PayloadSensitivityInput {
     pub action_class: ApprovalClass,
     pub payload_sensitivity: Sensitivity,
@@ -87,6 +105,7 @@ pub struct PayloadSensitivityInput {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ApprovalRequest {
     pub action_type: String,
     pub approval_class: ApprovalClass,
@@ -96,6 +115,7 @@ pub struct ApprovalRequest {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct TaintChunk {
     pub chunk_id: String,
     pub trust_level: TrustLevel,
@@ -104,11 +124,13 @@ pub struct TaintChunk {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct TaintContext {
     pub chunks: Vec<TaintChunk>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct TaintSummary {
     pub effective_trust: TrustLevel,
     pub effective_sensitivity: Sensitivity,
@@ -117,12 +139,14 @@ pub struct TaintSummary {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct TaintActionCheck {
     pub taint_summary: TaintSummary,
     pub proposed_class: ApprovalClass,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct AuditEntry {
     pub event_type: AuditEventType,
     pub result: AuditResult,
@@ -137,6 +161,7 @@ pub struct AuditEntry {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct CircuitBreakerConfig {
     pub max_actions_per_window: u32,
     pub window_seconds: u64,
@@ -144,6 +169,7 @@ pub struct CircuitBreakerConfig {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct TokenBudgetRequest {
     pub intent_type: String,
     pub available_tokens: u32,
@@ -151,6 +177,7 @@ pub struct TokenBudgetRequest {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct TokenBudgetAllocation {
     pub max_claims: u32,
     pub max_tokens_per_claim: u32,
@@ -158,6 +185,7 @@ pub struct TokenBudgetAllocation {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct DecayAction {
     pub claim_ref: String,
     pub action: DecayActionType,
@@ -172,9 +200,9 @@ mod tests {
         TaintContext, TaintSummary, TokenBudgetAllocation, TokenBudgetRequest, WriteGateInput,
     };
     use crate::enums::{
-        ApprovalClass, AuditEventType, AuditResult, AuthorityLevel, ConflictGroupStatus,
-        ConflictResult, DecayActionType, FilterReason, HandlingPolicy, Lifecycle, MemoryType,
-        Sensitivity, SourceType, TrustLevel, VerificationState,
+        ApprovalClass, AuditEventType, AuditResult, AuthorityClass, AuthorityLevel,
+        ConflictGroupStatus, ConflictResult, DecayActionType, FilterReason, HandlingPolicy,
+        Lifecycle, MemoryType, Sensitivity, SourceType, TrustLevel, VerificationState,
     };
     use serde::{Deserialize, Serialize};
     use serde_json::{from_str, to_string};
@@ -194,6 +222,7 @@ mod tests {
             value: "maintainer".to_owned(),
             content: "User is maintainer".to_owned(),
             memory_type: MemoryType::Profile,
+            authority_class: AuthorityClass::Evidence,
             sensitivity: Sensitivity::S1,
             trust_level: TrustLevel::T2,
             handling_policy: HandlingPolicy::LocalPreferred,

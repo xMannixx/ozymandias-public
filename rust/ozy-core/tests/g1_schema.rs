@@ -1,6 +1,6 @@
 use ozy_contracts::{
-    ClaimData, G1Result, HandlingPolicy, Lifecycle, MemoryType, ProposalData, Sensitivity,
-    SourceType, TrustLevel, VerificationState, WriteGateInput,
+    AuthorityClass, ClaimData, G1Result, HandlingPolicy, Lifecycle, MemoryType, ProposalData,
+    Sensitivity, SourceType, TrustLevel, VerificationState, WriteGateInput,
 };
 use ozy_core::validate_schema;
 
@@ -11,6 +11,7 @@ fn base_claim() -> ClaimData {
         value: "Berlin".to_owned(),
         content: "User lives in Berlin".to_owned(),
         memory_type: MemoryType::Profile,
+        authority_class: AuthorityClass::Evidence,
         sensitivity: Sensitivity::S1,
         trust_level: TrustLevel::T3,
         handling_policy: HandlingPolicy::LocalPreferred,

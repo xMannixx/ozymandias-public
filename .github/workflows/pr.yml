@@ -138,30 +138,21 @@ jobs:
         with:
           workspaces: rust -> target
 
-      - name: Install maturin
-        run: python -m pip install --upgrade pip maturin
+      - name: Install maturin and backend dependencies
+        run: |
+          python -m pip install --upgrade pip maturin
+          pip install -r backend/requirements-dev.txt
 
       - name: Build and install bindings
         run: |
           maturin build -m rust/ozy-bindings/Cargo.toml
           pip install --find-links rust/target/wheels/ ozy-bindings
 
-      - name: Smoke import and call
-        run: |
-          python - <<'PY'
-          import json
-          import ozy_bindings
-
-          payload = {
-              "intent_type": "analyze",
-              "available_tokens": 1000,
-              "claims_count": 10,
-          }
-          out = ozy_bindings.allocate_token_budget(json.dumps(payload))
-          parsed = json.loads(out)
-          assert parsed["max_claims"] == 10
-          assert parsed["max_tokens_per_claim"] == 100
-          PY
+      # The rest of the suite talks to the dev fallback, which parses nothing, so
+      # this is the only job where a Pydantic model and its Rust struct actually
+      # have to agree. It calls every binding once with a fully populated payload.
+      - name: Cross-boundary test of every binding
+        run: python -m pytest -q backend/tests/test_rust_bridge_live.py
 
   frontend-lint-test:
     runs-on: ubuntu-latest

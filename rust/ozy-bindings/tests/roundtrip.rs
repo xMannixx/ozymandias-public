@@ -6,12 +6,13 @@ use ozy_bindings::{
 };
 use ozy_contracts::{
     ApprovalClass, ApprovalDecision, ApprovalRequest, AuditEntry, AuditEventType, AuditResult,
-    AuditValidationResult, AuthorityLevel, Channel, CircuitBreakerConfig, CircuitBreakerDecision,
-    CircuitBreakerStatus, ClaimData, ConflictResult, DecayAction, G1Result, G2Result, G3Result,
-    HandlingPolicy, Lifecycle, MemoryType, PayloadSensitivityInput, PayloadSensitivityResult,
-    ProposalData, Sensitivity, SensitivityFilterInput, SensitivityFilterOutput, SourceType,
-    TaintActionCheck, TaintChunk, TaintContext, TaintDecision, TaintSummary, TokenBudgetAllocation,
-    TokenBudgetRequest, TrustLevel, VerificationState, WriteGateInput,
+    AuditValidationResult, AuthorityClass, AuthorityLevel, Channel, CircuitBreakerConfig,
+    CircuitBreakerDecision, CircuitBreakerStatus, ClaimData, ConflictResult, DecayAction, G1Result,
+    G2Result, G3Result, HandlingPolicy, Lifecycle, MemoryType, PayloadSensitivityInput,
+    PayloadSensitivityResult, ProposalData, Sensitivity, SensitivityFilterInput,
+    SensitivityFilterOutput, SourceType, TaintActionCheck, TaintChunk, TaintContext, TaintDecision,
+    TaintSummary, TokenBudgetAllocation, TokenBudgetRequest, TrustLevel, VerificationState,
+    WriteGateInput,
 };
 
 fn sample_claim() -> ClaimData {
@@ -21,6 +22,7 @@ fn sample_claim() -> ClaimData {
         value: "Berlin".to_owned(),
         content: "User lives in Berlin".to_owned(),
         memory_type: MemoryType::Profile,
+        authority_class: AuthorityClass::Evidence,
         sensitivity: Sensitivity::S1,
         trust_level: TrustLevel::T2,
         handling_policy: HandlingPolicy::LocalPreferred,

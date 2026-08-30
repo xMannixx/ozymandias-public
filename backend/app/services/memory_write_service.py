@@ -72,7 +72,7 @@ class MemoryWriteService:
     ) -> WriteResult:
         """Write a fact subject to lane, source, rebound and conflict policy."""
         resolved_lane = lane or _coerce_lane(claim_data.authority_class)
-        claim_data = claim_data.model_copy(update={"authority_class": resolved_lane.value})
+        claim_data = claim_data.model_copy(update={"authority_class": resolved_lane})
         source = source_category_from_type(claim_data.source_type.value)
 
         policy = check_write_policy(

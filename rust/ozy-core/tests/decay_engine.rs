@@ -1,6 +1,6 @@
 use ozy_contracts::{
-    ClaimData, DecayAction, DecayActionType, HandlingPolicy, Lifecycle, MemoryType, OzyError,
-    Sensitivity, SourceType, TrustLevel, VerificationState,
+    AuthorityClass, ClaimData, DecayAction, DecayActionType, HandlingPolicy, Lifecycle, MemoryType,
+    OzyError, Sensitivity, SourceType, TrustLevel, VerificationState,
 };
 use ozy_core::evaluate_decay;
 
@@ -13,6 +13,7 @@ fn base_claim() -> ClaimData {
         value: "Berlin".to_owned(),
         content: "User lives in Berlin".to_owned(),
         memory_type: MemoryType::Profile,
+        authority_class: AuthorityClass::Evidence,
         sensitivity: Sensitivity::S1,
         trust_level: TrustLevel::T2,
         handling_policy: HandlingPolicy::LocalPreferred,
