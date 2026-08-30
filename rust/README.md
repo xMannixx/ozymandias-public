@@ -171,7 +171,7 @@ proptest     = "1"  # Nur in dev-dependencies
 pyo3         = { version = "0.x", features = ["extension-module"] }
 ```
 
-**Keine `chrono`-Abhängigkeit in `ozy-contracts` oder `ozy-core`** — Timestamps werden als ISO-8601-Strings verarbeitet. Der Decay Engine enthält einen eigenen ISO-8601-Parser ohne externe Abhängigkeiten (`decay_engine.rs::parse_iso8601_to_utc_key()`).
+**Keine `chrono`-Abhängigkeit in `ozy-contracts` oder `ozy-core`** — Timestamps werden als ISO-8601-Strings verarbeitet. Den Parser dafür stellt `ozy-core::iso8601` bereit, ein Modul ohne externe Abhängigkeiten: Decay vergleicht damit Zeitpunkte, der Audit-Validator prüft nur die Form. Vorher trug jedes der beiden eine eigene Kopie, und die Kopien waren auseinandergelaufen — die Audit-Seite akzeptierte `2026-02-31`, die Decay-Seite nicht.
 
 ---
 
