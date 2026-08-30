@@ -60,6 +60,10 @@ class CircuitBreakerService:
         count_raw = await self.redis.get(count_key)
         current_count = int(count_raw) if isinstance(count_raw, str) else 0
 
+        # "Open" is the conducting state in the engine, not the blocking one.
+        # An active cooldown never reaches this call: it lives in Redis under
+        # trip_key and was checked above, so the engine only has to judge the
+        # current velocity.
         decision_raw = rust_bridge.check_circuit_breaker(
             self.config,
             current_count,
