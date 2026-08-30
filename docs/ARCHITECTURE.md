@@ -105,6 +105,7 @@ backend/
 │   ├── api/                      # Route-Handler (FastAPI Routers)
 │   │   ├── audit.py              # GET /audit
 │   │   ├── auth.py               # GET/POST /auth/*
+│   │   ├── briefings.py          # GET /briefings/latest
 │   │   ├── calendar.py           # GET/POST /calendar/events
 │   │   ├── claims.py             # CRUD + State-Transitions /claims/*
 │   │   ├── contacts.py           # CRUD /contacts
@@ -120,6 +121,7 @@ backend/
 │   │   └── voice.py              # POST /voice/transcribe, /voice/synthesize
 │   ├── models/                   # SQLAlchemy ORM-Modelle
 │   │   ├── audit.py              # AuditLog
+│   │   ├── briefing.py           # Briefing (ein Eintrag pro Tag und Nutzer)
 │   │   ├── claim.py              # Claim, ClaimVersion, ClaimAccessLog
 │   │   ├── conflict.py           # ConflictGroup
 │   │   ├── contact.py            # Contact, ContactProject
@@ -144,12 +146,16 @@ backend/
 │       ├── attachment_service.py # Datei-Anhänge am Turn
 │       ├── audit_service.py      # Append-Only Logging
 │       ├── behavioral_rule_service.py # Prozedurale Lane + Guardian-Review
+│       ├── briefing_service.py   # Tages-Briefing, Celery-Task ozy.heartbeat.run_all
 │       ├── calendar_service.py   # Google Calendar
+│       ├── chat_starter_service.py # Vorschläge für den leeren Chat
 │       ├── circuit_breaker_service.py  # Redis-backed Velocity Tracking
 │       ├── claim_service.py      # CRUD + Versioning + Hash-Chain
 │       ├── contact_service.py    # CRUD + Avatar-Upload
 │       ├── conversation_service.py # Gesprächsverlauf pro Projekt
 │       ├── decay_service.py      # Celery-Tasks ozy.decay.run / run_all
+│       ├── episode_index_service.py  # Celery-Task ozy.episodes.index_all
+│       ├── episode_recall_service.py # Semantische Suche über frühere Gespräche
 │       ├── file_service.py       # MinIO Upload/Download
 │       ├── gmail_service.py      # Google Mail
 │       ├── job_targets.py        # Zielnutzer der Nachtjobs (Beat kennt keine)
@@ -176,11 +182,15 @@ backend/
 │           ├── gemini.py         # Google Gemini-Provider
 │           ├── mistral.py        # Mistral-Provider
 │           ├── openai_provider.py # OpenAI-Provider
+│           ├── openrouter.py     # OpenRouter-Provider (Broker)
+│           ├── openrouter_catalogue.py # Modellkatalog live von OpenRouter
 │           ├── ollama.py         # Ollama-Provider (lokal)
+│           ├── ollama_catalogue.py # Installierte lokale Modelle + Modellwahl
 │           ├── lmstudio.py       # LM Studio-Provider (lokal)
 │           ├── claim_extractor.py # LLM-basierte Claim-Extraktion
 │           ├── contact_match.py  # Welche Kontakte eine Nachricht meint
 │           ├── context_assembler.py # Token-Budget-gesteuerter Context-Aufbau
+│           ├── embeddings.py     # Lokale Embeddings (Ollama) für Recall
 │           ├── pricing.py        # Listenpreise → Kosten pro Aufruf
 │           ├── sensitivity_classifier.py # LLM-basierte Sensitivity-Einstufung
 │           ├── system_prompt.py  # Ozy-Basis-System-Prompt
@@ -274,7 +284,8 @@ ozy-backend
     ├── postgres:5432  (DB)
     ├── redis:6379/0   (Circuit Breaker)
     ├── minio:9000     (File Storage)
-    └── LLM-APIs       (extern: DeepSeek, Gemini, OpenAI / intern: Ollama, LM Studio)
+    └── LLM-APIs       (extern: DeepSeek, Gemini, OpenAI, Anthropic, Mistral,
+                        OpenRouter / intern: Ollama, LM Studio)
 
 ozy-worker  (Celery Worker + Beat)
     ├── postgres:5432  (DB)
