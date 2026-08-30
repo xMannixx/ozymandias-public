@@ -1,6 +1,6 @@
 use ozy_contracts::{
-    ClaimData, ConflictResult, G3Result, HandlingPolicy, Lifecycle, OzyError, ProposalData,
-    Sensitivity, SourceType, TrustLevel, VerificationState,
+    AuthorityClass, ClaimData, ConflictResult, G3Result, HandlingPolicy, Lifecycle, OzyError,
+    ProposalData, Sensitivity, SourceType, TrustLevel, VerificationState,
 };
 use ozy_core::detect_conflicts;
 
@@ -16,6 +16,7 @@ fn proposed_claim(
         value: "new-value".to_owned(),
         content: "new content".to_owned(),
         memory_type: ozy_contracts::MemoryType::Profile,
+        authority_class: AuthorityClass::Evidence,
         sensitivity: Sensitivity::S1,
         trust_level: TrustLevel::T2,
         handling_policy: HandlingPolicy::LocalPreferred,
@@ -44,6 +45,7 @@ fn existing_claim(
         value: "old-value".to_owned(),
         content: "old content".to_owned(),
         memory_type: ozy_contracts::MemoryType::Profile,
+        authority_class: AuthorityClass::Evidence,
         sensitivity: Sensitivity::S1,
         trust_level: TrustLevel::T3,
         handling_policy: HandlingPolicy::LocalPreferred,

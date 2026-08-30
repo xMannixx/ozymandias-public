@@ -1,6 +1,6 @@
 use ozy_contracts::{
-    ClaimData, G2Result, HandlingPolicy, Lifecycle, MemoryType, ProposalData, Sensitivity,
-    SourceType, TrustLevel, VerificationState,
+    AuthorityClass, ClaimData, G2Result, HandlingPolicy, Lifecycle, MemoryType, ProposalData,
+    Sensitivity, SourceType, TrustLevel, VerificationState,
 };
 use ozy_core::check_provenance;
 
@@ -12,6 +12,7 @@ fn base_proposal(source_type: SourceType) -> ProposalData {
             value: "Europe/Berlin".to_owned(),
             content: "Timezone preference".to_owned(),
             memory_type: MemoryType::Preference,
+            authority_class: AuthorityClass::Preference,
             sensitivity: Sensitivity::S1,
             trust_level: TrustLevel::T2,
             handling_policy: HandlingPolicy::LocalPreferred,
