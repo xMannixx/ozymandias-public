@@ -5,10 +5,22 @@ from __future__ import annotations
 from enum import StrEnum
 from typing import Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 U32_MAX = 4_294_967_295
 U64_MAX = 18_446_744_073_709_551_615
+
+
+class _Contract(BaseModel):
+    """Base for every payload that crosses the Rust boundary.
+
+    Unknown fields are refused on purpose. Serde and Pydantic both ignore them by
+    default, so a field added on one side only would disappear in silence — for a
+    governance payload that means losing a flag instead of seeing a mismatch. The
+    Rust structs deny unknown fields for the same reason.
+    """
+
+    model_config = ConfigDict(extra="forbid")
 
 
 class Sensitivity(StrEnum):
@@ -104,18 +116,26 @@ class Channel(StrEnum):
     celery = "celery"
 
 
-class MessageDetail(BaseModel):
+class AuthorityClass(StrEnum):
+    """Memory lane a claim belongs to, each with its own lifecycle and policy."""
+
+    identity = "identity"
+    preference = "preference"
+    evidence = "evidence"
+    authorization = "authorization"
+    procedural = "procedural"
+
+
+class MessageDetail(_Contract):
     message: str
 
 
-class ClaimData(BaseModel):
-    """Mirror of the Rust `ClaimData`, plus what only Python needs.
+class ClaimData(_Contract):
+    """Mirror of the Rust `ClaimData`, field for field.
 
-    `authority_class` has no counterpart in Rust: lanes are decided in
-    `app.memory.lanes`, and serde drops the field on the way in. `memory_type`
-    stays a free string here because the column is TEXT and Rust maps unknown
-    values to `MemoryType::Other` instead of rejecting them; which values it
-    knows by name is defined there, not mirrored in a second list.
+    `memory_type` stays a free string on both sides because the column is TEXT and
+    Rust maps unknown values to `MemoryType::Other` instead of rejecting them;
+    which values it knows by name is defined there, not mirrored in a second list.
     """
 
     subject: str
@@ -123,7 +143,7 @@ class ClaimData(BaseModel):
     value: str
     content: str
     memory_type: str
-    authority_class: str = "evidence"
+    authority_class: AuthorityClass = AuthorityClass.evidence
     sensitivity: Sensitivity
     trust_level: TrustLevel
     handling_policy: HandlingPolicy
@@ -150,69 +170,69 @@ class ClaimData(BaseModel):
         return value
 
 
-class ProposalData(BaseModel):
+class ProposalData(_Contract):
     proposed_claim: ClaimData
     source_ref: str | None = None
     source_type: SourceType
 
 
-class ConflictGroupData(BaseModel):
+class ConflictGroupData(_Contract):
     group_id: str
     claim_ids: list[str]
     status: ConflictGroupStatus
 
 
-class WriteGateInput(BaseModel):
+class WriteGateInput(_Contract):
     proposal: ProposalData
 
 
-class G1ResultSchemaErrorPayload(BaseModel):
+class G1ResultSchemaErrorPayload(_Contract):
     errors: list[str]
 
 
-class G1ResultSchemaErrorVariant(BaseModel):
+class G1ResultSchemaErrorVariant(_Contract):
     SchemaError: G1ResultSchemaErrorPayload
 
 
 G1Result = Literal["SchemaValid"] | G1ResultSchemaErrorVariant
 
 
-class G2Result(BaseModel):
+class G2Result(_Contract):
     auto_confirm_eligible: bool
     locked_to_tentative: bool
 
 
-class ConflictResultConflictGroupPayload(BaseModel):
+class ConflictResultConflictGroupPayload(_Contract):
     claim_ids: list[str]
 
 
-class ConflictResultConflictGroupVariant(BaseModel):
+class ConflictResultConflictGroupVariant(_Contract):
     ConflictGroup: ConflictResultConflictGroupPayload
 
 
 ConflictResult = Literal["NoConflict", "TemporalSuccession"] | ConflictResultConflictGroupVariant
 
 
-class G3Result(BaseModel):
+class G3Result(_Contract):
     result: ConflictResult
     matched_claim_id: str | None = None
 
 
-class FilterReasonSensitivityTooHighPayload(BaseModel):
+class FilterReasonSensitivityTooHighPayload(_Contract):
     claim_sensitivity: Sensitivity
     max_allowed: Sensitivity
 
 
-class FilterReasonSensitivityTooHighVariant(BaseModel):
+class FilterReasonSensitivityTooHighVariant(_Contract):
     SensitivityTooHigh: FilterReasonSensitivityTooHighPayload
 
 
-class FilterReasonIntentMismatchPayload(BaseModel):
+class FilterReasonIntentMismatchPayload(_Contract):
     claim_sensitivity: Sensitivity
     intent_type: str
 
 
-class FilterReasonIntentMismatchVariant(BaseModel):
+class FilterReasonIntentMismatchVariant(_Contract):
     IntentMismatch: FilterReasonIntentMismatchPayload
 
 
@@ -223,7 +243,7 @@ FilterReason = (
 )
 
 
-class SensitivityFilterInput(BaseModel):
+class SensitivityFilterInput(_Contract):
     claims: list[ClaimData]
     intent_type: str
     provider_is_local: bool
@@ -231,31 +251,31 @@ class SensitivityFilterInput(BaseModel):
     allow_s3_cloud_fallback: bool = False
 
 
-class SensitivityFilterOutput(BaseModel):
+class SensitivityFilterOutput(_Contract):
     allowed: list[ClaimData]
     filtered_count: int = Field(ge=0, le=U32_MAX)
     filter_reasons: list[FilterReason]
 
 
-class PayloadSensitivityInput(BaseModel):
+class PayloadSensitivityInput(_Contract):
     action_class: ApprovalClass
     payload_sensitivity: Sensitivity
     target_channel: Channel
 
 
-class PayloadSensitivityWarningPayload(BaseModel):
+class PayloadSensitivityWarningPayload(_Contract):
     message: str
 
 
-class PayloadSensitivityWarningVariant(BaseModel):
+class PayloadSensitivityWarningVariant(_Contract):
     Warning: PayloadSensitivityWarningPayload
 
 
-class PayloadSensitivityEscalatedPayload(BaseModel):
+class PayloadSensitivityEscalatedPayload(_Contract):
     new_class: ApprovalClass
 
 
-class PayloadSensitivityEscalatedVariant(BaseModel):
+class PayloadSensitivityEscalatedVariant(_Contract):
     Escalated: PayloadSensitivityEscalatedPayload
 
 
@@ -264,7 +284,7 @@ PayloadSensitivityResult = (
 )
 
 
-class ApprovalRequest(BaseModel):
+class ApprovalRequest(_Contract):
     action_type: str
     approval_class: ApprovalClass
     payload_preview: str | None = None
@@ -272,19 +292,19 @@ class ApprovalRequest(BaseModel):
     payload_sensitivity: Sensitivity | None = None
 
 
-class ApprovalDecisionDeniedPayload(BaseModel):
+class ApprovalDecisionDeniedPayload(_Contract):
     reason: str
 
 
-class ApprovalDecisionDeniedVariant(BaseModel):
+class ApprovalDecisionDeniedVariant(_Contract):
     Denied: ApprovalDecisionDeniedPayload
 
 
-class ApprovalDecisionEscalatedToPayload(BaseModel):
+class ApprovalDecisionEscalatedToPayload(_Contract):
     new_class: ApprovalClass
 
 
-class ApprovalDecisionEscalatedToVariant(BaseModel):
+class ApprovalDecisionEscalatedToVariant(_Contract):
     EscalatedTo: ApprovalDecisionEscalatedToPayload
 
 
@@ -293,50 +313,50 @@ ApprovalDecision = (
 )
 
 
-class TaintChunk(BaseModel):
+class TaintChunk(_Contract):
     chunk_id: str
     trust_level: TrustLevel
     sensitivity: Sensitivity
     source_type: SourceType
 
 
-class TaintContext(BaseModel):
+class TaintContext(_Contract):
     chunks: list[TaintChunk]
 
 
-class TaintSummary(BaseModel):
+class TaintSummary(_Contract):
     effective_trust: TrustLevel
     effective_sensitivity: Sensitivity
     is_tainted: bool
     taint_sources: list[str]
 
 
-class TaintActionCheck(BaseModel):
+class TaintActionCheck(_Contract):
     taint_summary: TaintSummary
     proposed_class: ApprovalClass
 
 
-class TaintDecisionEscalatePayload(BaseModel):
+class TaintDecisionEscalatePayload(_Contract):
     new_class: ApprovalClass
     reason: str
 
 
-class TaintDecisionEscalateVariant(BaseModel):
+class TaintDecisionEscalateVariant(_Contract):
     Escalate: TaintDecisionEscalatePayload
 
 
-class TaintDecisionBlockPayload(BaseModel):
+class TaintDecisionBlockPayload(_Contract):
     reason: str
 
 
-class TaintDecisionBlockVariant(BaseModel):
+class TaintDecisionBlockVariant(_Contract):
     Block: TaintDecisionBlockPayload
 
 
 TaintDecision = Literal["Proceed"] | TaintDecisionEscalateVariant | TaintDecisionBlockVariant
 
 
-class AuditEntry(BaseModel):
+class AuditEntry(_Contract):
     event_type: AuditEventType
     result: AuditResult
     actor: str
@@ -349,48 +369,48 @@ class AuditEntry(BaseModel):
     source_ref: str | None = None
 
 
-class AuditValidationInvalidPayload(BaseModel):
+class AuditValidationInvalidPayload(_Contract):
     errors: list[str]
     warnings: list[str]
 
 
-class AuditValidationInvalidVariant(BaseModel):
+class AuditValidationInvalidVariant(_Contract):
     Invalid: AuditValidationInvalidPayload
 
 
 AuditValidationResult = Literal["Valid"] | AuditValidationInvalidVariant
 
 
-class CircuitBreakerConfig(BaseModel):
+class CircuitBreakerConfig(_Contract):
     max_actions_per_window: int = Field(ge=0, le=U32_MAX)
     window_seconds: int = Field(ge=0, le=U64_MAX)
     cooldown_seconds: int = Field(ge=0, le=U64_MAX)
 
 
-class CircuitBreakerStatusTrippedPayload(BaseModel):
+class CircuitBreakerStatusTrippedPayload(_Contract):
     reason: str
 
 
-class CircuitBreakerStatusTrippedVariant(BaseModel):
+class CircuitBreakerStatusTrippedVariant(_Contract):
     Tripped: CircuitBreakerStatusTrippedPayload
 
 
 CircuitBreakerStatus = Literal["Open", "Closed"] | CircuitBreakerStatusTrippedVariant
 
 
-class CircuitBreakerDecisionTripPayload(BaseModel):
+class CircuitBreakerDecisionTripPayload(_Contract):
     reason: str
 
 
-class CircuitBreakerDecisionTripVariant(BaseModel):
+class CircuitBreakerDecisionTripVariant(_Contract):
     Trip: CircuitBreakerDecisionTripPayload
 
 
-class CircuitBreakerDecisionCooldownPayload(BaseModel):
+class CircuitBreakerDecisionCooldownPayload(_Contract):
     remaining_seconds: int = Field(ge=0, le=U64_MAX)
 
 
-class CircuitBreakerDecisionCooldownVariant(BaseModel):
+class CircuitBreakerDecisionCooldownVariant(_Contract):
     CooldownActive: CircuitBreakerDecisionCooldownPayload
 
 
@@ -399,83 +419,83 @@ CircuitBreakerDecision = (
 )
 
 
-class TokenBudgetRequest(BaseModel):
+class TokenBudgetRequest(_Contract):
     intent_type: str
     available_tokens: int = Field(ge=0, le=U32_MAX)
     claims_count: int = Field(ge=0, le=U32_MAX)
 
 
-class TokenBudgetAllocation(BaseModel):
+class TokenBudgetAllocation(_Contract):
     max_claims: int = Field(ge=0, le=U32_MAX)
     max_tokens_per_claim: int = Field(ge=0, le=U32_MAX)
     truncation_needed: bool
 
 
-class DecayActionTypeReduceConfidencePayload(BaseModel):
+class DecayActionTypeReduceConfidencePayload(_Contract):
     new_confidence: float
 
 
-class DecayActionTypeReduceConfidenceVariant(BaseModel):
+class DecayActionTypeReduceConfidenceVariant(_Contract):
     ReduceConfidence: DecayActionTypeReduceConfidencePayload
 
 
 DecayActionType = Literal["Keep", "Expire", "Archive"] | DecayActionTypeReduceConfidenceVariant
 
 
-class DecayAction(BaseModel):
+class DecayAction(_Contract):
     claim_ref: str
     action: DecayActionType
 
 
-class OzyErrorConflictDetectedDetail(BaseModel):
+class OzyErrorConflictDetectedDetail(_Contract):
     group: ConflictGroupData
 
 
-class OzyErrorTokenBudgetExceededDetail(BaseModel):
+class OzyErrorTokenBudgetExceededDetail(_Contract):
     pass
 
 
-class OzyErrorSchemaValidation(BaseModel):
+class OzyErrorSchemaValidation(_Contract):
     type: Literal["SchemaValidation"]
     detail: MessageDetail
 
 
-class OzyErrorSensitivityViolation(BaseModel):
+class OzyErrorSensitivityViolation(_Contract):
     type: Literal["SensitivityViolation"]
     detail: MessageDetail
 
 
-class OzyErrorApprovalDenied(BaseModel):
+class OzyErrorApprovalDenied(_Contract):
     type: Literal["ApprovalDenied"]
     detail: MessageDetail
 
 
-class OzyErrorConflictDetected(BaseModel):
+class OzyErrorConflictDetected(_Contract):
     type: Literal["ConflictDetected"]
     detail: OzyErrorConflictDetectedDetail
 
 
-class OzyErrorCircuitBreakerTripped(BaseModel):
+class OzyErrorCircuitBreakerTripped(_Contract):
     type: Literal["CircuitBreakerTripped"]
     detail: MessageDetail
 
 
-class OzyErrorTokenBudgetExceeded(BaseModel):
+class OzyErrorTokenBudgetExceeded(_Contract):
     type: Literal["TokenBudgetExceeded"]
     detail: OzyErrorTokenBudgetExceededDetail | None = None
 
 
-class OzyErrorTaintPropagation(BaseModel):
+class OzyErrorTaintPropagation(_Contract):
     type: Literal["TaintPropagation"]
     detail: MessageDetail
 
 
-class OzyErrorInvariantViolation(BaseModel):
+class OzyErrorInvariantViolation(_Contract):
     type: Literal["InvariantViolation"]
     detail: MessageDetail
 
 
-class OzyErrorPayloadSensitivityLeak(BaseModel):
+class OzyErrorPayloadSensitivityLeak(_Contract):
     type: Literal["PayloadSensitivityLeak"]
     detail: MessageDetail
 

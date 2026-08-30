@@ -4,7 +4,7 @@ import pytest
 from pydantic import ValidationError
 
 from app.schemas import ClaimData, TokenBudgetRequest
-from app.schemas.contracts import U32_MAX
+from app.schemas.contracts import U32_MAX, AuthorityClass
 
 
 def _claim_payload(memory_type: str) -> dict[str, object]:
@@ -42,6 +42,20 @@ def test_claim_schema_accepts_unknown_memory_type_like_rust_other() -> None:
 def test_claim_schema_rejects_empty_memory_type() -> None:
     with pytest.raises(ValidationError):
         ClaimData.model_validate(_claim_payload(""))
+
+
+def test_claim_schema_defaults_the_lane_to_evidence() -> None:
+    claim = ClaimData.model_validate(_claim_payload("profile"))
+    assert claim.authority_class == AuthorityClass.evidence
+
+
+def test_claim_schema_rejects_a_field_rust_does_not_know() -> None:
+    """Ignoring it would drop a governance flag instead of reporting the mismatch."""
+    payload = _claim_payload("profile")
+    payload["priority"] = 3
+
+    with pytest.raises(ValidationError):
+        ClaimData.model_validate(payload)
 
 
 def test_token_budget_request_accepts_u32_upper_bound() -> None:

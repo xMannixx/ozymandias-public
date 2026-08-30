@@ -11,15 +11,22 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import StrEnum
 
+# The lane is part of the claim contract, so it is defined next to the other
+# mirrored enums and only re-exported here, where the policy for it lives.
+from app.schemas.contracts import AuthorityClass
 
-class AuthorityClass(StrEnum):
-    """Memory lane with its own lifecycle and trust policy."""
-
-    identity = "identity"
-    preference = "preference"
-    evidence = "evidence"
-    authorization = "authorization"
-    procedural = "procedural"
+__all__ = [
+    "AUTHORITY_POLICY",
+    "SOURCE_TRUST_ORDER",
+    "AuthorityClass",
+    "LanePolicy",
+    "SourceCategory",
+    "WritePolicyResult",
+    "check_write_policy",
+    "is_more_trusted",
+    "policy_for",
+    "source_category_from_type",
+]
 
 
 class SourceCategory(StrEnum):
