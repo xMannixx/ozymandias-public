@@ -485,7 +485,7 @@ decision = rust_bridge.check_tainted_action(TaintActionCheck(...))
 
 ### Fallback-Modus
 
-Falls `ozy_bindings` (kompilierte `.so`) nicht geladen werden kann, aktiviert sich automatisch `ozy_bindings_fallback.py`. Dieser Fallback gibt `"SchemaValid"`, leere Outputs und `"Approved"` zurück — **nur für lokale Entwicklung ohne Rust-Build**.
+Fehlt das Modul `ozy_bindings` vollständig, darf die Bridge bei aktiviertem `AUTH_DEV_BYPASS` oder während eines Pytest-Tests `ozy_bindings_fallback.py` laden. Dieser vereinfachte Fallback ersetzt keine Governance-Prüfung. Fehler einer vorhandenen Installation (fehlende Untermodule, inkompatible Python-ABI oder fehlende Shared Libraries) werden weitergereicht; sie aktivieren keinen Fallback.
 
 Im Health-Check:
 ```json

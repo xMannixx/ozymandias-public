@@ -318,3 +318,77 @@ def test_rust_bridge_maps_unknown_json_value_errors(monkeypatch: pytest.MonkeyPa
         rust_bridge.validate_schema(WriteGateInput(proposal=_sample_proposal()))
 
     assert exc_info.value.payload is None
+
+
+@pytest.mark.parametrize("dev_bypass", [False, True])
+@pytest.mark.parametrize("under_pytest", [False, True])
+def test_missing_bindings_fallback_is_gated(
+    monkeypatch: pytest.MonkeyPatch, dev_bypass: bool, under_pytest: bool
+) -> None:
+    from app.config import Settings
+
+    fallback = FakeBindings()
+
+    def load(name: str) -> Any:
+        if name == "ozy_bindings":
+            raise ModuleNotFoundError("missing core", name=name)
+        assert name == "app.services.ozy_bindings_fallback"
+        return fallback
+
+    monkeypatch.setattr(rust_bridge.importlib, "import_module", load)
+    monkeypatch.setattr(rust_bridge, "get_settings", lambda: Settings(auth_dev_bypass=dev_bypass))
+    if under_pytest:
+        monkeypatch.setenv("PYTEST_CURRENT_TEST", "bridge test")
+    else:
+        monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
+    if dev_bypass or under_pytest:
+        assert rust_bridge._load_bindings() is fallback
+    else:
+        with pytest.raises(ModuleNotFoundError):
+            rust_bridge._load_bindings()
+
+
+@pytest.mark.parametrize(
+    "error",
+    [
+        ModuleNotFoundError("missing dependency", name="ozy_bindings._native"),
+        ImportError("incompatible Python ABI"),
+        OSError("missing shared library"),
+    ],
+)
+def test_broken_installed_bindings_never_fall_back(
+    monkeypatch: pytest.MonkeyPatch, error: Exception
+) -> None:
+    from app.config import Settings
+
+    def load(name: str) -> Any:
+        assert name == "ozy_bindings"
+        raise error
+
+    monkeypatch.setattr(rust_bridge.importlib, "import_module", load)
+    monkeypatch.setattr(rust_bridge, "get_settings", lambda: Settings(auth_dev_bypass=True))
+    with pytest.raises(type(error)) as caught:
+        rust_bridge._load_bindings()
+    assert caught.value is error
+
+
+@pytest.mark.parametrize(
+    ("count", "elapsed"),
+    [(-1, None), (2**32, None), (0, -1), (0, 2**64), (True, None), (0, 1.5)],
+)
+def test_circuit_breaker_rejects_invalid_scalar_arguments_before_loading(
+    monkeypatch: pytest.MonkeyPatch, count: Any, elapsed: Any
+) -> None:
+    from pydantic import ValidationError
+
+    def unexpected_load() -> Any:
+        pytest.fail("invalid scalar arguments reached the Rust boundary")
+
+    monkeypatch.setattr(rust_bridge, "_load_bindings", unexpected_load)
+    with pytest.raises(ValidationError):
+        rust_bridge.check_circuit_breaker(
+            CircuitBreakerConfig(max_actions_per_window=10, window_seconds=60, cooldown_seconds=60),
+            count,
+            "Open",
+            elapsed,
+        )

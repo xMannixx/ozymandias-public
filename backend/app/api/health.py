@@ -109,9 +109,15 @@ async def health(
     try:
         import_module("ozy_bindings")
         rust_bindings = "ok"
-    except _UNUSABLE_BINDINGS:
-        if settings.auth_dev_bypass:
+    except _UNUSABLE_BINDINGS as exc:
+        if (
+            settings.auth_dev_bypass
+            and isinstance(exc, ModuleNotFoundError)
+            and exc.name == "ozy_bindings"
+        ):
             rust_bindings = "dev-fallback"
+        elif settings.auth_dev_bypass:
+            rust_bindings = "unavailable"
         else:
             raise
     try:

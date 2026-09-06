@@ -5,9 +5,9 @@ from __future__ import annotations
 import importlib
 import json
 import os
-from typing import Any, Protocol, cast
+from typing import Annotated, Any, Protocol, cast
 
-from pydantic import TypeAdapter
+from pydantic import Field, TypeAdapter
 
 from app.config import get_settings
 from app.schemas import (
@@ -36,7 +36,12 @@ from app.schemas import (
     TokenBudgetRequest,
     WriteGateInput,
 )
-from app.schemas.contracts import OzyErrorPayload
+from app.schemas.contracts import U32_MAX, U64_MAX, OzyErrorPayload
+
+_CURRENT_COUNT: TypeAdapter[int] = TypeAdapter(Annotated[int, Field(strict=True, ge=0, le=U32_MAX)])
+_ELAPSED_SECONDS: TypeAdapter[int | None] = TypeAdapter(
+    Annotated[int, Field(strict=True, ge=0, le=U64_MAX)] | None
+)
 
 
 class OzyBindingsModule(Protocol):
@@ -86,7 +91,10 @@ def _load_bindings() -> OzyBindingsModule:
     try:
         module = importlib.import_module("ozy_bindings")
         return cast(OzyBindingsModule, module)
-    except ModuleNotFoundError:
+    except ModuleNotFoundError as exc:
+        # A broken installed package must never silently disable governance.
+        if exc.name != "ozy_bindings":
+            raise
         settings = get_settings()
         if settings.auth_dev_bypass or "PYTEST_CURRENT_TEST" in os.environ:
             fallback = importlib.import_module("app.services.ozy_bindings_fallback")
@@ -184,6 +192,8 @@ def check_circuit_breaker(
     status: CircuitBreakerStatus,
     seconds_since_last_trip: int | None = None,
 ) -> CircuitBreakerDecision:
+    current_count = _CURRENT_COUNT.validate_python(current_count)
+    seconds_since_last_trip = _ELAPSED_SECONDS.validate_python(seconds_since_last_trip)
     if isinstance(status, str):
         status_json = json.dumps(status)
     else:

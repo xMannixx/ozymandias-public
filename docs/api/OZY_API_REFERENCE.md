@@ -105,7 +105,8 @@ Keine Authentifizierung erforderlich.
 **Status-Werte:**
 - `database`: `"ok"` | `"error"`
 - `redis`: `"ok"` | `"unavailable"`
-- `rust_bindings`: `"ok"` | `"dev-fallback"` | Exception
+- `rust_bindings`: `"ok"` | `"dev-fallback"` | `"unavailable"` | Exception
+  - Im Dev-Bypass bedeutet `dev-fallback`: Das Modul fehlt vollständig. Eine vorhandene, aber nicht ladbare Bibliothek wird als `unavailable` gemeldet; die Bridge reicht den Importfehler weiter. Ohne Dev-Bypass werden Importfehler weiterhin ausgelöst.
 - `llm_provider_health[].status`: `"ok"` | `"unavailable"` | `"configured"` | `"not_configured"`
 - `live_web.connector_status`: `"configured"` | `"not_configured"` | `"unavailable"`
 - `llm_providers`: Liste der konfigurierten Provider-Namen

@@ -125,8 +125,17 @@ async def test_health_drops_a_provider_whose_key_was_removed(
 
 
 @pytest.mark.asyncio
-async def test_health_reports_unusable_bindings_as_the_dev_fallback(
-    client: AsyncClient, monkeypatch: MonkeyPatch
+@pytest.mark.parametrize(
+    ("error", "expected"),
+    [
+        (ModuleNotFoundError("missing core", name="ozy_bindings"), "dev-fallback"),
+        (ModuleNotFoundError("missing dependency", name="ozy_bindings._native"), "unavailable"),
+        (ImportError("incompatible Python ABI"), "unavailable"),
+        (OSError("missing shared library"), "unavailable"),
+    ],
+)
+async def test_health_distinguishes_missing_and_broken_bindings(
+    client: AsyncClient, monkeypatch: MonkeyPatch, error: Exception, expected: str
 ) -> None:
     """A wheel built against another Python raises ImportError, not a missing module.
 
@@ -134,7 +143,7 @@ async def test_health_reports_unusable_bindings_as_the_dev_fallback(
     """
 
     def _broken_import(_module: str) -> object:
-        raise ImportError("dynamic module does not define module export function")
+        raise error
 
     settings = get_settings().model_copy(update={"auth_dev_bypass": True})
     monkeypatch.setattr("app.api.health.get_settings", lambda: settings)
@@ -148,7 +157,7 @@ async def test_health_reports_unusable_bindings_as_the_dev_fallback(
 
     response = await client.get("/health")
     assert response.status_code == 200
-    assert response.json()["rust_bindings"] == "dev-fallback"
+    assert response.json()["rust_bindings"] == expected
 
 
 @pytest.mark.asyncio
