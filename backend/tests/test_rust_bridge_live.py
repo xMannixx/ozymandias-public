@@ -12,6 +12,7 @@ from __future__ import annotations
 import importlib
 import importlib.util
 import json
+import os
 
 import pytest
 
@@ -43,6 +44,9 @@ from app.schemas import (
 )
 from app.schemas.contracts import AuthorityClass
 from app.services import rust_bridge
+
+if os.environ.get("OZY_REQUIRE_RUST_BINDINGS") == "1":
+    importlib.import_module("ozy_bindings")
 
 pytestmark = pytest.mark.skipif(
     importlib.util.find_spec("ozy_bindings") is None,
@@ -224,3 +228,83 @@ def test_a_field_python_alone_knows_is_rejected() -> None:
             json.dumps([payload]),
             "2026-04-04T12:34:56Z",
         )
+
+
+@pytest.mark.parametrize("sensitivity", [Sensitivity.S3, Sensitivity.S4])
+def test_sensitive_claims_are_filtered_for_cloud(sensitivity: Sensitivity) -> None:
+    claim = _claim().model_copy(update={"sensitivity": sensitivity})
+    result = rust_bridge.filter_claims(
+        SensitivityFilterInput(
+            claims=[claim],
+            intent_type="summarize",
+            provider_is_local=False,
+            provider_is_encrypted=True,
+        )
+    )
+    assert result.allowed == []
+    assert result.filtered_count == 1
+    assert len(result.filter_reasons) == 1
+
+
+def test_untrusted_taint_blocks_mutation() -> None:
+    summary = rust_bridge.compute_taint(
+        TaintContext(
+            chunks=[
+                TaintChunk(
+                    chunk_id="external",
+                    trust_level=TrustLevel.T0,
+                    sensitivity=Sensitivity.S1,
+                    source_type=SourceType.connector_data,
+                )
+            ]
+        )
+    )
+    assert summary.is_tainted is True
+    assert summary.taint_sources == ["external"]
+    decision = rust_bridge.check_tainted_action(
+        TaintActionCheck(taint_summary=summary, proposed_class=ApprovalClass.class2)
+    )
+    assert not isinstance(decision, str)
+    assert "Block" in decision.model_dump()
+
+
+def test_sensitive_approval_escalates() -> None:
+    decision = rust_bridge.resolve_approval(
+        ApprovalRequest(
+            action_type="send_message",
+            approval_class=ApprovalClass.class1,
+            authority_level=AuthorityLevel.A1,
+            payload_sensitivity=Sensitivity.S4,
+        )
+    )
+    assert not isinstance(decision, str)
+    assert decision.model_dump() == {"EscalatedTo": {"new_class": "class4"}}
+
+
+def test_real_rust_error_preserves_payload_and_cause() -> None:
+    with pytest.raises(rust_bridge.OzyRustError) as caught:
+        rust_bridge.allocate_token_budget(
+            TokenBudgetRequest(intent_type="analyze", available_tokens=0, claims_count=1)
+        )
+    payload = caught.value.payload
+    assert payload is not None
+    assert payload.type == "InvariantViolation"
+    assert isinstance(caught.value.__cause__, ValueError)
+
+
+def test_circuit_breaker_tagged_states_and_unsigned_limits() -> None:
+    from app.schemas.contracts import CircuitBreakerStatusTrippedVariant
+
+    config = CircuitBreakerConfig(
+        max_actions_per_window=2**32 - 1,
+        window_seconds=60,
+        cooldown_seconds=2**64 - 1,
+    )
+    trip = rust_bridge.check_circuit_breaker(config, 2**32 - 1, "Open")
+    assert not isinstance(trip, str)
+    assert "Trip" in trip.model_dump()
+    state = CircuitBreakerStatusTrippedVariant.model_validate({"Tripped": {"reason": "limit"}})
+    cooldown = rust_bridge.check_circuit_breaker(config, 0, state)
+    assert not isinstance(cooldown, str)
+    assert cooldown.model_dump() == {"CooldownActive": {"remaining_seconds": 2**64 - 1}}
+    assert rust_bridge.check_circuit_breaker(config, 0, "Closed", 2**64 - 1) == "Allow"

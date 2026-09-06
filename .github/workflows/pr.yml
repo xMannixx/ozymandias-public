@@ -152,6 +152,8 @@ jobs:
       # this is the only job where a Pydantic model and its Rust struct actually
       # have to agree. It calls every binding once with a fully populated payload.
       - name: Cross-boundary test of every binding
+        env:
+          OZY_REQUIRE_RUST_BINDINGS: "1"
         run: python -m pytest -q backend/tests/test_rust_bridge_live.py
 
   frontend-lint-test:
