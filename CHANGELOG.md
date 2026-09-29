@@ -9,6 +9,10 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unveröffentlicht]
 
+---
+
+## [0.2.1] — 2026-09-29
+
 ### Behoben
 
 - Wurde nur das Backend neu erstellt (etwa nach einem Update), lieferte die Oberfläche 502, bis Nginx neu startete: Nginx löste `backend` einmal beim Start auf und schickte weiter an die alte Container-IP. Es fragt jetzt pro Anfrage das Docker-DNS (Cache 10 s)
@@ -191,6 +195,7 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
 
 ---
 
-[Unveröffentlicht]: https://github.com/xMannixx/ozymandias-public/compare/v0.2.0...HEAD
+[Unveröffentlicht]: https://github.com/xMannixx/ozymandias-public/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/xMannixx/ozymandias-public/releases/tag/v0.2.1
 [0.2.0]: https://github.com/xMannixx/ozymandias-public/releases/tag/v0.2.0
 [0.1.0]: https://github.com/xMannixx/ozymandias-public/releases/tag/v0.1.0
