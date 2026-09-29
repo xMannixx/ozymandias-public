@@ -39,7 +39,7 @@ def create_app() -> FastAPI:
     settings = get_settings()
     app = FastAPI(
         title="Ozymandias",
-        version="0.1.0",
+        version="0.2.0",
         debug=settings.debug,
         lifespan=lifespan,
     )

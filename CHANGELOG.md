@@ -9,6 +9,10 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unveröffentlicht]
 
+---
+
+## [0.2.0] — 2026-09-29
+
 ### Hinzugefügt
 
 #### Schema-Sync zwischen Rust und Python
@@ -53,6 +57,7 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
 - DeepSeek auf V4 umgestellt (`deepseek-v4-flash`, `deepseek-v4-pro`); die Preistabelle kennt jetzt das Peak-Fenster, in dem DeepSeek doppelt abrechnet, und gespeicherte Präferenzen auf den alten Aliassen werden migriert
 - Ob ein Provider verfügbar ist, entscheidet jetzt der vorhandene Schlüssel und nicht der Router-Zustand
 - Requests mit unbekannten Feldern in `claims`, `claim` oder `proposal` werden mit HTTP 422 abgelehnt statt still ignoriert — Folge der Contract-Strictness
+- Datei-Speicher von MinIO auf RustFS (`rustfs/rustfs:1.0.0`) umgestellt: `minio/minio` ist von Docker Hub verschwunden, der Stack startete nicht mehr. Dienstname `minio` und die `MINIO_*`-Variablen bleiben, das Backend spricht weiter S3. Neues Volume `rustfs_data`; Dateien aus `minio_data` werden nicht übernommen
 
 ### Behoben
 
@@ -70,6 +75,11 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
 - Der nächtliche Decay-Lauf brach ohne kompilierten Rust-Kern mit einem Fehler ab: Der Dev-Fallback antwortete mit einer leeren Aktionsliste, während der Aufrufer eine Aktion pro Claim erwartet. Er hält jetzt jeden Claim und antwortet in der erwarteten Länge
 - `/health` beantwortete einen unbrauchbaren Rust-Kern mit HTTP 500, sobald der Import nicht an einem fehlenden Modul scheiterte, sondern etwa an einem Wheel für eine andere Python-Version
 - Der Audit-Validator akzeptierte unmögliche Datumsangaben wie `2026-02-31`, weil er einen eigenen, laxeren ISO-8601-Parser mitführte als die Decay Engine. Beide nutzen jetzt `ozy-core::iso8601`, das zusätzlich Bruchteile feiner als Nanosekunden abschneidet statt den Zeitstempel abzulehnen
+- `scripts/start-ozymandias.sh` öffnete den Browser, bevor das Backend lief, und zeigte so einen 502. Das Skript wartet jetzt auf `/health` und meldet Start und Fehler als Desktop-Benachrichtigung, damit es sich als Desktop-Verknüpfung ohne Terminal eignet
+
+### Sicherheit
+
+- PyJWT auf 2.14.0 angehoben (CVE-2026-102274 in 2.13.0)
 
 ---
 
@@ -177,4 +187,6 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
 
 ---
 
+[Unveröffentlicht]: https://github.com/xMannixx/ozymandias-public/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/xMannixx/ozymandias-public/releases/tag/v0.2.0
 [0.1.0]: https://github.com/xMannixx/ozymandias-public/releases/tag/v0.1.0

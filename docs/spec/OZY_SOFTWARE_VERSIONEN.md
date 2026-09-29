@@ -60,7 +60,7 @@ Regel: Nur neueste stabile Versionen, keine Betas.
 | pgvector | im pg17-Image enthalten | latest für PG17 | `OK` | `docker-compose.yaml` |
 | Redis | `7-alpine` | latest stable 7.x | `OK` | `docker-compose.yaml` |
 | Nginx | `1.28-alpine` | latest stable 1.28.x | `OK` | `docker-compose.yaml` |
-| MinIO | `latest` | latest stable | `OK` | `docker-compose.yaml` |
+| RustFS | `1.0.0` | latest stable 1.x | `OK` | `docker-compose.yaml` |
 
 ## B) Lokal verifiziert (Runtime/Toolchain)
 

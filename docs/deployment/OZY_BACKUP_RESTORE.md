@@ -1,7 +1,7 @@
 # OZY Backup und Restore
 
 > Infrastruktur: `docker-compose.yaml` (`pg-backup`-Service)  
-> Daten: PostgreSQL-Volume `postgres_data`, MinIO-Volume `minio_data`  
+> Daten: PostgreSQL-Volume `postgres_data`, RustFS-Volume `rustfs_data`  
 > Deployment: `docs/OZY_DEPLOYMENT.md`
 
 ---
@@ -11,7 +11,7 @@
 Ozymandias speichert alle kritischen Daten in zwei Systemen:
 
 1. **PostgreSQL** (`postgres_data` Volume) — Claims, Memory, Audit-Log, Projekte, Kontakte, Settings, OAuth-Tokens
-2. **MinIO** (`minio_data` Volume) — Hochgeladene Dateien, Kontakt-Avatare, Projekt-Anhänge
+2. **RustFS** (`rustfs_data` Volume, S3-kompatibel; Dienst heißt `minio`) — Hochgeladene Dateien, Kontakt-Avatare, Projekt-Anhänge
 
 Beide Systeme müssen regelmäßig gesichert werden.
 

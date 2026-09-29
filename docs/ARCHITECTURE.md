@@ -25,7 +25,7 @@ Ozymandias ist in **vier klar getrennte Schichten** aufgebaut. Jede Schicht hat 
 │  SCHICHT 2: RUST    │       │  SCHICHT 1: DATEN            │
 │  ozy-contracts      │       │  Postgres 17 + pgvector      │
 │  ozy-core           │       │  Redis 7 (Breaker, Celery)   │
-│  ozy-bindings       │       │  MinIO (File Storage)        │
+│  ozy-bindings       │       │  RustFS (S3 File Storage)    │
 └─────────────────────┘       └─────────────────────────────┘
 ```
 
@@ -262,7 +262,7 @@ docker-compose.yaml definiert:
 
 ozy-postgres     pgvector/pgvector:pg17    Port 5432
 ozy-redis        redis:7-alpine            Port 6379
-ozy-minio        minio/minio:latest        Port 9000/9001
+ozy-minio        rustfs/rustfs:1.0.0       Port 9000/9001 (S3, Dienstname minio)
 ozy-db-init      postgres:17-alpine        (einmalig, läuft Schema-SQL)
 ozy-pg-backup    postgres:17-alpine        (täglich pg_dump, 7-Tage-Rotation)
 ozy-backend      ./backend/Dockerfile      Port 8000
@@ -299,7 +299,7 @@ ozy-worker  (Celery Worker + Beat)
 | `postgres_data` | Alle Claims, Memory, Projekte, Audit-Log | 🔴 KRITISCH |
 | `pg_backups` | Tägliche SQL-Dumps (7 Tage) | 🟠 Wichtig |
 | `redis_data` | Circuit-Breaker-State (verlierbar) | 🟡 Unkritisch |
-| `minio_data` | Hochgeladene Dateien | 🟠 Wichtig |
+| `rustfs_data` | Hochgeladene Dateien | 🟠 Wichtig |
 | `frontend_dist` | Gebundelte React-App | 🟢 Reproduzierbar |
 
 ---

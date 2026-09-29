@@ -138,3 +138,33 @@ Ozymandias läuft vollständig containerisiert. Du benötigst **keine lokale Ins
    `http://localhost:8080`
 
 Du kannst nun direkt im Chat losschreiben!
+
+### Installation unter Linux / macOS:
+Genauso wie unter Windows, nur mit dem Shell-Skript:
+```bash
+chmod +x bootstrap.sh
+./bootstrap.sh
+```
+
+### Anmelden mit Dev-Token (nur Option 2):
+Bei Option 2 fragt die Login-Seite nach einem **JWT Token**. Erzeuge ihn in einem Terminal:
+```bash
+docker exec ozy-backend python -c "from app.auth.jwt import create_access_token; print(create_access_token('dev-user'))"
+```
+Kopiere die ausgegebene Zeile (beginnt mit `eyJ`) in das Feld „JWT Token“. Der Token läuft nach `JWT_EXPIRE_MINUTES` ab (Standard: 60 Minuten); danach einfach einen neuen erzeugen.
+
+### Täglicher Start per Desktop-Verknüpfung
+`bootstrap` brauchst du nur einmal. Danach startet `scripts/start-ozymandias.sh` (Linux/macOS) bzw. `scripts\start-ozymandias.cmd` (Windows) Ozymandias und öffnet den Browser.
+
+**Linux (KDE, GNOME u. a.):** Lege auf dem Schreibtisch eine Datei `Ozymandias.desktop` an und ersetze `/pfad/zu/ozymandias` durch deinen Ordner:
+```ini
+[Desktop Entry]
+Type=Application
+Name=Ozymandias
+Icon=/pfad/zu/ozymandias/frontend/public/icon-512.png
+Exec=/pfad/zu/ozymandias/scripts/start-ozymandias.sh
+Terminal=false
+```
+Mache sie ausführbar (`chmod +x ~/Schreibtisch/Ozymandias.desktop`) und bestätige beim ersten Doppelklick, dass du ihr vertraust. Das Skript wartet, bis Ozymandias antwortet, und meldet Fehler als Desktop-Benachrichtigung.
+
+**Windows:** Rechtsklick auf den Desktop → *Neu → Verknüpfung* → Ziel: `scripts\start-ozymandias.cmd` in deinem Ozymandias-Ordner.
