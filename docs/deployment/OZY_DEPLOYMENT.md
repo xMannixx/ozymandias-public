@@ -217,7 +217,7 @@ CB_COOLDOWN_SECONDS=120    # Cooldown nach Trip
 |---|---|---|---|---|
 | PostgreSQL | `ozy-postgres` | 5432 | 5432 | Hauptdatenbank |
 | Redis | `ozy-redis` | 6379 | 6379 | Circuit Breaker, OAuth State |
-| MinIO | `ozy-minio` | 9000/9001 | 9000/9001 | Datei-Speicher |
+| RustFS (S3) | `ozy-minio` | 9000/9001 | 9000/9001 | Datei-Speicher, Konsole unter `/rustfs/console/` |
 | Backend (FastAPI) | `ozy-backend` | 8000 | 8000 | REST API |
 | Frontend (Build) | `ozy-frontend-build` | — | — | Nur Build, kein Server |
 | Nginx | `ozy-nginx` | 80 | **8080** | Reverse Proxy + SPA |

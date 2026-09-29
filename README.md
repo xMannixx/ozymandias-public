@@ -165,7 +165,7 @@ ozymandias/
 ├── frontend/                    # React Dashboard (Vite + Tailwind)
 │   └── src/
 ├── docs/                        # Specs, DB-Schema, Versionsmatrix, Strategie
-├── docker-compose.yaml          # Postgres, Redis, MinIO, Backend, Worker, Frontend, Nginx
+├── docker-compose.yaml          # Postgres, Redis, RustFS (S3), Backend, Worker, Frontend, Nginx
 ├── nginx/                       # Nginx-Konfiguration (Reverse Proxy)
 └── .github/workflows/           # CI/CD (PR Gate, Nightly, Release)
 ```
