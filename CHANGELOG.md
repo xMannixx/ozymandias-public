@@ -9,6 +9,10 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unveröffentlicht]
 
+### Behoben
+
+- Wurde nur das Backend neu erstellt (etwa nach einem Update), lieferte die Oberfläche 502, bis Nginx neu startete: Nginx löste `backend` einmal beim Start auf und schickte weiter an die alte Container-IP. Es fragt jetzt pro Anfrage das Docker-DNS (Cache 10 s)
+
 ---
 
 ## [0.2.0] — 2026-09-29
