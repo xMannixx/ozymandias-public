@@ -53,6 +53,7 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
 - DeepSeek auf V4 umgestellt (`deepseek-v4-flash`, `deepseek-v4-pro`); die Preistabelle kennt jetzt das Peak-Fenster, in dem DeepSeek doppelt abrechnet, und gespeicherte Präferenzen auf den alten Aliassen werden migriert
 - Ob ein Provider verfügbar ist, entscheidet jetzt der vorhandene Schlüssel und nicht der Router-Zustand
 - Requests mit unbekannten Feldern in `claims`, `claim` oder `proposal` werden mit HTTP 422 abgelehnt statt still ignoriert — Folge der Contract-Strictness
+- Datei-Speicher von MinIO auf RustFS (`rustfs/rustfs:1.0.0`) umgestellt: `minio/minio` ist von Docker Hub verschwunden, der Stack startete nicht mehr. Dienstname `minio` und die `MINIO_*`-Variablen bleiben, das Backend spricht weiter S3. Neues Volume `rustfs_data`; Dateien aus `minio_data` werden nicht übernommen
 
 ### Behoben
 
