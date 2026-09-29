@@ -77,6 +77,10 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/).
 - Der Audit-Validator akzeptierte unmögliche Datumsangaben wie `2026-02-31`, weil er einen eigenen, laxeren ISO-8601-Parser mitführte als die Decay Engine. Beide nutzen jetzt `ozy-core::iso8601`, das zusätzlich Bruchteile feiner als Nanosekunden abschneidet statt den Zeitstempel abzulehnen
 - `scripts/start-ozymandias.sh` öffnete den Browser, bevor das Backend lief, und zeigte so einen 502. Das Skript wartet jetzt auf `/health` und meldet Start und Fehler als Desktop-Benachrichtigung, damit es sich als Desktop-Verknüpfung ohne Terminal eignet
 
+### Sicherheit
+
+- PyJWT auf 2.14.0 angehoben (CVE-2026-102274 in 2.13.0)
+
 ---
 
 ## [0.1.0] — 2026-06-13
