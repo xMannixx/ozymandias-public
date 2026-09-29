@@ -74,6 +74,16 @@ docker compose up -d --build
 
 Das Backend ist danach unter `http://localhost:8000` erreichbar, das Frontend über Nginx auf `http://localhost:8080`.
 
+Im vollen Stack ist die Login-Maske aktiv. Einen Dev-Token für das Feld „JWT Token“ erzeugst du so:
+
+```bash
+docker exec ozy-backend python -c "from app.auth.jwt import create_access_token; print(create_access_token('dev-user'))"
+```
+
+### Täglicher Start
+
+Nach der Einrichtung reicht `scripts/start-ozymandias.sh` (Linux/macOS) bzw. `scripts\start-ozymandias.cmd` (Windows): Das Skript startet den Stack und öffnet den Browser, sobald Ozymandias antwortet. Wie du daraus eine Desktop-Verknüpfung machst, steht im [Benutzerhandbuch](docs/USER_GUIDE.md#täglicher-start-per-desktop-verknüpfung).
+
 ## Benutzerhandbuch & Anleitungen
 
 Im [Benutzerhandbuch (docs/USER_GUIDE.md)](docs/USER_GUIDE.md) findest du detaillierte Schritt-für-Schritt-Anleitungen für typische Anwendungsfälle, darunter:
@@ -139,6 +149,7 @@ Detaillierte Spezifikation: [`docs/OZY_ZUSAMMENFASSUNG_v5_2026-04-03.md`](docs/O
 | Validierung & Governance | Rust |
 | Orchestrierung & API | Python, FastAPI |
 | Datenbank | Postgres + pgvector |
+| Datei-Speicher | RustFS (S3-kompatibel) |
 | Hintergrund-Jobs | Celery |
 | Frontend | React, TypeScript, Vite, Tailwind |
 | Deployment | Docker, Nginx Reverse Proxy |
