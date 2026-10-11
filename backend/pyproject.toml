@@ -29,6 +29,7 @@ dependencies = [
     "minio",
     "ollama",
     "anthropic",
+    "pypdf",
 ]
 
 [project.optional-dependencies]
@@ -84,6 +85,16 @@ ignore_missing_imports = true
 [[tool.mypy.overrides]]
 module = ["minio", "minio.*"]
 ignore_missing_imports = true
+
+# Distributions whose import name differs from the package name. Without these
+# deptry reports the import as missing (DEP001) and the package as unused
+# (DEP002) at the same time.
+[tool.deptry.package_module_name_map]
+pyjwt = ["jwt"]
+google-api-python-client = ["googleapiclient"]
+google-auth = ["google"]
+google-genai = ["google"]
+google-generativeai = ["google"]
 
 [tool.deptry.per_rule_ignores]
 DEP001 = ["ozy_bindings"]
